@@ -1,6 +1,6 @@
 {
   "source": "Moodle 5.2 language packs, https://packaging.moodle.org/langpack/5.2/<language>.zip",
-  "retrieved": "2026-10-12",
+  "retrieved": "2026-11-23",
   "map": "https://raw.githubusercontent.com/moodle/moodle/244d94041df0b9193d99146bf3e235ba0534caa1/public/h5p/classes/framework.php",
   "licence": "GPL-3.0-or-later, by Moodle and its translators",
   "strings": 67,
