@@ -55,7 +55,7 @@ const TYPES = {
   'H5P.SingleChoiceSet': { right: ['choices[].answers'] },
   'H5P.Summary': { right: ['summaries[].summary'] },
   'H5P.QuestionSet': { items: { questions: 'Question' }, titles: { questions: questionTitle }, draws: { setting: 'poolSize', list: 'questions', what: 'questions' } },
-  'H5P.MemoryGame': { draws: { setting: 'behaviour.numCardsToUse', list: 'cards', what: 'cards' } },
+  'H5P.MemoryGame': { draws: { setting: 'behaviour.numCardsToUse', list: 'cards', what: 'pairs' } },
   'H5P.Crossword': { draws: { setting: 'behaviour.poolSize', list: 'words', what: 'words' } },
   'H5P.InteractiveBook': { items: { chapters: 'Chapter' } },
   'H5P.CoursePresentation': { items: { 'presentation.slides': 'Slide' }, labels: { 'presentation.slides[].keywords[].main': 'Keyword' } },

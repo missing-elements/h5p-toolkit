@@ -660,7 +660,7 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     const at = await mkdtemp(join(dir, 'cards-'))
     await writeFile(join(at, 'river.png'), png(64, 48))
     expect(await notesOf({ ...META, type: 'H5P.MemoryGame', params: { cards: [card('A river'), card('A lake'), card('A sea')], behaviour: { numCardsToUse: 2 } } }, at)).toEqual([
-      { path: 'params.behaviour.numCardsToUse', message: 'shows 2 of the 3 cards each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+      { path: 'params.behaviour.numCardsToUse', message: 'shows 2 of the 3 pairs each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
     ])
     const word = (clue: string, answer: string) => ({ clue, answer })
     expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: [word('A long river', 'Danube'), word('Through Paris', 'Seine')], behaviour: { poolSize: 2 } } })).toEqual([
@@ -675,15 +675,28 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
       { elements: [text('<p>Rivers</p>'), { goToSlideType: 'specified', goToSlide: 3, x: 10, y: 10, width: 20, height: 10 }] },
       { elements: [text('<p>Lakes</p>')] }
     ] } } })).toEqual([
-      { path: 'params.presentation.slides[0].elements[1].goToSlide', message: 'goes to slide 3, and there are 2 slides, so the button goes nowhere: name a slide by its number, from 1' }
+      { path: 'params.presentation.slides[0].elements[1].goToSlide', message: 'goes to slide 3, and there are 2 slides, so the button has no slide to go to: name a slide by its number, from 1' }
     ])
-    // A Personality Quiz answer naming a personality renamed since.
+    // Drag and Drop: a right element and a zone that are not there, and an element that can be
+    // dropped in none of the zones it is right in.
+    const element = (text: string, zones: string[]) => ({ type: { library: 'H5P.AdvancedText', params: { text: `<p>${text}</p>` } }, x: 5, y: 5, width: 10, height: 3, dropZones: zones })
+    const zone = (label: string, right: string[]) => ({ label, x: 40, y: 10, width: 20, height: 10, correctElements: right })
+    expect(await notesOf({ ...META, type: 'H5P.DragQuestion', params: { question: { settings: { size: { width: 620, height: 310 } }, task: {
+      elements: [element('Danube', ['0']), element('Garda', ['0']), element('Seine', ['0', '3'])],
+      dropZones: [zone('Rivers', ['0', '2', '5']), zone('Lakes', ['1'])]
+    } } } })).toEqual([
+      { path: 'params.question.task.dropZones[0].correctElements[2]', message: 'names element "5", and there are 3 elements, counted from 0: name each by its place in elements' },
+      { path: 'params.question.task.elements[1].dropZones', message: 'lets the element be dropped in zone 0, and it is right only in zone 1, so no learner can put it right: name that zone in its dropZones' },
+      { path: 'params.question.task.elements[2].dropZones[1]', message: 'names drop zone "3", and there are 2 drop zones, counted from 0: name each by its place in dropZones' }
+    ])
+    // A Personality Quiz answer naming a personality renamed since, and one in another case: the
+    // library takes a name only as its personality has it, and parts two at a comma and a space.
     expect(await notesOf({ ...META, type: 'H5P.PersonalityQuiz', params: {
       titleScreen: { title: { text: 'Which traveller are you?' } },
       personalities: [{ name: 'Explorer', description: 'Goes far.' }, { name: 'Builder', description: 'Makes things.' }],
-      questions: [{ text: 'On a free day you…', answers: [{ text: 'walk somewhere new', personality: 'Explorer' }, { text: 'fix something', personality: 'Maker, builder' }] }]
+      questions: [{ text: 'On a free day you…', answers: [{ text: 'walk somewhere new', personality: 'Explorer' }, { text: 'fix something', personality: 'Maker, builder' }, { text: 'do both', personality: 'Explorer, Builder' }] }]
     } })).toEqual([
-      { path: 'params.questions[0].answers[1].personality', message: 'names "Maker", which no personality is called, so the answer counts for none: name the personalities as they are called' }
+      { path: 'params.questions[0].answers[1].personality', message: 'names "Maker", "builder", which no personality is called exactly, so it counts for none: write each name as its personality has it, capitals too, with a comma and a space between two' }
     ])
   })
 
