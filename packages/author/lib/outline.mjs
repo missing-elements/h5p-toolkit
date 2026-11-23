@@ -1,5 +1,6 @@
 import { isInterfaceText } from './schema.mjs'
 import { decodeEntities, editorWidget, tagsIn, takesMarkup } from './text.mjs'
+import { drawOf } from './mistakes.mjs'
 import { questionTitle } from './types.mjs'
 
 /**
@@ -168,7 +169,18 @@ export function outlineOf(libraries, content, { limit = Infinity } = {}) {
    */
   const walkFields = (fields, params, depth, type, path, bare = false) => {
     if (!isObject(params)) return
-    if (!path) semanticsOf.set(type, fields)
+    if (!path) {
+      semanticsOf.set(type, fields)
+      // A setting that shows only some of a list's items, which a chat that adds items may keep
+      // as it was (#268): the type's first line says how many of how many, as its library draws.
+      const draw = drawOf(type, params)
+      if (draw && draw.shown < draw.total) {
+        const { shown, total, fixed, what } = draw
+        emit(depth, !fixed ? `Shows ${shown} of the ${total} ${what} each time, drawn at random`
+          : shown === fixed ? `Shows only the ${fixed} ${what} fixed on the grid, of ${total}`
+            : `Shows ${shown} of the ${total} ${what} each time: the ${fixed} fixed on the grid, and ${shown - fixed} drawn at random`)
+      }
+    }
     for (const field of fields) walk(field, params[field.name], depth, type, path ? `${path}.${field.name}` : field.name, bare, params)
   }
 

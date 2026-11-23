@@ -5,7 +5,7 @@ A quiz: questions one after another, then a result page with the score.
 - Each item of `questions` is sub-content: `{ "library": "H5P.MultiChoice", "params": { … }, "metadata": { "title": "…" } }`. Write each question's `params` from its own type file. The result page lists questions by `metadata.title`; without one a question is "Question 2" in the content's language.
 - `passPercentage` is the pass mark; `endGame.overallFeedback` holds the score ranges' messages. Question Set 1.21 draws neither on its result page, an H5P bug (h5p/h5p-question-set#183): screen readers announce the message, and a learner sees only the score. Tell the user.
 - An intro screen: `introPage.showIntroPage: true`, with `title` and `introduction`.
-- `randomQuestions` shuffles them; `poolSize` draws that many from the list each time.
+- `randomQuestions` shuffles them. `poolSize` is not the number of questions: it shows only that many, drawn at random each time, and leaves the rest out. Leave it out unless the user asks for a random draw.
 - Its navigation and result screen ("Previous", "Next", "Results", "Score") are English in all but one or two of its 48 translations; the build lists what stayed English.
 
 ## Example

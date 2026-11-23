@@ -638,6 +638,90 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     ])
   })
 
+  it('says where a quiz\'s pool leaves questions out, or draws none (#268)', async () => {
+    const question = (text: string) => ({ library: 'H5P.TrueFalse', params: { question: text, correct: 'true' } })
+    const questions = ['The Danube reaches the Black Sea.', 'The Seine flows through Paris.', 'The Volga is in Europe.'].map(question)
+    const quiz = (poolSize?: number) => notesOf({ ...META, type: 'H5P.QuestionSet', params: { questions, ...(poolSize === undefined ? {} : { poolSize }) } })
+    expect(await quiz(2)).toEqual([
+      { path: 'params.poolSize', message: 'shows 2 of the 3 questions each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+    ])
+    // As many as there are leaves none out, though Question Set still shuffles them, and is what
+    // hides a question added later; more, once there are more still.
+    expect(await quiz(3)).toEqual([
+      { path: 'params.poolSize', message: 'is the number of questions, 3, so it leaves none out but shows them in a random order, and one added later would leave one out at random: leave it out, and set randomQuestions for a random order' }
+    ])
+    expect(await quiz(5)).toEqual([
+      { path: 'params.poolSize', message: 'is above the number of questions, 3, so it leaves none out but shows them in a random order until more than 5 are, and then leaves some out at random: leave it out, and set randomQuestions for a random order' }
+    ])
+    expect(await quiz()).toEqual([])
+  })
+
+  it('says where a memory game or a crossword draws, as a quiz does (#268)', async () => {
+    const card = (text: string) => ({ image: { path: 'river.png' }, imageAlt: text })
+    const at = await mkdtemp(join(dir, 'cards-'))
+    await writeFile(join(at, 'river.png'), png(64, 48))
+    expect(await notesOf({ ...META, type: 'H5P.MemoryGame', params: { cards: [card('A river'), card('A lake'), card('A sea')], behaviour: { numCardsToUse: 2 } } }, at)).toEqual([
+      { path: 'params.behaviour.numCardsToUse', message: 'shows 2 of the 3 pairs each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+    ])
+    const word = (clue: string, answer: string) => ({ clue, answer })
+    expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: [word('A long river', 'Danube'), word('Through Paris', 'Seine')], behaviour: { poolSize: 2 } } })).toEqual([
+      { path: 'params.behaviour.poolSize', message: 'is the number of words, 2, so it leaves none out, and one added later would leave one out at random: leave it out' }
+    ])
+    // Words fixed on the grid are always kept, and the others drawn to make up the rest.
+    const fixed = (clue: string, answer: string, row: number) => ({ clue, answer, fixWord: true, row, column: 1, orientation: 'across' })
+    const fourWords = [fixed('A long river', 'Danube', 1), fixed('Through Paris', 'Seine', 3), word('Through Rome', 'Tiber'), word('Through London', 'Thames')]
+    expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: fourWords, behaviour: { poolSize: 3 } } })).toEqual([
+      { path: 'params.behaviour.poolSize', message: 'shows 3 of the 4 words each time, the 2 fixed on the grid and 1 of the other 2 drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+    ])
+    expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: fourWords, behaviour: { poolSize: 2 } } })).toEqual([
+      { path: 'params.behaviour.poolSize', message: 'shows only the 2 words fixed on the grid, and never the other 2: leave it out to show them all' }
+    ])
+  })
+
+  it('says where a part is named by a number, an id or a name that is not there (#268)', async () => {
+    const text = (html: string) => ({ action: { library: 'H5P.AdvancedText', params: { text: html } } })
+    // A Course Presentation button to slide 3 of 2.
+    expect(await notesOf({ ...META, type: 'H5P.CoursePresentation', params: { presentation: { slides: [
+      { elements: [text('<p>Rivers</p>'), { goToSlideType: 'specified', goToSlide: 3, x: 10, y: 10, width: 20, height: 10 }] },
+      { elements: [text('<p>Lakes</p>')] }
+    ] } } })).toEqual([
+      { path: 'params.presentation.slides[0].elements[1].goToSlide', message: 'goes to slide 3, and there are 2 slides, so the button has no slide to go to: name a slide by its number, from 1' }
+    ])
+    // Agamotto: a start image past the last is held to the last; a fraction is refused already.
+    const at = await mkdtemp(join(dir, 'agamotto-'))
+    await writeFile(join(at, 'river.png'), png(64, 48))
+    const image = (alt: string) => ({ image: { library: 'H5P.Image', params: { file: { path: 'river.png' }, alt } }, labelText: alt })
+    const agamotto = (startImage: number) => notesOf({ ...META, type: 'H5P.Agamotto', params: { items: [image('Spring'), image('Summer')], behaviour: { startImage } } }, at)
+    expect(await agamotto(3)).toEqual([
+      { path: 'params.behaviour.startImage', message: 'is image 3, and there are 2 images, so it starts at the last: name one by its number, from 1, or leave it out' }
+    ])
+    await expect(agamotto(1.5)).rejects.toThrow('params.behaviour.startImage: takes a whole number')
+    expect(await agamotto(2)).toEqual([])
+    // Drag and Drop: a right element and a zone that are not there, and an element that can be
+    // dropped in none of the zones it is right in.
+    const element = (text: string, zones: string[]) => ({ type: { library: 'H5P.AdvancedText', params: { text: `<p>${text}</p>` } }, x: 5, y: 5, width: 10, height: 3, dropZones: zones })
+    const zone = (label: string, right: string[]) => ({ label, x: 40, y: 10, width: 20, height: 10, correctElements: right })
+    expect(await notesOf({ ...META, type: 'H5P.DragQuestion', params: { question: { settings: { size: { width: 620, height: 310 } }, task: {
+      elements: [element('Danube', ['0']), element('Garda', ['0']), element('Seine', ['0', '3'])],
+      dropZones: [zone('Rivers', ['0', '2', '5']), zone('Lakes', ['1'])]
+    } } } })).toEqual([
+      { path: 'params.question.task.dropZones[0].correctElements[2]', message: 'names element "5", and there are 3 elements, counted from 0: name each by its place in elements' },
+      { path: 'params.question.task.elements[1].dropZones', message: 'lets the element be dropped in zone 0, and it is right only in zone 1, so no learner can put it right: name that zone in its dropZones' },
+      { path: 'params.question.task.elements[2].dropZones[1]', message: 'names drop zone "3", and there are 2 drop zones, counted from 0: name each by its place in dropZones' }
+    ])
+    // A Personality Quiz answer naming a personality renamed since, and one in another case: the
+    // library takes a name only as its personality has it, and parts two at a comma and a space.
+    expect(await notesOf({ ...META, type: 'H5P.PersonalityQuiz', params: {
+      titleScreen: { title: { text: 'Which traveller are you?' } },
+      personalities: [{ name: 'Explorer', description: 'Goes far.' }, { name: 'Builder', description: 'Makes things.' }],
+      questions: [{ text: 'On a free day you…', answers: [{ text: 'walk somewhere new', personality: 'Explorer' }, { text: 'fix something', personality: 'Maker, builder' }, { text: 'do both', personality: 'Explorer, Builder, ' }, { text: 'roam', personality: 'Explorer, Wanderer' }] }]
+    } })).toEqual([
+      { path: 'params.questions[0].answers[1].personality', message: 'names "Maker", "builder", which no personality is called exactly, so those names count for none: write each name as its personality has it, capitals too, with a comma and a space between two' },
+      // A comma at the end names nothing; a known name beside an unknown one still counts.
+      { path: 'params.questions[0].answers[3].personality', message: 'names "Wanderer", which no personality is called exactly, so that name counts for none: write each name as its personality has it, capitals too, with a comma and a space between two' }
+    ])
+  })
+
   it('says where a choice of pictures marks none correct', async () => {
     const at = await mkdtemp(join(dir, 'pictures-'))
     await writeFile(join(at, 'delta.png'), png(64, 48))
