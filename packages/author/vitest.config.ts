@@ -29,14 +29,15 @@ const playUntrusted: BrowserCommand<[name: string, base64: string]> = async (_co
   }
 }
 
+/** The demo's video, a real one: the verifier warns of one that does not play. */
+const clipFile = resolve(import.meta.dirname, '../../apps/demo/demo/content/src/video/videos/big-buck-bunny.mp4')
+
 /**
  * A video at a web address of its own, for a build that leaves it there (#263): a server on another
  * origin than the player's, answering for a part of the file and sending no CORS header, as a file
- * store answers a video element. The video is the demo's, a real one, since the verifier warns of
- * one that does not play. `serveClip` starts the server and gives the address, `clipAsked` gives
- * the `Range` of each request it got and stops it.
+ * store answers a video element. `serveClip` starts the server and gives the address, `clipAsked`
+ * gives the `Range` of each request it got and stops it.
  */
-const clipFile = resolve(import.meta.dirname, '../../apps/demo/demo/content/src/video/videos/big-buck-bunny.mp4')
 let clip: { server: Server, asked: string[] } | undefined
 const serveClip: BrowserCommand<[]> = async () => {
   const bytes = await readFile(clipFile)

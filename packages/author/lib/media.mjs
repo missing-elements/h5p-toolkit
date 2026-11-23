@@ -524,7 +524,7 @@ export class MediaStore {
     }
     const hosted = HOSTED.find(({ on }) => on(new URL(address)))
     if (hosted) {
-      report(`${at}.path`, `${source}: the address it is played from is on ${hosted.host}, whose player shows a video, not a file; write the video's address there as the path instead`)
+      report(`${at}.path`, `${source}: the address it is played from is on ${hosted.host}, whose player shows a video, not a file; give ${hosted.form} as the path instead`)
       return { path: source }
     }
     if (!this.linked.includes(source)) this.linked.push(source)
