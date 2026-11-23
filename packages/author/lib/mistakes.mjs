@@ -50,7 +50,8 @@ export function drawOf(library, params) {
   if (library === 'H5P.QuestionSet') {
     const total = count(params.questions)
     if (typeof params.poolSize !== 'number' || !(params.poolSize > 0) || !total) return null
-    const used = Math.ceil(params.poolSize)
+    // `slice(0, poolSize)`, which drops a fraction.
+    const used = Math.trunc(params.poolSize)
     return { at: 'poolSize', what: 'questions', used, total, shown: Math.min(used, total), fixed: 0, shuffles: true }
   }
   if (library === 'H5P.MemoryGame') {
@@ -64,7 +65,8 @@ export function drawOf(library, params) {
     const setting = params.behaviour?.poolSize
     const words = Array.isArray(params.words) ? params.words.filter((/** @type {any} */ word) => word?.answer && word?.clue) : []
     if (typeof setting !== 'number' || !setting || !words.length) return null
-    const used = Math.max(2, setting)
+    // `Math.max(2, poolSize)`, then a `splice` that drops a fraction.
+    const used = Math.trunc(Math.max(2, setting))
     const fixed = words.filter((/** @type {any} */ word) => word.fixWord && word.row !== undefined && word.column !== undefined && word.orientation !== undefined).length
     const shown = fixed + Math.min(Math.max(0, used - fixed), words.length - fixed)
     return { at: 'behaviour.poolSize', what: 'words', used, total: words.length, shown, fixed, shuffles: false }
