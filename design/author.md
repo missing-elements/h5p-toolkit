@@ -255,6 +255,18 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     and CRC in their local headers**, so the player reads each one's size off its header on a
     host without `Range`. The CRC is the normalizer's, through `./crc32`. An mp4 is not moved to
     start in a page: that is the normalizer's, in Node.
+  - **A page can leave a video or a recording at its address, for a preview** (#263). `linked`
+    names the file as the source does and gives the http(s) address it is played from: the content
+    takes the address, as it takes a YouTube one, with the type its name says, and none of its
+    bytes are read, so nothing of the file is checked and an Interactive Video's times are held
+    to no length. The result's `linked` lists the names: such a package is not one to keep, since
+    the address may stop answering, and a file given under the same name goes before the address,
+    which is how the package to keep is built. A picture or another file is refused: its size is
+    read from its bytes. The address is in no problem, since one that lets a file be read is not
+    for a log. Measured on 2026-11-23 with a 230 MB video on a chat app's file store: 9 min 13 s
+    to download and build before it played, 1.4 s to play from the address. The Chromium test
+    plays such a package untrusted from a server of another origin that sends no CORS header:
+    the content check leaves the address, and the player asks it for the file in parts.
 
   A page needs a secure context for `crypto.subtle` and `crypto.randomUUID`, and fetches media
   named by web address under CORS, which most image hosts refuse; the build says which where it

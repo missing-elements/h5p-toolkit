@@ -376,11 +376,18 @@ const { blob, notes } = await buildPackage(source, { libraries, files: { 'volga.
 
   Each part is fetched whole when a build first needs it, and checked against the index's SHA-256,
   as in Node. `close()` the pack when the page is done with it.
-- `buildPackage(source, { libraries, files, fetch })` throws a `SourceError` as in Node, and returns
-  `{ blob, source, builtWith, manifest, content, libraries, install, coreApi, translations, notes, media }`, as in Node. Its options:
+- `buildPackage(source, { libraries, files, linked, fetch })` throws a `SourceError` as in Node, and returns
+  `{ blob, source, builtWith, manifest, content, libraries, install, coreApi, translations, notes, media, linked }`, as in Node but for `linked`. Its options:
   - `libraries`: a pack `openPack` opened, or what to open one from for this build alone.
   - `files`: an object or a `Map` of the files a source names, by the names it gives them:
     `{ "path": "volga.png" }` takes `files['volga.png']`.
+  - `linked`: an object or a `Map` of the videos and recordings a source names that stay where
+    they are, each by its name and the http(s) address it is played from:
+    `linked: { 'clip.mp4': address }`. Nothing is downloaded and nothing of the file is checked,
+    so a large video plays at once, the browser asking the address for the parts it shows. The
+    result's `linked` lists those names: with one in it the package is a preview, not a file to
+    keep, since the address may stop answering. Build again with the file in `files`, which goes
+    before an address for the same name, for the package to hand over.
   - `fetch`: for media named by web address.
 - Media go in after the content and stored, each with its size and CRC in the header in front of
   it, as the player reads them on a host without `Range`; the libraries carried for an H5P site's

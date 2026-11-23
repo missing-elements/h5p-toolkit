@@ -9,7 +9,8 @@ import { escapeText } from './text.mjs'
  * H5P's editor embeds it (h5peditor-av.js, its `providers`), at an address H5P.Video plays. Where
  * the files are, and where a download is kept, is the environment's (`MediaAccess`): `node.mjs`
  * reads them from disk and keeps downloads in a temporary folder, `browser.mjs` takes `File`s and
- * keeps downloads as `Blob`s.
+ * keeps downloads as `Blob`s. A page can also name a video or a recording that stays at a web
+ * address of its own and is played from there (`linked`, #263): a preview, with no download first.
  */
 
 /** The types H5P accepts for content (`H5PCore::$defaultContentWhitelist`), by what a field takes. */
@@ -186,11 +187,13 @@ const IDLE_MS = 60_000
  *   name(source: string): string,
  *   local(source: string): Promise<{ file: F } | { missing: string }>,
  *   keep(body: ReadableStream<Uint8Array>, extension: string): Promise<F>,
- *   open(file: F): Promise<{ size: number, read(offset: number, length: number): Promise<Uint8Array>, close(): Promise<void> }>
+ *   open(file: F): Promise<{ size: number, read(offset: number, length: number): Promise<Uint8Array>, close(): Promise<void> }>,
+ *   linked?(source: string): string | undefined
  * }} MediaAccess
  *   `what`, what a source's path names, for problems; `name`, the file's own name it names;
  *   `local`, that file, or why there is none; `keep`, a download's bytes kept; `open`, a kept
- *   file's length, and its bytes read from an offset, fewer at its end
+ *   file's length, and its bytes read from an offset, fewer at its end; `linked`, the web address
+ *   a file the source names stays at and is played from, where it has one (#263)
  */
 
 /**
@@ -314,6 +317,8 @@ export class MediaStore {
     this.asked = new Map()
     /** @type {Set<string>} the hosts that gave no answer at all, none of which is asked again in this build */
     this.unanswered = new Set()
+    /** @type {string[]} the files left at an address and played from there, as the source names them (#263) */
+    this.linked = []
   }
 
   /**
@@ -360,6 +365,8 @@ export class MediaStore {
       return { path: source, copyright }
     }
     const types = /** @type {Record<string, string>} */ (TYPES[kind])
+    const address = web ? undefined : this.access.linked?.(source)
+    if (address !== undefined) return { ...this.#linked(kind, source, address, types, at, report), copyright }
     const key = `${kind} ${source}`
     let known = this.known.get(key)
     if (!known) {
@@ -484,6 +491,38 @@ export class MediaStore {
       return null
     }
     return { from: found.file, extension, stem: name.slice(0, name.length - extension.length - 1) }
+  }
+
+  /**
+   * A file left at a web address of its own and played from there (#263), as a video on YouTube
+   * is: a video or a recording only, since a picture's size is read from its bytes, its type taken
+   * from the name the source gives it. None of its bytes are read, so nothing of it is checked, and
+   * the package is a preview: the address may stop answering. The address is in no problem, since
+   * one that lets a file be read is not for a log.
+   * @param {string} kind
+   * @param {string} source
+   * @param {string} address
+   * @param {Record<string, string>} types
+   * @param {string} at
+   * @param {(path: string, message: string) => void} report
+   * @returns {{ path: string, mime?: string }}
+   */
+  #linked(kind, source, address, types, at, report) {
+    if (kind !== 'video' && kind !== 'audio') {
+      report(`${at}.path`, `${source}: only a video or a recording is played from an address; give the file itself`)
+      return { path: source }
+    }
+    const extension = extensionOf(this.access.name(source))
+    if (!Object.hasOwn(types, extension)) {
+      report(`${at}.path`, `${source}: this field takes ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
+      return { path: source }
+    }
+    if (typeof address !== 'string' || !/^https?:\/\//i.test(address) || !URL.canParse(address)) {
+      report(`${at}.path`, `${source}: the address it is played from is not an http(s) address`)
+      return { path: source }
+    }
+    if (!this.linked.includes(source)) this.linked.push(source)
+    return { path: address, mime: types[extension] }
   }
 
   /**
