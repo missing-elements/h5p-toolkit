@@ -469,7 +469,10 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   are, and Personality Quiz takes a name only as its personality has it, parted at ", ". In
   ChatGPT a quiz of six questions came with `poolSize` 3 after the chat was asked to add
   questions, and showed three (2026-11-23); whether its first source had it is not known. The
-  outline's first line says a draw's how many of how many. Not looked for: a select tied to the
+  outline's first line says a draw's how many of how many. One function, `drawOf`, works
+  out what each draw shows, for the notes and the outline: Question Set shuffles whenever
+  `poolSize` is set, Memory Game draws pairs, at least 2, and Crossword keeps the words fixed on
+  the grid and draws only among the rest. Not looked for: a select tied to the
   content, as Multiple Choice's single or multiple answers; Advanced Blanks' gaps against its
   list and its snippets by name; a Game Map restriction's stage id; video times (#260).
   Each says what to write. `lib/mistakes.mjs` runs in `checkContent`, so a build says them and so

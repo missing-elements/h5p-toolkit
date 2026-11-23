@@ -645,12 +645,13 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     expect(await quiz(2)).toEqual([
       { path: 'params.poolSize', message: 'shows 2 of the 3 questions each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
     ])
-    // As many as there are draws nothing, and is what hides a question added later; more, once there are more still.
+    // As many as there are leaves none out, though Question Set still shuffles them, and is what
+    // hides a question added later; more, once there are more still.
     expect(await quiz(3)).toEqual([
-      { path: 'params.poolSize', message: 'is the number of questions, 3, so it draws nothing, and one added later would leave one out at random: leave it out' }
+      { path: 'params.poolSize', message: 'is the number of questions, 3, so it leaves none out but shows them in a random order, and one added later would leave one out at random: leave it out, and set randomQuestions for a random order' }
     ])
     expect(await quiz(5)).toEqual([
-      { path: 'params.poolSize', message: 'is above the number of questions, 3, so it draws nothing until more than 5 are, and then leaves some out at random: leave it out' }
+      { path: 'params.poolSize', message: 'is above the number of questions, 3, so it leaves none out but shows them in a random order until more than 5 are, and then leaves some out at random: leave it out, and set randomQuestions for a random order' }
     ])
     expect(await quiz()).toEqual([])
   })
@@ -664,7 +665,16 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     ])
     const word = (clue: string, answer: string) => ({ clue, answer })
     expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: [word('A long river', 'Danube'), word('Through Paris', 'Seine')], behaviour: { poolSize: 2 } } })).toEqual([
-      { path: 'params.behaviour.poolSize', message: 'is the number of words, 2, so it draws nothing, and one added later would leave one out at random: leave it out' }
+      { path: 'params.behaviour.poolSize', message: 'is the number of words, 2, so it leaves none out, and one added later would leave one out at random: leave it out' }
+    ])
+    // Words fixed on the grid are always kept, and the others drawn to make up the rest.
+    const fixed = (clue: string, answer: string, row: number) => ({ clue, answer, fixWord: true, row, column: 1, orientation: 'across' })
+    const fourWords = [fixed('A long river', 'Danube', 1), fixed('Through Paris', 'Seine', 3), word('Through Rome', 'Tiber'), word('Through London', 'Thames')]
+    expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: fourWords, behaviour: { poolSize: 3 } } })).toEqual([
+      { path: 'params.behaviour.poolSize', message: 'shows 3 of the 4 words each time, the 2 fixed on the grid and 1 of the other 2 drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+    ])
+    expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: fourWords, behaviour: { poolSize: 2 } } })).toEqual([
+      { path: 'params.behaviour.poolSize', message: 'shows only the 2 words fixed on the grid, and never the other 2: leave it out to show them all' }
     ])
   })
 

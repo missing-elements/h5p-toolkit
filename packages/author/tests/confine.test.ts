@@ -293,6 +293,13 @@ describe('outline', () => {
     expect((await outline({ type: 'H5P.QuestionSet', params: { questions, poolSize: 3 } })).split('\n')[0]).toBe('  Question 1')
     const words = [{ clue: 'A long river', answer: 'Danube' }, { clue: 'Through Paris', answer: 'Seine' }, { clue: 'Through Rome', answer: 'Tiber' }]
     expect((await outline({ type: 'H5P.Crossword', params: { words, behaviour: { poolSize: 2 } } })).split('\n')[0]).toBe('Shows 2 of the 3 words each time, drawn at random')
+    // A crossword's words fixed on the grid are always among them.
+    const fixedWords = [{ ...words[0], fixWord: true, row: 1, column: 1, orientation: 'across' }, ...words.slice(1)]
+    expect((await outline({ type: 'H5P.Crossword', params: { words: fixedWords, behaviour: { poolSize: 2 } } })).split('\n')[0]).toBe('Shows 2 of the 3 words each time: the 1 fixed on the grid, and 1 drawn at random')
+    // A memory game counts pairs.
+    const pair = (alt: string) => ({ image: { path: 'in.png' }, imageAlt: alt })
+    const game = await buildPackage({ ...META, type: 'H5P.MemoryGame', params: { cards: [pair('A river'), pair('A lake'), pair('A sea')], behaviour: { numCardsToUse: 2 } } }, undefined, { check: true, base: allowed })
+    expect(game.outline.split('\n')[0]).toBe('Shows 2 of the 3 pairs each time, drawn at random')
   })
 
   it('keeps a text\'s paragraphs, lines and list items apart, and numbers slides, with each slide\'s keyword', async () => {

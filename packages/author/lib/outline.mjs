@@ -1,5 +1,6 @@
 import { isInterfaceText } from './schema.mjs'
 import { decodeEntities, editorWidget, tagsIn, takesMarkup } from './text.mjs'
+import { drawOf } from './mistakes.mjs'
 import { questionTitle } from './types.mjs'
 
 /**
@@ -42,21 +43,15 @@ const UNLABELLED = new Set(['text', 'question'])
  * - `links`: a scenario's `nextContentId`, the index of the content a choice or a content leads
  *   to, negative for the end; and `endScreenScore`, the score an end gives.
  * - `labels`: a label for a field whose semantics give none.
- * - `draws`: a setting that shows only some of a list's items, drawn at random each time, a
- *   number a chat that adds items may leave as it was (#268): the type's first line says how many
- *   of how many, where it is below the list's length.
  * @type {Record<string, {
  *   right?: string[], items?: Record<string, string>, titles?: Record<string, (semantics: any[], index: number) => string>,
- *   times?: Record<string, 'duration' | 'time'>, links?: boolean, labels?: Record<string, string>,
- *   draws?: { setting: string, list: string, what: string }
+ *   times?: Record<string, 'duration' | 'time'>, links?: boolean, labels?: Record<string, string>
  * }>}
  */
 const TYPES = {
   'H5P.SingleChoiceSet': { right: ['choices[].answers'] },
   'H5P.Summary': { right: ['summaries[].summary'] },
-  'H5P.QuestionSet': { items: { questions: 'Question' }, titles: { questions: questionTitle }, draws: { setting: 'poolSize', list: 'questions', what: 'questions' } },
-  'H5P.MemoryGame': { draws: { setting: 'behaviour.numCardsToUse', list: 'cards', what: 'pairs' } },
-  'H5P.Crossword': { draws: { setting: 'behaviour.poolSize', list: 'words', what: 'words' } },
+  'H5P.QuestionSet': { items: { questions: 'Question' }, titles: { questions: questionTitle } },
   'H5P.InteractiveBook': { items: { chapters: 'Chapter' } },
   'H5P.CoursePresentation': { items: { 'presentation.slides': 'Slide' }, labels: { 'presentation.slides[].keywords[].main': 'Keyword' } },
   'H5P.BranchingScenario': { items: { 'branchingScenario.content': 'Content', 'branchingScenario.endScreens': 'End screen' }, links: true },
@@ -66,9 +61,6 @@ const TYPES = {
     labels: { 'interactiveVideo.assets.bookmarks[].label': 'Bookmark', 'interactiveVideo.assets.endscreens[].label': 'End screen' }
   }
 }
-
-/** A value at a dotted path in parameters. @param {Record<string, any>} params @param {string} path */
-const valueAt = (params, path) => path.split('.').reduce((/** @type {any} */ value, name) => (isObject(value) ? value[name] : undefined), params)
 
 /** The kinds of file field, as a line names them. */
 const MEDIA = /** @type {Record<string, string>} */ ({ image: 'Image', video: 'Video', audio: 'Audio', file: 'File' })
@@ -179,10 +171,15 @@ export function outlineOf(libraries, content, { limit = Infinity } = {}) {
     if (!isObject(params)) return
     if (!path) {
       semanticsOf.set(type, fields)
-      const draws = TYPES[type]?.draws
-      const drawn = draws && valueAt(params, draws.setting)
-      const items = draws && valueAt(params, draws.list)
-      if (draws && typeof drawn === 'number' && drawn >= 1 && Array.isArray(items) && drawn < items.length) emit(depth, `Shows ${drawn} of the ${items.length} ${draws.what} each time, drawn at random`)
+      // A setting that shows only some of a list's items, which a chat that adds items may keep
+      // as it was (#268): the type's first line says how many of how many, as its library draws.
+      const draw = drawOf(type, params)
+      if (draw && draw.shown < draw.total) {
+        const { shown, total, fixed, what } = draw
+        emit(depth, !fixed ? `Shows ${shown} of the ${total} ${what} each time, drawn at random`
+          : shown === fixed ? `Shows only the ${fixed} ${what} fixed on the grid, of ${total}`
+            : `Shows ${shown} of the ${total} ${what} each time: the ${fixed} fixed on the grid, and ${shown - fixed} drawn at random`)
+      }
     }
     for (const field of fields) walk(field, params[field.name], depth, type, path ? `${path}.${field.name}` : field.name, bare, params)
   }

@@ -30,20 +30,68 @@ function plain(value) {
 const count = (value) => (Array.isArray(value) ? value.length : 0)
 
 /**
- * A number of items drawn at random from a list, against how many the list holds. Below it, which
- * may be meant, both numbers are said; at or above it, it draws nothing now, and leaves items out
- * at random once more are added: what a chat that adds items and keeps the setting gets (#268).
- * @param {unknown} drawn
- * @param {number} total
- * @param {string} what the items, as "questions"
- * @param {string} at the setting's path
- * @param {Note} note
+ * What a draw shows, where a setting shows some of a list's items picked at random each time, as
+ * each library works it out (#268):
+ * - Question Set (questionset.js): `poolSize` above 0 shuffles the questions and keeps that many,
+ *   so it also shows them in a random order where it keeps them all.
+ * - Memory Game (memory-game.js): `numCardsToUse` pairs, at least 2.
+ * - Crossword (h5p-crossword.js): `poolSize` 0 is all, else at least 2; the words fixed on the
+ *   grid are always kept, and the others drawn to make up the rest; a word without an answer or
+ *   a clue is left out first.
+ * @param {string} library
+ * @param {unknown} params as H5P stores them
+ * @returns {{ at: string, what: string, used: number, total: number, shown: number, fixed: number, shuffles: boolean } | null}
+ *   `at`, the setting's path in the parameters; `used`, the number the library draws; null where
+ *   nothing is drawn
+ * @internal
  */
-function draws(drawn, total, what, at, note) {
-  if (!total || typeof drawn !== 'number' || drawn < 1) return
-  if (drawn < total) note(at, `shows ${drawn} of the ${total} ${what} each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws`)
-  else if (drawn === total) note(at, `is the number of ${what}, ${total}, so it draws nothing, and one added later would leave one out at random: leave it out`)
-  else note(at, `is above the number of ${what}, ${total}, so it draws nothing until more than ${drawn} are, and then leaves some out at random: leave it out`)
+export function drawOf(library, params) {
+  if (!isObject(params)) return null
+  if (library === 'H5P.QuestionSet') {
+    const total = count(params.questions)
+    if (typeof params.poolSize !== 'number' || !(params.poolSize > 0) || !total) return null
+    const used = Math.ceil(params.poolSize)
+    return { at: 'poolSize', what: 'questions', used, total, shown: Math.min(used, total), fixed: 0, shuffles: true }
+  }
+  if (library === 'H5P.MemoryGame') {
+    const total = count(params.cards)
+    const setting = params.behaviour?.numCardsToUse
+    if (typeof setting !== 'number' || !(setting >= 1) || !total) return null
+    const used = Math.max(2, Math.trunc(setting))
+    return { at: 'behaviour.numCardsToUse', what: 'pairs', used, total, shown: Math.min(used, total), fixed: 0, shuffles: false }
+  }
+  if (library === 'H5P.Crossword') {
+    const setting = params.behaviour?.poolSize
+    const words = Array.isArray(params.words) ? params.words.filter((/** @type {any} */ word) => word?.answer && word?.clue) : []
+    if (typeof setting !== 'number' || !setting || !words.length) return null
+    const used = Math.max(2, setting)
+    const fixed = words.filter((/** @type {any} */ word) => word.fixWord && word.row !== undefined && word.column !== undefined && word.orientation !== undefined).length
+    const shown = fixed + Math.min(Math.max(0, used - fixed), words.length - fixed)
+    return { at: 'behaviour.poolSize', what: 'words', used, total: words.length, shown, fixed, shuffles: false }
+  }
+  return null
+}
+
+/**
+ * A draw's note: below the list's length, what it shows, since it may be meant; at or above it,
+ * that it leaves none out now and would once items are added, what a chat that adds items and
+ * keeps the setting gets.
+ * @param {string} library @param {Record<string, any>} params @param {string} path @param {Note} note
+ */
+function noteDraw(library, params, path, note) {
+  const draw = drawOf(library, params)
+  if (!draw) return
+  const { what, used, total, shown, fixed } = draw
+  const at = `${path}.${draw.at}`
+  const order = draw.shuffles ? ' but shows them in a random order' : ''
+  const random = draw.shuffles ? ', and set randomQuestions for a random order' : ''
+  if (shown < total) {
+    if (!fixed) note(at, `shows ${shown} of the ${total} ${what} each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws`)
+    else if (shown === fixed) note(at, `shows only the ${fixed} ${what} fixed on the grid, and never the other ${total - fixed}: leave it out to show them all`)
+    else note(at, `shows ${shown} of the ${total} ${what} each time, the ${fixed} fixed on the grid and ${shown - fixed} of the other ${total - fixed} drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws`)
+  }
+  else if (used === total) note(at, `is the number of ${what}, ${total}, so it leaves none out${order}, and one added later would leave one out at random: leave it out${random}`)
+  else note(at, `is above the number of ${what}, ${total}, so it leaves none out${order} until more than ${used} are, and then leaves some out at random: leave it out${random}`)
 }
 
 /**
@@ -126,15 +174,13 @@ const CHECKS = {
   // `poolSize`, labelled "Number of questions to be shown", is how many are drawn at random: in
   // ChatGPT a quiz of six came with it at 3 after the chat was asked to add questions (#268).
   'H5P.QuestionSet'(params, path, note) {
-    draws(params.poolSize, count(params.questions), 'questions', `${path}.poolSize`, note)
+    noteDraw('H5P.QuestionSet', params, path, note)
   },
-  // An item of `cards` is a pair, and the number is of pairs (memory-game.js: the pool is cut to 2 × it).
   'H5P.MemoryGame'(params, path, note) {
-    draws(params.behaviour?.numCardsToUse, count(params.cards), 'pairs', `${path}.behaviour.numCardsToUse`, note)
+    noteDraw('H5P.MemoryGame', params, path, note)
   },
-  // Words fixed on the grid are always among those drawn; 0 means all.
   'H5P.Crossword'(params, path, note) {
-    draws(params.behaviour?.poolSize, count(params.words), 'words', `${path}.behaviour.poolSize`, note)
+    noteDraw('H5P.Crossword', params, path, note)
   },
   // The task ends at this many found. Above the number of hotspots, right or not, the library
   // does not use it (image-multiple-hotspot-question.js).
