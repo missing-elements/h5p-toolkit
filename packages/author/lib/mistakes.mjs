@@ -3,7 +3,8 @@ import { blanksGaps } from './types.mjs'
 
 /**
  * What builds and is almost surely a mistake (#241, item 4 of #219): no answer marked correct, two
- * answers alike, a text with no gap, a picture with no alt text where its field is optional. H5P
+ * answers alike, a text with no gap, a picture with no alt text where its field is optional, a
+ * quiz's pool that leaves questions out or draws none (#268). H5P
  * allows each, so each is a note and not a problem, and nothing about the content is judged: whether
  * an answer is right stays the person's. Run by `checkContent` on content as H5P stores it, so a
  * build says them, and so does a check of saved content.
@@ -99,6 +100,15 @@ const CHECKS = {
   },
   'H5P.MultiMediaChoice'(params, path, note) {
     if (noneCorrect(params.options)) note(`${path}.options`, 'marks no option correct, so no learner can score: set "correct": true on the right one')
+  },
+  // `poolSize` reads as "how many questions there are", and is how many are shown: a chat wrote 3
+  // for three questions, added three more, and the quiz went on showing three, drawn at random.
+  'H5P.QuestionSet'(params, path, note) {
+    const count = Array.isArray(params.questions) ? params.questions.length : 0
+    const pool = params.poolSize
+    if (!count || typeof pool !== 'number' || pool < 1) return
+    if (pool < count) note(`${path}.poolSize`, `shows ${pool} of the ${count} questions each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws`)
+    else note(`${path}.poolSize`, `is not below the number of questions, ${count}, so it draws nothing, and a question added later would be left out at random: leave it out`)
   },
   'H5P.SingleChoiceSet'(params, path, note) {
     if (!Array.isArray(params.choices)) return

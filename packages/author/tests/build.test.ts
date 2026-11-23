@@ -638,6 +638,20 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     ])
   })
 
+  it('says where a quiz\'s pool leaves questions out, or draws none (#268)', async () => {
+    const question = (text: string) => ({ library: 'H5P.TrueFalse', params: { question: text, correct: 'true' } })
+    const questions = ['The Danube reaches the Black Sea.', 'The Seine flows through Paris.', 'The Volga is in Europe.'].map(question)
+    const quiz = (poolSize?: number) => notesOf({ ...META, type: 'H5P.QuestionSet', params: { questions, ...(poolSize === undefined ? {} : { poolSize }) } })
+    expect(await quiz(2)).toEqual([
+      { path: 'params.poolSize', message: 'shows 2 of the 3 questions each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+    ])
+    // As many as there are draws nothing, and is what hides a question added later.
+    expect(await quiz(3)).toEqual([
+      { path: 'params.poolSize', message: 'is not below the number of questions, 3, so it draws nothing, and a question added later would be left out at random: leave it out' }
+    ])
+    expect(await quiz()).toEqual([])
+  })
+
   it('says where a choice of pictures marks none correct', async () => {
     const at = await mkdtemp(join(dir, 'pictures-'))
     await writeFile(join(at, 'delta.png'), png(64, 48))

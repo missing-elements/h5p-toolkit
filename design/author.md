@@ -455,8 +455,12 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   answers, Multimedia Choice's options; Find the Hotspot's areas are refused already), two
   answers or statements alike as a learner reads them, without tags or entities and in any case
   (Multiple Choice, a Single Choice Set question, a Summary set), a text with no gap (Fill in the
-  Blanks, Drag the Words, Mark the Words), and a picture with no alt text where its field is
-  optional (`ALT_TEXTS`, held to the pack's fields by `build.test.ts`; H5P.Image's is required).
+  Blanks, Drag the Words, Mark the Words), a picture with no alt text where its field is
+  optional (`ALT_TEXTS`, held to the pack's fields by `build.test.ts`; H5P.Image's is required),
+  and a Question Set's `poolSize` (#268): below the number of questions it shows that many,
+  drawn at random, and leaves the rest out, which is said with both numbers since it may be
+  meant; at or above it, it draws nothing and hides a question added later. A chat in ChatGPT
+  wrote 3 for three questions, added three, and the quiz went on showing three (2026-11-23).
   Each says what to write. `lib/mistakes.mjs` runs in `checkContent`, so a build says them and so
   does a check of saved content, and every type file's example says none. Of the owner's 88 real
   packages, the 79 checked against their own libraries give 36 notes of a picture with no alt
