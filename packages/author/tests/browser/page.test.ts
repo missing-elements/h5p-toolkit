@@ -16,6 +16,8 @@ declare module 'vitest/browser' {
       verdict: 'pass' | 'fail', reasons: string[], warnings: string[], errors: unknown[], state: string, untrusted: boolean,
       contentCheck: { notes: string[], changes: unknown[] | null } | null
     }>
+    serveClip: () => Promise<string>
+    clipAsked: () => Promise<string[]>
   }
 }
 
@@ -106,6 +108,31 @@ describe('the build in a page', () => {
         problems: [{ path: 'params.interactiveVideo.assets.interactions[0].duration', message: 'starts at 40 s, after the video ends at 30 s' }]
       })
     } finally {
+      await libraries.close()
+    }
+  })
+
+  it('plays a video left at its address from there, untrusted, the player asking the address for it in parts (#263)', async () => {
+    const libraries = await openPack(pack)
+    // A real video on a server of another origin that sends no CORS header, as a file store answers a
+    // video element: the verifier warns of a video that does not play, and it says nothing here.
+    const address = await commands.serveClip()
+    try {
+      const built = await buildPackage({
+        ...META,
+        type: 'H5P.InteractiveVideo',
+        params: { interactiveVideo: { video: { files: [{ path: 'clip.mp4' }] }, assets: { interactions: [{ duration: { from: 5, to: 7 }, label: 'Look', action: { library: 'H5P.Text', params: { text: 'Look' } } }] } } }
+      }, { libraries, linked: { 'clip.mp4': address } })
+      expect(built.linked).toEqual(['clip.mp4'])
+      expect(built.media).toEqual([])
+      expect((built.content as any).interactiveVideo.video.files[0]).toMatchObject({ path: address, mime: 'video/mp4' })
+      const report = await commands.playUntrusted('linked.h5p', await base64(built.blob))
+      expect(report).toMatchObject({ verdict: 'pass', reasons: [], warnings: [], errors: [], state: 'ready', untrusted: true })
+      // The content check leaves the address as it is.
+      expect(report.contentCheck).toEqual({ notes: [], changes: [] })
+      expect(await commands.clipAsked()).toContainEqual(expect.stringMatching(/^bytes=0-/))
+    } finally {
+      await commands.clipAsked()
       await libraries.close()
     }
   })

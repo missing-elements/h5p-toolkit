@@ -18,8 +18,9 @@ export * from './core.mjs'
  * as embed's SCORM writer stores its entries since #92, so that the player reads each one's size
  * off its header on a host without `Range`, and before the libraries carried for an H5P site's
  * upload check, as Node's build lays them out. An mp4's or an m4a's index is moved to the front, as
- * the normalizer does in Node, by its plan (#218). It needs a secure context, https, localhost or
- * a Tauri window, for `crypto.subtle` and `crypto.randomUUID`.
+ * the normalizer does in Node, by its plan (#218). A video or a recording can stay at a web address
+ * and be played from there, for a preview with no download first (`linked`, #263). It needs a
+ * secure context, https, localhost or a Tauri window, for `crypto.subtle` and `crypto.randomUUID`.
  */
 
 /**
@@ -28,17 +29,21 @@ export * from './core.mjs'
  *   library with its part's URL
  * @typedef {{
  *   blob: Blob, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, libraries: string[], install: string[],
- *   coreApi: import('./install.mjs').CoreApi, translations: import('./translate.mjs').TranslationReport[], notes: import('./build.mjs').Problem[], media: string[], outline: string
+ *   coreApi: import('./install.mjs').CoreApi, translations: import('./translate.mjs').TranslationReport[], notes: import('./build.mjs').Problem[], media: string[], linked: string[], outline: string
  * }} BuildResult the package, and what is worth telling about it: `libraries`, the folders it plays
  *   with; `install`, those it carries for an H5P site's upload check; `coreApi`, the newest H5P core
  *   they ask for, which a site needs to take the package (`coreApiLine` says it); `outline`, the
  *   content as text for a review (`outlineOf`); `builtWith`, the content type and the pack's version
  *   of it, "H5P.Blanks 1.14", and `source`, the source as built, naming it: what to keep with the
- *   package, so that a build with a later pack can say the type has moved
- * @typedef {{ libraries: Pack | PackIndex | string | URL, files?: Map<string, Blob> | Record<string, Blob>, fetch?: typeof fetch }} BuildOptions
+ *   package, so that a build with a later pack can say the type has moved; `media`, the files it
+ *   carries, and `linked`, the files the source names that were left at an address: where there is
+ *   one, the package is a preview and not a file to keep, since the address may stop answering
+ * @typedef {{ libraries: Pack | PackIndex | string | URL, files?: Map<string, Blob> | Record<string, Blob>, linked?: Map<string, string> | Record<string, string>, fetch?: typeof fetch }} BuildOptions
  *   `libraries`, a pack `openPack` opened, which a page keeps for its builds, or what to open one
- *   from; `files`, the files a source names, by the names it gives them; `fetch`, for media named by
- *   web address
+ *   from; `files`, the files a source names, by the names it gives them; `linked`, the videos and
+ *   recordings it names that stay where they are, each by its name and the http(s) address it is
+ *   played from, none of its bytes read (#263), a file given under the same name going before it;
+ *   `fetch`, for media named by web address
  */
 
 /** What a page's build takes from the browser, which it has in a secure context only. */
@@ -102,11 +107,15 @@ export async function openPack(pack, { fetch: fetchImpl = globalThis.fetch } = {
  * A source's files in a page: the `File`s or `Blob`s it was given, by the names the source gives
  * them; downloads kept as `Blob`s.
  * @param {Map<string, Blob> | Record<string, Blob>} files
+ * @param {Map<string, string> | Record<string, string>} linked the files left at an address, by name
  * @returns {import('./media.mjs').MediaAccess<Blob>}
  */
-function pageMedia(files) {
+function pageMedia(files, linked) {
   const named = files instanceof Map ? files : new Map(Object.entries(files))
+  const addresses = linked instanceof Map ? linked : new Map(Object.entries(linked))
   return {
+    // A file given goes before an address for it: the bytes make a package to keep.
+    linked: (source) => (named.has(source) ? undefined : addresses.get(source)),
     what: 'the name of a file given',
     name: (source) => source.slice(source.lastIndexOf('/') + 1),
     async local(source) {
@@ -178,14 +187,14 @@ const pageFetch = (input, init) => globalThis.fetch(input, init).catch((error) =
  */
 export async function buildPackage(input, options) {
   secure()
-  const { libraries, files = {}, fetch: fetchImpl = pageFetch } = options ?? {}
+  const { libraries, files = {}, linked = {}, fetch: fetchImpl = pageFetch } = options ?? {}
   if (!libraries) throw new TypeError('Name the library pack: a pack openPack opened, the pack export of @missing-elements/h5p-libraries, or the address of a copy of its parts/ folder')
   const pack = libraries instanceof Pack ? libraries : await openPack(libraries)
   try {
     // With the pack's names, as the command's build reads a source (#174).
     const read = sourceOf(input, typeNames(pack))
     if (!read.typed) throw new SourceError(read.problems)
-    const media = new MediaStore(pageMedia(files), { fetch: fetchImpl })
+    const media = new MediaStore(pageMedia(files, linked), { fetch: fetchImpl })
     const built = await composePackage(read.source, pack, media, read.problems)
     const writer = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: false })
     await writePackage(writer, built, pack, async () => {
@@ -207,6 +216,7 @@ export async function buildPackage(input, options) {
       translations: built.translations,
       notes: built.notes,
       media: media.files.map((item) => item.name),
+      linked: [...media.linked],
       get outline() { return built.outline }
     }
   } finally {

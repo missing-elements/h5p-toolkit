@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildPackage as buildInNode } from '../lib/author.mjs'
 import { buildPackage, openPack, SourceError } from '../lib/browser.mjs'
 import { png } from './helpers/media'
+import { mp4 } from './helpers/mp4'
 
 // The page's build, run in Node with the pack's parts read from disk as a page fetches them from
 // its server. tests/browser/ runs it in Chromium and plays what it writes.
@@ -32,6 +33,11 @@ const QUIZ = {
     }]
   }
 }
+const VIDEO = (path: string, from = 5) => ({
+  ...META,
+  type: 'H5P.InteractiveVideo',
+  params: { interactiveVideo: { video: { files: [{ path }] }, assets: { interactions: [{ duration: { from, to: from + 2 }, label: 'Look', action: { library: 'H5P.Text', params: { text: 'Look' } } }] } } }
+})
 let dir: string
 let opened: Awaited<ReturnType<typeof openPack>>
 let fetched: string[]
@@ -136,6 +142,47 @@ describe('the build in a page', () => {
     ])
     expect(await problems(QUIZ, { libraries: opened, files: { 'volga.png': 'a picture' as unknown as Blob } })).toEqual([
       'params.questions[0].params.media.type.params.file.path: volga.png: is not a File or a Blob'
+    ])
+  })
+
+  it('leaves a video at the address a page names for it, played from there with none of its bytes read: a preview (#263)', async () => {
+    const address = 'https://files.example/a/clip.mp4?se=2026-11-23&sig=abc'
+    const asked = vi.fn(async () => { throw new Error('asked for') })
+    // An interaction far past any length builds: nothing of the file is read, so nothing is held to it.
+    const built = await buildPackage(VIDEO('clip.mp4', 4000), { libraries: opened, linked: { 'clip.mp4': address }, fetch: asked })
+    expect((built.content as any).interactiveVideo.video.files).toEqual([{ path: address, mime: 'video/mp4', copyright: { license: 'U' } }])
+    expect(built.linked).toEqual(['clip.mp4'])
+    expect(built.media).toEqual([])
+    expect(built.notes).toEqual([])
+    expect(asked).not.toHaveBeenCalled()
+    const { entries } = await archive(new Uint8Array(await built.blob.arrayBuffer()))
+    expect(entries.filter(({ filename }) => /^content\/(?:videos|audios|images|files)\//.test(filename))).toEqual([])
+    // A file given under the name goes before the address: the package to keep is made of its bytes.
+    const clip = new File([mp4(false, { seconds: 30, tracks: [['vide', 'avc1'], ['soun', 'mp4a']] })], 'clip.mp4')
+    const kept = await buildPackage(VIDEO('clip.mp4'), { libraries: opened, files: { 'clip.mp4': clip }, linked: new Map([['clip.mp4', address]]) })
+    expect(kept.linked).toEqual([])
+    expect(kept.media).toEqual(['videos/clip.mp4'])
+    expect((kept.content as any).interactiveVideo.video.files[0]).toMatchObject({ path: 'videos/clip.mp4', mime: 'video/mp4' })
+  })
+
+  it('refuses a picture left at an address, a name its field does not take and what is no web address, the address in no problem (#263)', async () => {
+    const address = 'https://files.example/a/secret.png?sig=abc'
+    expect(await problems(QUIZ, { libraries: opened, linked: { 'volga.png': address } })).toEqual([
+      'params.questions[0].params.media.type.params.file.path: volga.png: only a video or a recording is played from an address; give the file itself'
+    ])
+    expect(await problems(VIDEO('clip.mov'), { libraries: opened, linked: { 'clip.mov': address } })).toEqual([
+      'params.interactiveVideo.video.files[0].path: clip.mov: this field takes .mp4, .webm, .ogg'
+    ])
+    expect(await problems(VIDEO('clip.mp4'), { libraries: opened, linked: { 'clip.mp4': 'blob:https://files.example/1b2c' } })).toEqual([
+      'params.interactiveVideo.video.files[0].path: clip.mp4: the address it is played from is not an http(s) address'
+    ])
+    // A video on a host with a player of its own is named in the source, where its form is checked.
+    expect(await problems(VIDEO('clip.mp4'), { libraries: opened, linked: { 'clip.mp4': 'https://www.youtube.com/shorts/abcdefghijk?sig=abc' } })).toEqual([
+      'params.interactiveVideo.video.files[0].path: clip.mp4: the address it is played from is on YouTube, whose player shows a video, not a file; give https://www.youtube.com/watch?v= and the video\'s id as the path instead'
+    ])
+    // A name with no address is a file the page did not give, as before.
+    expect(await problems(VIDEO('clip.mp4'), { libraries: opened, linked: { 'other.mp4': address } })).toEqual([
+      'params.interactiveVideo.video.files[0].path: clip.mp4: no such file among those given (none)'
     ])
   })
 
