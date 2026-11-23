@@ -261,11 +261,15 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     bytes are read, so nothing of the file is checked and an Interactive Video's times are held
     to no length. The result's `linked` lists the names: such a package is not one to keep, since
     the address may stop answering, and a file given under the same name goes before the address,
-    which is how the package to keep is built. A picture or another file is refused: its size is
-    read from its bytes. The address is in no problem, since one that lets a file be read is not
-    for a log. Measured on 2026-11-23 with a 230 MB video on a chat app's file store: 9 min 13 s
-    to download and build before it played, 1.4 s to play from the address. The Chromium test
-    plays such a package untrusted from a server of another origin that sends no CORS header:
+    which is how the package to keep is built. Only a video or a recording can be left at an
+    address: a picture or another file is refused and must be given as a file. So is an address
+    on YouTube, Vimeo, Panopto or Echo360, which the source names itself, where its form is
+    checked. No problem or note quotes the address, and nothing logs it: it can be one that lets
+    whoever has it read the file. Measured on 2026-11-23 with a 230 MB video on a chat app's file
+    store: 9 min 13 s to download and build before it played, 1.4 s to play from the address,
+    which has to answer a request for a part of the file (`Range`) for a video to start at once
+    and be jumped in. The Chromium test plays such a package untrusted from a server of another
+    origin that sends no CORS header:
     the content check leaves the address, and the player asks it for the file in parts.
 
   A page needs a secure context for `crypto.subtle` and `crypto.randomUUID`, and fetches media

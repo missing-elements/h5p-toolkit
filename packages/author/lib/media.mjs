@@ -497,8 +497,9 @@ export class MediaStore {
    * A file left at a web address of its own and played from there (#263), as a video on YouTube
    * is: a video or a recording only, since a picture's size is read from its bytes, its type taken
    * from the name the source gives it. None of its bytes are read, so nothing of it is checked, and
-   * the package is a preview: the address may stop answering. The address is in no problem, since
-   * one that lets a file be read is not for a log.
+   * the package is a preview: the address may stop answering. An address on YouTube, Vimeo, Panopto
+   * or Echo360 is no file's: the source names such a video itself, where its form is checked. No
+   * problem quotes the address: it can be one that lets whoever has it read the file.
    * @param {string} kind
    * @param {string} source
    * @param {string} address
@@ -519,6 +520,11 @@ export class MediaStore {
     }
     if (typeof address !== 'string' || !/^https?:\/\//i.test(address) || !URL.canParse(address)) {
       report(`${at}.path`, `${source}: the address it is played from is not an http(s) address`)
+      return { path: source }
+    }
+    const hosted = HOSTED.find(({ on }) => on(new URL(address)))
+    if (hosted) {
+      report(`${at}.path`, `${source}: the address it is played from is on ${hosted.host}, whose player shows a video, not a file; write the video's address there as the path instead`)
       return { path: source }
     }
     if (!this.linked.includes(source)) this.linked.push(source)

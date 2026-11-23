@@ -16,7 +16,7 @@ declare module 'vitest/browser' {
       verdict: 'pass' | 'fail', reasons: string[], warnings: string[], errors: unknown[], state: string, untrusted: boolean,
       contentCheck: { notes: string[], changes: unknown[] | null } | null
     }>
-    serveClip: (base64: string) => Promise<string>
+    serveClip: () => Promise<string>
     clipAsked: () => Promise<string[]>
   }
 }
@@ -114,8 +114,9 @@ describe('the build in a page', () => {
 
   it('plays a video left at its address from there, untrusted, the player asking the address for it in parts (#263)', async () => {
     const libraries = await openPack(pack)
-    // A server of another origin that sends no CORS header, as a file store answers a video element.
-    const address = await commands.serveClip(await base64(new Blob([mp4(true, { seconds: 30, tracks: [['vide', 'avc1']] })])))
+    // A real video on a server of another origin that sends no CORS header, as a file store answers a
+    // video element: the verifier warns of a video that does not play, and it says nothing here.
+    const address = await commands.serveClip()
     try {
       const built = await buildPackage({
         ...META,
@@ -126,7 +127,7 @@ describe('the build in a page', () => {
       expect(built.media).toEqual([])
       expect((built.content as any).interactiveVideo.video.files[0]).toMatchObject({ path: address, mime: 'video/mp4' })
       const report = await commands.playUntrusted('linked.h5p', await base64(built.blob))
-      expect(report).toMatchObject({ verdict: 'pass', reasons: [], state: 'ready', untrusted: true })
+      expect(report).toMatchObject({ verdict: 'pass', reasons: [], warnings: [], errors: [], state: 'ready', untrusted: true })
       // The content check leaves the address as it is.
       expect(report.contentCheck).toEqual({ notes: [], changes: [] })
       expect(await commands.clipAsked()).toContainEqual(expect.stringMatching(/^bytes=0-/))

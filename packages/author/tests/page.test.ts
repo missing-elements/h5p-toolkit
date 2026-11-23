@@ -176,6 +176,10 @@ describe('the build in a page', () => {
     expect(await problems(VIDEO('clip.mp4'), { libraries: opened, linked: { 'clip.mp4': 'blob:https://files.example/1b2c' } })).toEqual([
       'params.interactiveVideo.video.files[0].path: clip.mp4: the address it is played from is not an http(s) address'
     ])
+    // A video on a host with a player of its own is named in the source, where its form is checked.
+    expect(await problems(VIDEO('clip.mp4'), { libraries: opened, linked: { 'clip.mp4': 'https://www.youtube.com/shorts/abcdefghijk?sig=abc' } })).toEqual([
+      'params.interactiveVideo.video.files[0].path: clip.mp4: the address it is played from is on YouTube, whose player shows a video, not a file; write the video\'s address there as the path instead'
+    ])
     // A name with no address is a file the page did not give, as before.
     expect(await problems(VIDEO('clip.mp4'), { libraries: opened, linked: { 'other.mp4': address } })).toEqual([
       'params.interactiveVideo.video.files[0].path: clip.mp4: no such file among those given (none)'

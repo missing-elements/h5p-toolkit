@@ -1,5 +1,5 @@
 import { once } from 'node:events'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -32,12 +32,14 @@ const playUntrusted: BrowserCommand<[name: string, base64: string]> = async (_co
 /**
  * A video at a web address of its own, for a build that leaves it there (#263): a server on another
  * origin than the player's, answering for a part of the file and sending no CORS header, as a file
- * store answers a video element. `serveClip` starts it with the bytes and gives the address,
- * `clipAsked` gives the `Range` of each request it got and stops it.
+ * store answers a video element. The video is the demo's, a real one, since the verifier warns of
+ * one that does not play. `serveClip` starts the server and gives the address, `clipAsked` gives
+ * the `Range` of each request it got and stops it.
  */
+const clipFile = resolve(import.meta.dirname, '../../apps/demo/demo/content/src/video/videos/big-buck-bunny.mp4')
 let clip: { server: Server, asked: string[] } | undefined
-const serveClip: BrowserCommand<[base64: string]> = async (_context, base64) => {
-  const bytes = Buffer.from(base64, 'base64')
+const serveClip: BrowserCommand<[]> = async () => {
+  const bytes = await readFile(clipFile)
   const asked: string[] = []
   const server = createServer((request, response) => {
     asked.push(request.headers.range ?? 'whole')
@@ -46,6 +48,7 @@ const serveClip: BrowserCommand<[base64: string]> = async (_context, base64) => 
     if (!range) return void response.writeHead(200, { ...head, 'content-length': bytes.length }).end(bytes)
     const start = Number(range[1])
     const end = range[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1
+    if (start > end) return void response.writeHead(416, { 'content-range': `bytes */${bytes.length}` }).end()
     response.writeHead(206, { ...head, 'content-range': `bytes ${start}-${end}/${bytes.length}`, 'content-length': end - start + 1 }).end(bytes.subarray(start, end + 1))
   }).listen(0, '127.0.0.1')
   await once(server, 'listening')

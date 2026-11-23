@@ -384,7 +384,10 @@ const { blob, notes } = await buildPackage(source, { libraries, files: { 'volga.
   - `linked`: an object or a `Map` of the videos and recordings a source names that stay where
     they are, each by its name and the http(s) address it is played from:
     `linked: { 'clip.mp4': address }`. Nothing is downloaded and nothing of the file is checked,
-    so a large video plays at once, the browser asking the address for the parts it shows. The
+    so a large video plays at once where the address answers a request for a part of the file
+    (HTTP `Range`), the browser asking for the parts it shows; where it does not, the video plays
+    as its bytes arrive and cannot be jumped ahead in. An address on YouTube, Vimeo, Panopto or
+    Echo360 is refused here: the source names such a video itself. The
     result's `linked` lists those names: with one in it the package is a preview, not a file to
     keep, since the address may stop answering. Build again with the file in `files`, which goes
     before an address for the same name, for the package to hand over.
