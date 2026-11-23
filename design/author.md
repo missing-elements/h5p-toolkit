@@ -457,15 +457,22 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   (Multiple Choice, a Single Choice Set question, a Summary set), a text with no gap (Fill in the
   Blanks, Drag the Words, Mark the Words), a picture with no alt text where its field is
   optional (`ALT_TEXTS`, held to the pack's fields by `build.test.ts`; H5P.Image's is required),
-  and a Question Set's `poolSize` (#268): below the number of questions it shows that many,
-  drawn at random, and leaves the rest out, which is said with both numbers since it may be
-  meant; at or above it, it draws nothing and hides a question added later. A chat in ChatGPT
-  wrote 3 for three questions, added three, and the quiz went on showing three (2026-11-23).
+  and what goes stale when a chat changes a content and keeps a setting (#268): a number of items
+  drawn at random (Question Set's `poolSize`, Memory Game's `numCardsToUse`, Crossword's
+  `poolSize`) or to find (Find Multiple Hotspots' `numberHotspots`), said with both numbers below
+  the list's length, since it may be meant, and at or above it as drawing nothing now and hiding
+  what is added later; and a part named by what is not there: a Course Presentation button's
+  slide, a drop zone's right element, Agamotto's start image, a Virtual Tour's scene id, a
+  Personality Quiz answer's personality. A chat in ChatGPT wrote `poolSize` 3 for three
+  questions, added three, and the quiz went on showing three (2026-11-23). The outline's first
+  line says a draw's how many of how many. Video times are #260's.
   Each says what to write. `lib/mistakes.mjs` runs in `checkContent`, so a build says them and so
   does a check of saved content, and every type file's example says none. Of the owner's 88 real
   packages, the 79 checked against their own libraries give 36 notes of a picture with no alt
   text in 8 packages, and 4 of answers alike in one, a test whose answers all read "Test"; no
-  question with no answer marked correct, and no text with no gap.
+  question with no answer marked correct, and no text with no gap. The notes of #268 fire in none
+  of the 88, though drop zones name their right elements in some 20 of them, and slide buttons
+  and a tour's scene ids are among them too.
 - **A source names the version of its type it was built with, and the build writes that** (#219,
   the owner's calls). A source handed over beside a package is built again later, on the build
   page or by a newer release, with a newer pack. So a build hands back the source with

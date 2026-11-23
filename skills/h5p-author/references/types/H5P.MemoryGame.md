@@ -5,6 +5,7 @@ Cards face down, turned two at a time, until every pair is found.
 - Each item of `cards` is a pair: `image` and `imageAlt`, and, for a pair of two different pictures, `match` and `matchAlt`. Without `match` the pair is two copies of `image`.
 - `description` is shown when the pair is found: say what it shows.
 - Square-ish pictures work best; at least two cards.
+- `behaviour.numCardsToUse` is not the number of cards: it shows only that many pairs, drawn at random each time. Leave it out unless the user asks for a random draw.
 
 ## Example
 

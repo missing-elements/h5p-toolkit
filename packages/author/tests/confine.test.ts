@@ -285,6 +285,16 @@ describe('outline', () => {
     expect(await outline({ ...quiz, language: 'de' })).toBe(expected)
   })
 
+  it('says first how many of how many a quiz, a memory game or a crossword shows, where it draws (#268)', async () => {
+    const question = (text: string) => ({ library: 'H5P.TrueFalse', params: { question: text, correct: 'true' } })
+    const questions = ['Water is wet.', 'Ice is cold.', 'Steam is hot.'].map(question)
+    expect((await outline({ type: 'H5P.QuestionSet', params: { questions, poolSize: 2 } })).split('\n')[0]).toBe('Shows 2 of the 3 questions each time, drawn at random')
+    // At or above the number of questions it draws nothing, and says nothing.
+    expect((await outline({ type: 'H5P.QuestionSet', params: { questions, poolSize: 3 } })).split('\n')[0]).toBe('  Question 1')
+    const words = [{ clue: 'A long river', answer: 'Danube' }, { clue: 'Through Paris', answer: 'Seine' }, { clue: 'Through Rome', answer: 'Tiber' }]
+    expect((await outline({ type: 'H5P.Crossword', params: { words, behaviour: { poolSize: 2 } } })).split('\n')[0]).toBe('Shows 2 of the 3 words each time, drawn at random')
+  })
+
   it('keeps a text\'s paragraphs, lines and list items apart, and numbers slides, with each slide\'s keyword', async () => {
     const text = (html: string) => ({ action: { library: 'H5P.AdvancedText', params: { text: html } } })
     expect(await outline({

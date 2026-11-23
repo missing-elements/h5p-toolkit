@@ -645,11 +645,46 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     expect(await quiz(2)).toEqual([
       { path: 'params.poolSize', message: 'shows 2 of the 3 questions each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
     ])
-    // As many as there are draws nothing, and is what hides a question added later.
+    // As many as there are draws nothing, and is what hides a question added later; more, once there are more still.
     expect(await quiz(3)).toEqual([
-      { path: 'params.poolSize', message: 'is not below the number of questions, 3, so it draws nothing, and a question added later would be left out at random: leave it out' }
+      { path: 'params.poolSize', message: 'is the number of questions, 3, so it draws nothing, and one added later would leave one out at random: leave it out' }
+    ])
+    expect(await quiz(5)).toEqual([
+      { path: 'params.poolSize', message: 'is above the number of questions, 3, so it draws nothing until more than 5 are, and then leaves some out at random: leave it out' }
     ])
     expect(await quiz()).toEqual([])
+  })
+
+  it('says where a memory game or a crossword draws, as a quiz does (#268)', async () => {
+    const card = (text: string) => ({ image: { path: 'river.png' }, imageAlt: text })
+    const at = await mkdtemp(join(dir, 'cards-'))
+    await writeFile(join(at, 'river.png'), png(64, 48))
+    expect(await notesOf({ ...META, type: 'H5P.MemoryGame', params: { cards: [card('A river'), card('A lake'), card('A sea')], behaviour: { numCardsToUse: 2 } } }, at)).toEqual([
+      { path: 'params.behaviour.numCardsToUse', message: 'shows 2 of the 3 cards each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws' }
+    ])
+    const word = (clue: string, answer: string) => ({ clue, answer })
+    expect(await notesOf({ ...META, type: 'H5P.Crossword', params: { words: [word('A long river', 'Danube'), word('Through Paris', 'Seine')], behaviour: { poolSize: 2 } } })).toEqual([
+      { path: 'params.behaviour.poolSize', message: 'is the number of words, 2, so it draws nothing, and one added later would leave one out at random: leave it out' }
+    ])
+  })
+
+  it('says where a part is named by a number, an id or a name that is not there (#268)', async () => {
+    const text = (html: string) => ({ action: { library: 'H5P.AdvancedText', params: { text: html } } })
+    // A Course Presentation button to slide 3 of 2.
+    expect(await notesOf({ ...META, type: 'H5P.CoursePresentation', params: { presentation: { slides: [
+      { elements: [text('<p>Rivers</p>'), { goToSlideType: 'specified', goToSlide: 3, x: 10, y: 10, width: 20, height: 10 }] },
+      { elements: [text('<p>Lakes</p>')] }
+    ] } } })).toEqual([
+      { path: 'params.presentation.slides[0].elements[1].goToSlide', message: 'goes to slide 3, and there are 2 slides, so the button goes nowhere: name a slide by its number, from 1' }
+    ])
+    // A Personality Quiz answer naming a personality renamed since.
+    expect(await notesOf({ ...META, type: 'H5P.PersonalityQuiz', params: {
+      titleScreen: { title: { text: 'Which traveller are you?' } },
+      personalities: [{ name: 'Explorer', description: 'Goes far.' }, { name: 'Builder', description: 'Makes things.' }],
+      questions: [{ text: 'On a free day you…', answers: [{ text: 'walk somewhere new', personality: 'Explorer' }, { text: 'fix something', personality: 'Maker, builder' }] }]
+    } })).toEqual([
+      { path: 'params.questions[0].answers[1].personality', message: 'names "Maker", which no personality is called, so the answer counts for none: name the personalities as they are called' }
+    ])
   })
 
   it('says where a choice of pictures marks none correct', async () => {

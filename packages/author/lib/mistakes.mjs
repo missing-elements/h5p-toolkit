@@ -3,8 +3,10 @@ import { blanksGaps } from './types.mjs'
 
 /**
  * What builds and is almost surely a mistake (#241, item 4 of #219): no answer marked correct, two
- * answers alike, a text with no gap, a picture with no alt text where its field is optional, a
- * quiz's pool that leaves questions out or draws none (#268). H5P
+ * answers alike, a text with no gap, a picture with no alt text where its field is optional. And
+ * what goes stale when a chat changes a content and leaves a setting as it was (#268): a number
+ * of items to draw or to find that is not below how many there are, and a part named by its
+ * number, id or name that is not there. H5P
  * allows each, so each is a note and not a problem, and nothing about the content is judged: whether
  * an answer is right stays the person's. Run by `checkContent` on content as H5P stores it, so a
  * build says them, and so does a check of saved content.
@@ -22,6 +24,26 @@ const isObject = (value) => value !== null && typeof value === 'object' && !Arra
  */
 function plain(value) {
   return typeof value === 'string' ? decodeEntities(stripTags(value)).replace(/\s+/g, ' ').trim().toLowerCase() : ''
+}
+
+/** @param {unknown} value */
+const count = (value) => (Array.isArray(value) ? value.length : 0)
+
+/**
+ * A number of items drawn at random from a list, against how many the list holds. Below it, which
+ * may be meant, both numbers are said; at or above it, it draws nothing now, and leaves items out
+ * at random once more are added: what a chat that adds items and keeps the setting gets (#268).
+ * @param {unknown} drawn
+ * @param {number} total
+ * @param {string} what the items, as "questions"
+ * @param {string} at the setting's path
+ * @param {Note} note
+ */
+function draws(drawn, total, what, at, note) {
+  if (!total || typeof drawn !== 'number' || drawn < 1) return
+  if (drawn < total) note(at, `shows ${drawn} of the ${total} ${what} each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws`)
+  else if (drawn === total) note(at, `is the number of ${what}, ${total}, so it draws nothing, and one added later would leave one out at random: leave it out`)
+  else note(at, `is above the number of ${what}, ${total}, so it draws nothing until more than ${drawn} are, and then leaves some out at random: leave it out`)
 }
 
 /**
@@ -104,11 +126,86 @@ const CHECKS = {
   // `poolSize` reads as "how many questions there are", and is how many are shown: a chat wrote 3
   // for three questions, added three more, and the quiz went on showing three, drawn at random.
   'H5P.QuestionSet'(params, path, note) {
-    const count = Array.isArray(params.questions) ? params.questions.length : 0
-    const pool = params.poolSize
-    if (!count || typeof pool !== 'number' || pool < 1) return
-    if (pool < count) note(`${path}.poolSize`, `shows ${pool} of the ${count} questions each time, drawn at random, and leaves the rest out: leave it out to show them all, or tell the user that it draws`)
-    else note(`${path}.poolSize`, `is not below the number of questions, ${count}, so it draws nothing, and a question added later would be left out at random: leave it out`)
+    draws(params.poolSize, count(params.questions), 'questions', `${path}.poolSize`, note)
+  },
+  'H5P.MemoryGame'(params, path, note) {
+    draws(params.behaviour?.numCardsToUse, count(params.cards), 'cards', `${path}.behaviour.numCardsToUse`, note)
+  },
+  // Words fixed on the grid are always among those drawn; 0 means all.
+  'H5P.Crossword'(params, path, note) {
+    draws(params.behaviour?.poolSize, count(params.words), 'words', `${path}.behaviour.poolSize`, note)
+  },
+  'H5P.ImageMultipleHotspotQuestion'(params, path, note) {
+    const settings = params.imageMultipleHotspotQuestion?.hotspotSettings
+    const wanted = settings?.numberHotspots
+    const correct = Array.isArray(settings?.hotspot) ? settings.hotspot.filter((/** @type {any} */ spot) => spot?.userSettings?.correct === true).length : 0
+    if (typeof wanted !== 'number' || wanted < 1 || !correct) return
+    const at = `${path}.imageMultipleHotspotQuestion.hotspotSettings.numberHotspots`
+    if (wanted > correct) note(at, `asks for ${wanted} hotspots, and ${correct} are marked correct, so no learner can finish: leave it out to ask for all of them`)
+    else if (wanted < correct) note(at, `ends the task once ${wanted} of the ${correct} correct hotspots are found: leave it out to ask for all of them, or tell the user`)
+    else note(at, `is the number of correct hotspots, ${correct}, so it changes nothing, and one added later would not be asked for: leave it out`)
+  },
+  // A button that goes to a slide by its number: one that is not there goes nowhere.
+  'H5P.CoursePresentation'(params, path, note) {
+    const slides = params.presentation?.slides
+    if (!Array.isArray(slides)) return
+    slides.forEach((/** @type {any} */ slide, /** @type {number} */ i) => {
+      if (!Array.isArray(slide?.elements)) return
+      slide.elements.forEach((/** @type {any} */ element, /** @type {number} */ j) => {
+        const to = element?.goToSlide
+        if ((element?.goToSlideType ?? 'specified') !== 'specified' || typeof to !== 'number') return
+        if (!Number.isInteger(to) || to < 1 || to > slides.length) note(`${path}.presentation.slides[${i}].elements[${j}].goToSlide`, `goes to slide ${to}, and there ${slides.length === 1 ? 'is 1 slide' : `are ${slides.length} slides`}, so the button goes nowhere: name a slide by its number, from 1`)
+      })
+    })
+  },
+  // A drop zone names its right elements by their place in the list of elements, as text.
+  'H5P.DragQuestion'(params, path, note) {
+    const task = params.question?.task
+    const elements = count(task?.elements)
+    if (!Array.isArray(task?.dropZones)) return
+    task.dropZones.forEach((/** @type {any} */ zone, /** @type {number} */ i) => {
+      if (!Array.isArray(zone?.correctElements)) return
+      zone.correctElements.forEach((/** @type {any} */ named, /** @type {number} */ j) => {
+        const index = Number(named)
+        if (!Number.isInteger(index) || index < 0 || index >= elements) note(`${path}.question.task.dropZones[${i}].correctElements[${j}]`, `names element ${JSON.stringify(named)}, and there ${elements === 1 ? 'is 1 element' : `are ${elements} elements`}, counted from 0, so no element is right there: name each by its place in elements, from 0`)
+      })
+    })
+  },
+  'H5P.Agamotto'(params, path, note) {
+    const start = params.behaviour?.startImage
+    const items = count(params.items)
+    if (typeof start === 'number' && items && (!Number.isInteger(start) || start < 1 || start > items)) note(`${path}.behaviour.startImage`, `starts at image ${start}, and there ${items === 1 ? 'is 1 image' : `are ${items} images`}: name one by its number, from 1, or leave it out`)
+  },
+  // A tour's scenes are named by their ids: where it starts, and where a "go to scene" leads.
+  'H5P.ThreeImage'(params, path, note) {
+    const tour = params.threeImage
+    if (!Array.isArray(tour?.scenes)) return
+    const ids = new Set(tour.scenes.map((/** @type {any} */ scene) => scene?.sceneId).filter((/** @type {any} */ id) => id !== undefined))
+    const listed = [...ids].join(', ')
+    if (tour.startSceneId !== undefined && !ids.has(tour.startSceneId)) note(`${path}.threeImage.startSceneId`, `is ${tour.startSceneId}, which no scene has; the scenes' ids are ${listed}: the tour has no scene to start on`)
+    tour.scenes.forEach((/** @type {any} */ scene, /** @type {number} */ i) => {
+      if (!Array.isArray(scene?.interactions)) return
+      scene.interactions.forEach((/** @type {any} */ interaction, /** @type {number} */ j) => {
+        const action = interaction?.action
+        const to = action?.params?.nextSceneId
+        if (!/^H5P\.GoToScene\b/.test(String(action?.library ?? '')) || to === undefined || ids.has(to)) return
+        note(`${path}.threeImage.scenes[${i}].interactions[${j}].action.params.nextSceneId`, `is ${to}, which no scene has; the scenes' ids are ${listed}: it leads nowhere`)
+      })
+    })
+  },
+  // An answer names its personalities by name, a comma between them: a name that is no
+  // personality's counts for none, as after a personality is renamed.
+  'H5P.PersonalityQuiz'(params, path, note) {
+    if (!Array.isArray(params.personalities) || !Array.isArray(params.questions)) return
+    const names = new Set(params.personalities.map((/** @type {any} */ one) => plain(one?.name)).filter(Boolean))
+    params.questions.forEach((/** @type {any} */ question, /** @type {number} */ i) => {
+      if (!Array.isArray(question?.answers)) return
+      question.answers.forEach((/** @type {any} */ answer, /** @type {number} */ j) => {
+        if (typeof answer?.personality !== 'string') return
+        const unknown = answer.personality.split(',').map((/** @type {any} */ name) => name.trim()).filter((/** @type {any} */ name) => name && !names.has(plain(name)))
+        if (unknown.length) note(`${path}.questions[${i}].answers[${j}].personality`, `names ${unknown.map((/** @type {any} */ name) => JSON.stringify(name)).join(', ')}, which no personality is called, so the answer counts for none: name the personalities as they are called`)
+      })
+    })
   },
   'H5P.SingleChoiceSet'(params, path, note) {
     if (!Array.isArray(params.choices)) return
