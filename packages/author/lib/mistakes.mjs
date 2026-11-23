@@ -241,11 +241,13 @@ const CHECKS = {
       })
     })
   },
-  // Held to the images there are (h5p-agamotto.js constrains it), so nothing breaks: it starts elsewhere than written.
+  // Held to the images there are (h5p-agamotto.js constrains it), so nothing breaks: it starts
+  // elsewhere than written. A fraction never gets here: its field takes a whole number, which
+  // the build holds it to.
   'H5P.Agamotto'(params, path, note) {
     const start = params.behaviour?.startImage
     const items = count(params.items)
-    if (typeof start === 'number' && items && (!Number.isInteger(start) || start < 1 || start > items)) note(`${path}.behaviour.startImage`, `is image ${start}, and there ${items === 1 ? 'is 1 image' : `are ${items} images`}, so it starts at ${start < 1 ? 'the first' : 'the last'}: name one by its number, from 1, or leave it out`)
+    if (typeof start === 'number' && items && (start < 1 || start > items)) note(`${path}.behaviour.startImage`, `is image ${start}, and there ${items === 1 ? 'is 1 image' : `are ${items} images`}, so it starts at the ${start < 1 ? 'first' : 'last'}: name one by its number, from 1, or leave it out`)
   },
   // A tour's scenes are named by their ids: where it starts, and where a "go to scene" leads.
   'H5P.ThreeImage'(params, path, note) {
@@ -264,9 +266,10 @@ const CHECKS = {
       })
     })
   },
-  // An answer names its personalities by name. The library splits the text at ", " and takes a
+  // An answer names its personalities by name. The library splits the text at ", " and counts a
   // name only where it is a personality's exactly (personalityQuiz.js: `split(', ')`, `===`), so
-  // another capital, a comma with no space after it, or a personality renamed counts for none.
+  // another capital, a comma with no space after it, or a personality renamed counts for none;
+  // the answer's other names still count.
   'H5P.PersonalityQuiz'(params, path, note) {
     if (!Array.isArray(params.personalities) || !Array.isArray(params.questions)) return
     const names = new Set(params.personalities.map((/** @type {any} */ one) => one?.name).filter((/** @type {any} */ name) => typeof name === 'string' && name))
@@ -274,8 +277,9 @@ const CHECKS = {
       if (!Array.isArray(question?.answers)) return
       question.answers.forEach((/** @type {any} */ answer, /** @type {number} */ j) => {
         if (typeof answer?.personality !== 'string' || !answer.personality) return
-        const unknown = answer.personality.split(', ').filter((/** @type {any} */ name) => !names.has(name))
-        if (unknown.length) note(`${path}.questions[${i}].answers[${j}].personality`, `names ${unknown.map((/** @type {any} */ name) => JSON.stringify(name)).join(', ')}, which no personality is called exactly, so it counts for none: write each name as its personality has it, capitals too, with a comma and a space between two`)
+        // An empty part, after a comma at the end, names nothing and is not said.
+        const unknown = answer.personality.split(', ').filter((/** @type {any} */ name) => name && !names.has(name))
+        if (unknown.length) note(`${path}.questions[${i}].answers[${j}].personality`, `names ${unknown.map((/** @type {any} */ name) => JSON.stringify(name)).join(', ')}, which no personality is called exactly, so ${unknown.length === 1 ? 'that name counts' : 'those names count'} for none: write each name as its personality has it, capitals too, with a comma and a space between two`)
       })
     })
   },

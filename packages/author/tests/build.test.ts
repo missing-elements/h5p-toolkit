@@ -687,6 +687,16 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     ] } } })).toEqual([
       { path: 'params.presentation.slides[0].elements[1].goToSlide', message: 'goes to slide 3, and there are 2 slides, so the button has no slide to go to: name a slide by its number, from 1' }
     ])
+    // Agamotto: a start image past the last is held to the last; a fraction is refused already.
+    const at = await mkdtemp(join(dir, 'agamotto-'))
+    await writeFile(join(at, 'river.png'), png(64, 48))
+    const image = (alt: string) => ({ image: { library: 'H5P.Image', params: { file: { path: 'river.png' }, alt } }, labelText: alt })
+    const agamotto = (startImage: number) => notesOf({ ...META, type: 'H5P.Agamotto', params: { items: [image('Spring'), image('Summer')], behaviour: { startImage } } }, at)
+    expect(await agamotto(3)).toEqual([
+      { path: 'params.behaviour.startImage', message: 'is image 3, and there are 2 images, so it starts at the last: name one by its number, from 1, or leave it out' }
+    ])
+    await expect(agamotto(1.5)).rejects.toThrow('params.behaviour.startImage: takes a whole number')
+    expect(await agamotto(2)).toEqual([])
     // Drag and Drop: a right element and a zone that are not there, and an element that can be
     // dropped in none of the zones it is right in.
     const element = (text: string, zones: string[]) => ({ type: { library: 'H5P.AdvancedText', params: { text: `<p>${text}</p>` } }, x: 5, y: 5, width: 10, height: 3, dropZones: zones })
@@ -704,9 +714,11 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     expect(await notesOf({ ...META, type: 'H5P.PersonalityQuiz', params: {
       titleScreen: { title: { text: 'Which traveller are you?' } },
       personalities: [{ name: 'Explorer', description: 'Goes far.' }, { name: 'Builder', description: 'Makes things.' }],
-      questions: [{ text: 'On a free day you…', answers: [{ text: 'walk somewhere new', personality: 'Explorer' }, { text: 'fix something', personality: 'Maker, builder' }, { text: 'do both', personality: 'Explorer, Builder' }] }]
+      questions: [{ text: 'On a free day you…', answers: [{ text: 'walk somewhere new', personality: 'Explorer' }, { text: 'fix something', personality: 'Maker, builder' }, { text: 'do both', personality: 'Explorer, Builder, ' }, { text: 'roam', personality: 'Explorer, Wanderer' }] }]
     } })).toEqual([
-      { path: 'params.questions[0].answers[1].personality', message: 'names "Maker", "builder", which no personality is called exactly, so it counts for none: write each name as its personality has it, capitals too, with a comma and a space between two' }
+      { path: 'params.questions[0].answers[1].personality', message: 'names "Maker", "builder", which no personality is called exactly, so those names count for none: write each name as its personality has it, capitals too, with a comma and a space between two' },
+      // A comma at the end names nothing; a known name beside an unknown one still counts.
+      { path: 'params.questions[0].answers[3].personality', message: 'names "Wanderer", which no personality is called exactly, so that name counts for none: write each name as its personality has it, capitals too, with a comma and a space between two' }
     ])
   })
 
