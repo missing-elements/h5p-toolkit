@@ -78,6 +78,20 @@ export function typeAnswers(options = {}) {
   }
   return {
     /**
+     * Holds a folder a host named to being the author package's `references/`. A wrong path
+     * would answer every type with its fields and leave the brief out, and say nothing of it.
+     * The installed package's own is taken as it is found: in this repository its type files
+     * are copied in by a build step, and the fields stand in until then.
+     */
+    async held() {
+      if (options.references === undefined) return
+      const names = await readdir(typeFiles).catch(() => [])
+      const brief = await readFile(join(references, 'authoring.md'), 'utf8').catch(() => '')
+      if (!brief || !names.some((name) => name.endsWith('.md'))) {
+        throw new Error(`${references} is not the author package's references/ folder: it has no authoring.md, or no type file in types/`)
+      }
+    },
+    /**
      * The list, and how to write good content, with a server's own lines between them.
      * @param {string[]} [between]
      */

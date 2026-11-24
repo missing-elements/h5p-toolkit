@@ -237,6 +237,8 @@ describe('the app server', () => {
       expect(list).toMatch(/^\* H5P\.TrueFalse\b/m)
       expect(list).not.toMatch(/^\* H5P\.MultiChoice\b/m)
       await app.close()
+      // A folder that is not the author package's is said at the start, not by thinner answers.
+      await expect(createApp({ references: join(references, 'types') })).rejects.toThrow(/is not the author package's references\/ folder/)
     } finally {
       await rm(references, { recursive: true, force: true })
     }

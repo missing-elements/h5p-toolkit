@@ -1,6 +1,6 @@
 # Layout
 
-A pnpm workspace of ten packages and two apps. Nine packages are published to npm; the VS Code
+A pnpm workspace of ten packages and three apps. Nine packages are published to npm; the VS Code
 extension is a `.vsix`. Paths in `design/` are relative to their part: `src/…` and `scripts/…`
 mean the player's unless a file says otherwise. `dist/`, `types/`, the player's `public/` and the
 runtime's `index.js` are generated and not in git.

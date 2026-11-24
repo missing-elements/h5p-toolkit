@@ -7,7 +7,7 @@ import { createApp } from '@missing-elements/h5p-mcp/app'
  * The Worker as Cloudflare runs it: bundled by wrangler with what it carries, started in the
  * Workers runtime on this computer, and asked over HTTP. The server's own rules are tested in
  * the MCP package; these hold the Worker to answering as the server on a computer does, word for
- * word, from files it reads in another runtime's file system, and its config to keeping nothing.
+ * word, from files it reads in another runtime's file system, and its config to its logs off.
  */
 
 const CONFIG = resolve(import.meta.dirname, '../wrangler.jsonc')
@@ -89,7 +89,7 @@ describe('the app server as a Worker', () => {
     expect((await at('/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: big })).status).toBe(413)
   })
 
-  it('is configured to keep nothing of a call, at one address', () => {
+  it('is configured to write no log of a call, with no store and one address', () => {
     const config = unstable_readConfig({ config: CONFIG })
     expect(config.observability).toMatchObject({ enabled: false })
     expect(config.workers_dev).toBe(false)

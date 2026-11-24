@@ -137,9 +137,10 @@ command is that handler on a port. Its endpoint is `/mcp`.
   to be; in ChatGPT itself ran the probe's card, which this one is without its test parts.
 
 - **It is hosted as a Cloudflare Worker, at an address of ours** (`apps/mcp-worker`, #272):
-  `mcp.embed-my.org`, one line of its config, since the domain's zone is on the same account. A
-  Worker fails alone: the free plan gives 100,000 requests a day and bills nothing, and over the
-  limit the Worker answers an error until midnight UTC. A function of the demo's Vercel project
+  `mcp.embed-my.org`, one line of its config, since the domain's zone is on the same account.
+  The free plan gives 100,000 requests a day and bills nothing. The limit is the account's: over
+  it, every Worker of the account answers an error until midnight UTC, and nothing on another
+  host is touched, the demo and the organisation's site among them. A function of the demo's Vercel project
   was built and dropped: on its plan one account shares 4 CPU-hours a month, and over the limit
   the whole account is paused until someone acts, the demo and `/embed` with it, which an
   endpoint with no sign-in lets anyone bring about.
@@ -150,15 +151,18 @@ command is that handler on a port. Its endpoint is `/mcp`.
   (`find_additional_modules`), which its file system shows under `/bundle`: the server's Node
   entry reads them there as on a computer (`nodejs_compat`). 17 MB of the 64 MiB a Worker may be.
   Modules, not static assets: nothing of them is served.
-- **The Worker keeps nothing either.** `observability.enabled` is `false`, so Cloudflare writes
-  no log and no trace of a call; no store is bound to it; it has one address, no `workers.dev`
-  name and no preview addresses. No token of the account is in the repository or in GitHub: it
+- **The Worker writes no log of a call and has nowhere to keep one.** `observability.enabled`
+  is `false`, which switches off Workers Logs: no invocation log and no trace is stored. No
+  store is bound to it, and it has one address, no `workers.dev` name and no preview addresses.
+  That setting is the Worker's alone. What Cloudflare counts for any Worker and any domain it
+  serves, the requests, their statuses, the CPU time, is outside it: the privacy policy names
+  that from Cloudflare's own documents, and does not say "nothing". No token of the account is in the repository or in GitHub: it
   is deployed by someone signed in to the account (`deploy:worker`), or by Cloudflare's own build
   of the repository.
 - **Tested in the Workers runtime.** `tests/worker.test.ts` has wrangler bundle the Worker and
   start it on this computer, and holds each answer to the server's on Node, word for word: the
   tools, the list of types, a type's file, a type's fields from its part, a source checked, one
-  refused, the card and its address. It holds the config to keeping nothing.
+  refused, the card and its address. It holds the config to its logs off, no store and one address.
 - **Not known until it is deployed** (2026-11-24). The free plan allows 10 ms of CPU a request,
   with leeway for an overrun now and then; a check took 14 to 22 ms a call on a laptop in the
   local runtime, and the first list of types 250 ms. A Worker may take 1 s to start, and this

@@ -13,7 +13,8 @@
     { "type": "Data", "globs": ["parts/*.h5p"], "fallthrough": true },
     { "type": "Text", "globs": ["parts/index.json", "references/**/*.md"], "fallthrough": true }
   ],
-  // Nothing of a call is kept: no invocation log, no trace. The test holds the file to it.
+  // Workers Logs off: no invocation log and no trace of a call is stored. The test holds the
+  // file to it. What Cloudflare counts for any Worker is not this setting's (design/mcp.md).
   "observability": { "enabled": false },
   "send_metrics": false,
   // One address, ours: no workers.dev name beside it, and no preview addresses.

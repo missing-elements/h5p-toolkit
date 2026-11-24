@@ -101,10 +101,10 @@ const app = await createApp()
 export default { fetch: (request) => app.fetch(request) }
 ```
 
-`createApp({ site, libraries, references, card, version })` takes the origin whose play page the
-card frames, and a pack's `parts/` folder. A bundle has no package folder beside its code, so it
-names what it carries: `references`, the author package's `references/` folder, `card`, the text
-of this package's `lib/card.html`, and `version`.
+`createApp({ site, libraries, references, card, version })`: `site` is the origin whose play page
+the card frames. A bundle has no package folder beside its code, so it names all it carries:
+`libraries`, the library pack's `parts/` folder, `references`, the author package's `references/`
+folder, `card`, the text of this package's `lib/card.html`, and `version`.
 
 ## Licence
 
