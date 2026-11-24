@@ -20,6 +20,12 @@ import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } fro
  * @typedef {object} AppOptions
  * @property {string} [site] the origin of the site whose play page the card frames; `https://missing-elements.github.io` by default
  * @property {string} [libraries] the pack's `parts/` folder to check with; the installed pack by default
+ * @property {string} [references] the folder of the author package's type files and brief, its `references/`; the installed package's by default
+ * @property {string} [card] the card's text, `lib/card.html`; read from beside this file by default
+ * @property {string} [version] the version the server names itself with; this package's by default
+ *
+ * The last three are for a host with no package folder beside the code, as a bundle is: there
+ * `import.meta` finds nothing, so the host names what it carries (a Cloudflare Worker, #272).
  */
 
 const SITE = 'https://missing-elements.github.io'
@@ -76,11 +82,11 @@ function attached(file) {
  */
 export async function createApp(options = {}) {
   const site = new URL(options.site ?? SITE).origin
-  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
-  const card = (await readFile(new URL('./card.html', import.meta.url), 'utf8')).replaceAll('__SITE__', site)
+  const version = options.version ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version
+  const card = (options.card ?? await readFile(new URL('./card.html', import.meta.url), 'utf8')).replaceAll('__SITE__', site)
   // A chat keeps a card by its address, so a card that changed has another.
   const cardUri = `ui://h5p-play/card-${createHash('sha256').update(card).digest('hex').slice(0, 12)}.html`
-  const about = typeAnswers({ libraries: options.libraries })
+  const about = typeAnswers({ libraries: options.libraries, references: options.references })
   // The card's policy: the one site it frames, and the chat's file store, which it asks for the
   // attached file. Written twice, as the MCP Apps specification places it and as ChatGPT reads it.
   const cardMeta = {

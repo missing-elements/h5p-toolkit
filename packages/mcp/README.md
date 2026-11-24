@@ -92,6 +92,20 @@ What the server receives, and what it keeps:
 - A package up to about 8 MB is saved through the chat. A bigger one, with a video in it, is saved
   by a tab of the play page, which fetches the video from the chat and builds the package again.
 
+A host that takes a web-standard handler serves the same server without the command:
+
+```js
+import { createApp } from '@missing-elements/h5p-mcp/app'
+
+const app = await createApp()
+export default { fetch: (request) => app.fetch(request) }
+```
+
+`createApp({ site, libraries, references, card, version })` takes the origin whose play page the
+card frames, and a pack's `parts/` folder. A bundle has no package folder beside its code, so it
+names what it carries: `references`, the author package's `references/` folder, `card`, the text
+of this package's `lib/card.html`, and `version`.
+
 ## Licence
 
 MIT. The H5P libraries a package carries are under their own licences, listed in it.

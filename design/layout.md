@@ -36,7 +36,8 @@ packages/author/       a playable .h5p from a short source: lib/build.mjs both b
                        scripts/ the skill's sync and copy, and build-tool.mjs the command line
                        as one file (dist/)
 packages/mcp/          the local MCP server: bin/h5p-mcp.mjs the command, lib/server.mjs its four
-                       tools, lib/folders.mjs the folders it may use
+                       tools, lib/folders.mjs the folders it may use; and the app server:
+                       bin/h5p-mcp-app.mjs, lib/app.mjs the handler, lib/card.html its card
 packages/cmi5/         the element as a cmi5 AU: src/index.ts startCmi5, src/client.ts the protocol
 packages/embed/        site/ the embed page and the SCORM page; lib/build.mjs the site,
                        lib/scorm*.mjs the SCORM zip in Node and in a page; scorm/ its launch page
@@ -47,6 +48,8 @@ apps/demo/             the dev server and the hosted site: index.html the player
                        partials/ the shared markup, scripts/ the builds and the sweep, sweep/ its files
 apps/skills/           the skills' test project: author-verify, author-playback, to-scorm,
                        front-matter
+apps/mcp-worker/       the app server as a Cloudflare Worker: src/worker.mjs, wrangler.jsonc its
+                       config, scripts/stage.mjs what it carries, gathered into staged/
 skills/                the agent skills, at the root, where `npx skills add` looks
 docs/                  the README's longer sections, for integrators
 scripts/               published.mjs, the check before a package is published that npm serves the

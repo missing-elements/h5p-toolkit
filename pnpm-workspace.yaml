@@ -12,9 +12,13 @@ onlyBuiltDependencies:
   - '@vscode/vsce-sign'
   - esbuild
 
-# Named so the install says nothing about it: its only script is the yarn guard above.
+# Named so the install says nothing about them. h5p-standalone's only script is the yarn guard
+# above. workerd, the Workers runtime wrangler starts for the app server's Worker
+# (apps/mcp-worker), only checks its binary in its script: the binary comes as this platform's
+# optional dependency, and the Worker's test starts it without the script having run.
 ignoredBuiltDependencies:
   - h5p-standalone
+  - workerd
 
 # @vscode/vsce reaches @azure/msal-node through @azure/identity, whose range, ^6, has no release
 # that fixes GHSA-xcx6-jx8p-x3h5 (high, Dependabot alert #3, opened when the VS Code extension

@@ -40,7 +40,7 @@ by assumption, and asks a page for what only a page can do through the frame:
 
 ## Where things are, and whose rules
 
-A pnpm workspace of ten packages and two apps. [`design/layout.md`](design/layout.md) maps the
+A pnpm workspace of ten packages and three apps. [`design/layout.md`](design/layout.md) maps the
 folders; in `design/`, `src/…` and `scripts/…` mean the player's unless a file says otherwise.
 
 | Part | What it is | Rules |
@@ -51,7 +51,7 @@ folders; in `design/`, `src/…` and `scripts/…` mean the player's unless a fi
 | `packages/normalize/` | rewrites a package so it streams | [normalize](design/normalize.md) |
 | `packages/verify/` | plays a package headless and reports | [verify](design/verify.md) |
 | `packages/author/`, `skills/h5p-author/` | a playable package of any content type from a short source, and a package back to one | [author](design/author.md) |
-| `packages/mcp/` | the local MCP server: builds, reads, checks and previews in an app with no shell; and the app server, which plays an activity in a chat app's reply | [mcp](design/mcp.md) |
+| `packages/mcp/`, `apps/mcp-worker/` | the local MCP server: builds, reads, checks and previews in an app with no shell; and the app server, which plays an activity in a chat app's reply, with the Cloudflare Worker that hosts it | [mcp](design/mcp.md) |
 | `packages/cmi5/` | the element as a cmi5 assignable unit | [cmi5](design/cmi5.md) |
 | `packages/embed/`, `skills/h5p-to-scorm/` | the embed site for a player domain, and a package as a SCORM zip | [embed](design/embed.md), [scorm](design/scorm.md) |
 | `packages/vscode/` | H5P Preview, the VS Code extension | [vscode](design/vscode.md) |

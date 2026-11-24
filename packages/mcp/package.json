@@ -21,6 +21,7 @@
     "h5p-mcp-app": "./bin/h5p-mcp-app.mjs"
   },
   "exports": {
+    "./app": "./lib/app.mjs",
     "./package.json": "./package.json"
   },
   "files": [
