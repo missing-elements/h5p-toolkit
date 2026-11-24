@@ -29,7 +29,7 @@ Please report suspected vulnerabilities privately. Do **not** open a public
 GitHub issue or Discussion, and do not include a proof of concept in a public
 pull request.
 
-Email [alekswebnet@gmail.com](mailto:alekswebnet@gmail.com) with the subject
+Email [alekswebnet@proton.me](mailto:alekswebnet@proton.me) with the subject
 line `Security report: h5p-offline-player`. Include:
 
 - the affected package, version, and browser or Node.js version;
