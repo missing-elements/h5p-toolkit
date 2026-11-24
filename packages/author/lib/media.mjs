@@ -196,8 +196,9 @@ const IDLE_MS = 60_000
  *   file's length, and its bytes read from an offset, fewer at its end; `linked`, the web address
  *   a file the source names stays at and is played from, where it has one (#263); `unread`, for
  *   a check of a source whose files are elsewhere (#270): none is looked for, none downloaded and
- *   no host asked; one named by a path is judged by its name alone and listed, and one named by
- *   a web address is left as written
+ *   no host asked; one named by a path is judged by its name alone, a problem where its field
+ *   takes no such type and listed where it does, and one named by a web address is left as
+ *   written
  */
 
 /**

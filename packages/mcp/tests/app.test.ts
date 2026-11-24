@@ -193,6 +193,8 @@ describe('the app server', () => {
     // An attachment the source does not name is said, so the model names it.
     const unused = await call('h5p_play', { source: QUIZ, file: { download_url: fileAddress, file_id: 'file_abc' } })
     expect(textOf(unused)).toContain('the source names no file, so it is not used')
+    expect(unused.structuredContent).toEqual({ files: 0 })
+    expect(unused._meta?.['h5p/file']).toBeUndefined()
     expect(asked).toBe(1)
     // A file of a type the field does not take is a problem of the source's, by its name alone.
     const wrong = await call('h5p_play', { source: { ...VIDEO, params: { interactiveVideo: { video: { files: [{ path: 'notes.txt' }] } } } } })

@@ -129,14 +129,16 @@ export async function createApp(options = {}) {
         // Not a problem of the source's, and its words may be of this computer: none are passed on.
         return refusal('The check could not be run, through no fault of the source. Call h5p_play again in a moment.')
       }
-      const given = attached(file)
       const files = result.unread
+      const came = attached(file)
+      // An attachment goes to the card only for a source that names a file: one it does not name is not used.
+      const given = files.length ? came : null
       const lines = [`The activity is checked and plays in the card: ${result.manifest.mainLibrary}, ${result.libraries.length} libraries. It is built in the person's browser; nothing was stored.`]
       if (files.length) {
         lines.push(given
           ? `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here: the card gets the attachment in the person's browser${files.length === 1 ? '' : ', and asks the person for any other'}.`
           : `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here, and no attachment came with the call: the card asks the person to choose ${files.length === 1 ? 'it' : 'them'}. Where the person attached ${files.length === 1 ? 'it' : 'one'} in the chat, call h5p_play again with the attachment in file.`)
-      } else if (given) {
+      } else if (came) {
         lines.push('An attachment came with the call, and the source names no file, so it is not used: name it in the source, as the type\'s notes say, to use it.')
       }
       lines.push(...heldLines(result))
