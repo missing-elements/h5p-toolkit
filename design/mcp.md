@@ -3,10 +3,12 @@
 `packages/mcp` is `@missing-elements/h5p-mcp`, shown as **H5P Author MCP by Missing Elements**: a
 local MCP server over standard input and output that builds a package onto the person's disk,
 checks it, and opens it in their browser, or reads one back to change it. It is for apps with no
-shell, Claude Desktop first; in an app with a shell, the skill and `npx` build already. A remote
-server, for ChatGPT or Claude on the web, is #210 and not this.
+shell, Claude Desktop first; in an app with a shell, the skill and `npx` build already. The
+package's second command, `h5p-mcp-app`, is the server for a chat app on the web: *The app server*,
+below.
 
-- **It holds no rules of its own.** The build, the read, their checks, the outline and the
+- **It holds no rules of its own.** What both servers say alike, the content types, a source's
+  fields, a build's notes and outline, is `lib/answers.mjs`. The build, the read, their checks, the outline and the
   confinement to folders (`buildPackage`, `readPackage`, `within`, `publicFetch`, `inside`) are
   h5p-author's; the check, the preview and opening the browser (`verifyPackage`, `summarize`,
   `previewPackage`, `openBrowser`) are h5p-verify's. A rule a tool needs goes into those packages
@@ -75,3 +77,57 @@ server, for ChatGPT or Claude on the web, is #210 and not this.
   the skill's type files into the author package, as the author's `prepack` does.
 
 Not built yet: the MCP registry's `server.json` and Claude Desktop's one-click bundle.
+
+## The app server
+
+`h5p-mcp-app` (`lib/app.mjs`, #210, #270) is an MCP server over HTTP for a chat app that shows a
+card in its reply, ChatGPT first: the person asks for an activity, the reply plays it, and its
+`.h5p` is saved from there. `createApp()` is a web-standard handler, `fetch(request)`, so a host
+that runs Node, or one that takes such a handler, serves it; the command is that handler on a
+port. Its endpoint is `/mcp`.
+
+- **No server of ours processes a person's file** (the owner's rule, 2026-11-24, and a goal of the
+  whole toolkit). The chat sends the tool a reference to an attached file, an address and an id,
+  never its bytes. The server never asks that address: it hands the reference back to the card in
+  the result's `_meta`, which the model does not see, and only the person's browser asks it. What
+  the server cannot avoid is receiving the call, with the activity's source in it; it checks the
+  source and keeps nothing. Each request gets a fresh server and no session; nothing of a request
+  is stored and nothing is logged, not its body, not its address, not how it was answered, and no
+  error of the protocol's, which may quote what was sent. `app.test.ts` holds it to this: a file
+  store that counts is never asked, and all the command ever writes is where it listens.
+- **Two tools, in the local server's words.** `h5p_types` answers from `answers.mjs` as the local
+  one does, without the lines on folders, which it has none of. `h5p_play` takes a source and
+  checks it with the author package's check that reads no file (`check` with `unread`), since a
+  source's files are in the chat's store: it answers with the problems by their paths, or with
+  the type, the files not checked, the notes and the outline, as `h5p_build` does, so a chat that
+  changed an activity reads back what it holds (#268). The instructions say to pass an attachment
+  as it is and not to open it: a reply that began with the chat's own analysis of the file drew
+  no card, twice, and without it the card came (ChatGPT, 2026-11-23 and 11-24; one cause is not
+  proven).
+- **The file input is ChatGPT's, to the letter, and not held to.** `file` is named in
+  `openai/fileParams` and its schema is the reference's: `download_url` and `file_id` required,
+  `mime_type` and `file_name`, nothing else. It is shown and not enforced, as `source` is: a
+  model that writes the file's name there is answered that no attachment came, where a schema
+  would refuse the call unread. A reference is passed on only where its address is https.
+- **The card is the play page's way to the chat, and holds nothing of the activity.**
+  `lib/card.html` frames `/h5p/play/` of the org site with the source in its fragment; the page
+  builds and plays in the person's browser, and its rules are that site's. The card gives it
+  what only the chat has, by the page's messages: the attached file's address (a new one by its
+  id, `getFileDownloadUrl`) and what it weighs, its bytes where the page needs them, the chat's
+  theme, a save (`ui/download-file`), and an open tab for a link of the site's and no other
+  (`openExternal`). It sends nothing to the server it came from and calls no tool. Its policy
+  names the one site it frames and the chat's file store. A chat keeps a card by its address, so
+  the address carries the card's hash.
+- **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
+  saves no file and opens no tab on a press; the chat saves a file handed to it of 8 MB and
+  refuses one of 16 MB, downloads from no address, and takes no package into its own files; its
+  file store answers any site (all 2026-11-24). So the card says it saves up to 8 MB, and a
+  bigger package is saved by a tab of the play page, which the page asks the card to open. The
+  card's script is one function: a chat puts names of its own on the card's window.
+- **Tested as a host runs it.** `tests/app.test.ts` starts the command on a free port and asks it
+  over HTTP with the SDK's own client: the two tools and their words, the file input's schema,
+  the card and its policy, a source checked, one refused, an attachment handed to the card alone,
+  a call whose file is no reference, a body over 1 MB, and that nothing was written. The card in
+  a chat's frame is checked by hand, in ChatGPT and in a page that stands in for one.
+
+Not built yet: where the server is hosted, the app's privacy policy and its listing (#210).

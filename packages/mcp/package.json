@@ -17,7 +17,8 @@
   },
   "type": "module",
   "bin": {
-    "h5p-mcp": "./bin/h5p-mcp.mjs"
+    "h5p-mcp": "./bin/h5p-mcp.mjs",
+    "h5p-mcp-app": "./bin/h5p-mcp-app.mjs"
   },
   "exports": {
     "./package.json": "./package.json"

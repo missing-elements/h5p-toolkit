@@ -400,3 +400,62 @@ describe('outline', () => {
     }
   })
 })
+
+describe('a check that reads no file (#270)', () => {
+  const video = (path: string, more: Record<string, unknown> = {}) => ({
+    ...META,
+    type: 'H5P.InteractiveVideo',
+    params: { interactiveVideo: {
+      video: { files: [{ path }] },
+      assets: { interactions: [{ duration: { from: 2.5, to: 66 }, label: 'Where does it go?', action: { library: 'H5P.Text', params: { text: 'To the sea.' } } }] },
+      ...more
+    } }
+  })
+  /** A `fetch` that counts what it is asked, and answers nothing. */
+  const counting = () => {
+    const asked: string[] = []
+    const fetch = (async (input: RequestInfo | URL) => { asked.push(String(input)); throw new Error('asked') }) as typeof globalThis.fetch
+    return { asked, fetch }
+  }
+
+  it('checks a source whose files are elsewhere, and names them', async () => {
+    const { asked, fetch } = counting()
+    // No such file anywhere, and a folder that would refuse it: neither is looked at.
+    const result = await buildPackage(video('holiday.mp4'), undefined, { check: true, unread: true, base: outside, within: [allowed], fetch })
+    expect(result.unread).toEqual(['holiday.mp4'])
+    expect(result.media).toEqual([])
+    expect(result.outline).toBe('Video: holiday.mp4\n  0:02.5–1:06 Label: Where does it go?\n  To the sea.')
+    expect(asked).toEqual([])
+  })
+
+  it('names a file once, a picture among them, and asks no address', async () => {
+    const { asked, fetch } = counting()
+    const result = await buildPackage({
+      ...META,
+      type: 'H5P.Column',
+      params: { content: [
+        { content: { library: 'H5P.Image', params: { file: { path: 'site.png' }, alt: 'The site' } } },
+        { content: { library: 'H5P.Image', params: { file: { path: 'site.png' }, alt: 'The site again' } } },
+        { content: { library: 'H5P.Image', params: { file: { path: 'https://example.com/river.png' }, alt: 'A river' } } },
+        { content: { library: 'H5P.Video', params: { sources: [{ path: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }] } } }
+      ] }
+    }, undefined, { check: true, unread: true, fetch })
+    expect(result.unread).toEqual(['site.png'])
+    expect(asked).toEqual([])
+  })
+
+  it('refuses a file by its name where the field takes no such type, and the rest of the source as any check does', async () => {
+    const wrong = await buildPackage(video('notes.txt'), undefined, { check: true, unread: true }).catch((error) => error)
+    expect(wrong).toBeInstanceOf(SourceError)
+    expect(wrong.problems).toEqual([{ path: 'params.interactiveVideo.video.files[0].path', message: 'notes.txt: this field takes .mp4, .webm, .ogg' }])
+    const untitled = await buildPackage({ ...video('holiday.mp4'), title: undefined }, undefined, { check: true, unread: true }).catch((error) => error)
+    expect(untitled.problems.map(({ path }: { path: string }) => path)).toEqual(['title'])
+  })
+
+  it('goes with a check only, and a check without it still reads its files', async () => {
+    await expect(buildPackage(video('holiday.mp4'), join(allowed, 'unread.h5p'), { unread: true })).rejects.toThrow(/unread goes with a check/)
+    const read = await buildPackage(video('clip.mp4'), undefined, { check: true, base: allowed })
+    expect(read.unread).toEqual([])
+    expect(read.media).toEqual(['videos/clip.mp4'])
+  })
+})

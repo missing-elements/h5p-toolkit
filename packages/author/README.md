@@ -229,16 +229,19 @@ Set's 2.6 MB, a container's up to 8.4 MB. `--all <folder>` writes one per conten
 ```js
 import { buildPackage, schemaOf, SourceError } from '@missing-elements/h5p-author'
 
-const { output, source: built, builtWith, manifest, content, libraries, install, coreApi, translations, notes, media, outline } =
+const { output, source: built, builtWith, manifest, content, libraries, install, coreApi, translations, notes, media, unread, outline } =
   await buildPackage(source, 'rivers.h5p', { base: process.cwd() })
 ```
 
-`buildPackage(source, output, { libraries, base, fetch, within, check })` refuses an existing output,
+`buildPackage(source, output, { libraries, base, fetch, within, check, unread })` refuses an existing output,
 and throws a `SourceError` whose `problems` are `{ path, message }`; with `check` it builds and
 writes no package and takes no output (`buildPackage(source, undefined, { check: true })`), though a
 media file named by web address is still downloaded, to a temporary folder removed after; a video on
 YouTube, Vimeo, Panopto or Echo360 stays an address, as in a build, a YouTube or Vimeo one asked
-of the site with the same `fetch`. For a build run
+of the site with the same `fetch`. With `unread` beside `check`, for a source whose files are
+elsewhere, as an attachment in a chat is, no file is looked for, none downloaded and no site asked:
+a file named by a path is judged by its name alone, and the result's `unread` lists those names.
+For a build run
 on what a model wrote: `within` is a list of the folders the output and every local file the source
 names must be inside, on their real paths, and its problems then name no path but the one the
 source wrote. It does not cover a file named by web address, which is downloaded with the `fetch`

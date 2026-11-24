@@ -137,6 +137,12 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   - `check` (`build --check`) runs a build's checks, `checkContent` being `composePackage`'s, and
     writes no package; a media file named by web address is still downloaded, to a temporary
     folder removed after, and a video on the four hosts stays an address.
+  - `unread`, with `check`, checks a source whose files are elsewhere (#270): the app server's
+    `h5p_play` gets a source and never the file a person attached in the chat, which only their
+    browser reads. No file is looked for, none downloaded and no site asked; a file named by a
+    path is judged by its name, which must be of a type its field takes, and listed in the
+    result's `unread`; one named by a web address is left as written. A picture then has no size
+    and a video no length, so what a build says of those is not said.
   - `publicFetch`, passed as `fetch`, refuses every network that is not the public internet on
     every hop, through `net.BlockList`, which matches an IPv4 address however IPv6 writes it
     (`[::ffff:7f00:1]` is loopback). The local IPv4 ranges are refused behind NAT64 and 6to4 too,

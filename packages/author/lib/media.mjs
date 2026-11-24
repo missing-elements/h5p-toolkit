@@ -188,12 +188,15 @@ const IDLE_MS = 60_000
  *   local(source: string): Promise<{ file: F } | { missing: string }>,
  *   keep(body: ReadableStream<Uint8Array>, extension: string): Promise<F>,
  *   open(file: F): Promise<{ size: number, read(offset: number, length: number): Promise<Uint8Array>, close(): Promise<void> }>,
- *   linked?(source: string): string | undefined
+ *   linked?(source: string): string | undefined,
+ *   unread?: boolean
  * }} MediaAccess
  *   `what`, what a source's path names, for problems; `name`, the file's own name it names;
  *   `local`, that file, or why there is none; `keep`, a download's bytes kept; `open`, a kept
  *   file's length, and its bytes read from an offset, fewer at its end; `linked`, the web address
- *   a file the source names stays at and is played from, where it has one (#263)
+ *   a file the source names stays at and is played from, where it has one (#263); `unread`, for
+ *   a check of a source whose files are elsewhere (#270): none is looked for, none downloaded and
+ *   no host asked, and each is judged by its name alone
  */
 
 /**
@@ -319,6 +322,8 @@ export class MediaStore {
     this.unanswered = new Set()
     /** @type {string[]} the files left at an address and played from there, as the source names them (#263) */
     this.linked = []
+    /** @type {string[]} the files not looked at, as the source names them, where none is read (#270) */
+    this.unread = []
   }
 
   /**
@@ -350,7 +355,7 @@ export class MediaStore {
       const address = short ? `https://www.youtube.com/watch?v=${short[1]}` : source
       const hosted = HOSTED.find(({ plays }) => plays.test(address))
       if (hosted) {
-        await this.#there(hosted, address, source, `${at}.path`, report, note)
+        if (!this.access.unread) await this.#there(hosted, address, source, `${at}.path`, report, note)
         return { path: address, mime: hosted.mime, copyright }
       }
       const url = URL.canParse(address) ? new URL(address) : null
@@ -365,6 +370,7 @@ export class MediaStore {
       return { path: source, copyright }
     }
     const types = /** @type {Record<string, string>} */ (TYPES[kind])
+    if (this.access.unread) return { ...this.#unread(source, web, types, at, report), copyright }
     const address = web ? undefined : this.access.linked?.(source)
     if (address !== undefined) return { ...this.#linked(kind, source, address, types, at, report), copyright }
     const key = `${kind} ${source}`
@@ -491,6 +497,30 @@ export class MediaStore {
       return null
     }
     return { from: found.file, extension, stem: name.slice(0, name.length - extension.length - 1) }
+  }
+
+  /**
+   * A file that is not looked at (#270): a check of a source whose files are elsewhere, as an
+   * attachment in a chat is, which only the person's browser reads. One named by a path is judged
+   * by its name, which must be of a type the field takes, and listed in `unread`; one named by a
+   * web address is left as written, since its type is what its host says it is. Nothing of
+   * either is read, so a picture has no size and a video no length.
+   * @param {string} source
+   * @param {boolean} web
+   * @param {Record<string, string>} types
+   * @param {string} at
+   * @param {(path: string, message: string) => void} report
+   * @returns {{ path: string, mime?: string }}
+   */
+  #unread(source, web, types, at, report) {
+    if (web) return { path: source }
+    const extension = extensionOf(this.access.name(source))
+    if (!Object.hasOwn(types, extension)) {
+      report(`${at}.path`, `${source}: this field takes ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
+      return { path: source }
+    }
+    if (!this.unread.includes(source)) this.unread.push(source)
+    return { path: source, mime: types[extension] }
   }
 
   /**
