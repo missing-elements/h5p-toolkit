@@ -88,13 +88,17 @@ port. Its endpoint is `/mcp`.
 
 - **No server of ours processes a person's file** (the owner's rule, 2026-11-24, and a goal of the
   whole toolkit). The chat sends the tool a reference to an attached file, an address and an id,
-  never its bytes. The server never asks that address: it hands the reference back to the card in
-  the result's `_meta`, which the model does not see, and only the person's browser asks it. What
+  never its bytes. The server never asks that address and never passes it on: it hands the id to
+  the card, which asks the chat for the file's address (`getFileDownloadUrl`), and only the
+  person's browser fetches from it. So an address that came in a call, which a model can be made
+  to write, is one nobody fetches: the card fetches what the chat itself gives for a file of the
+  person's. What
   the server cannot avoid is receiving the call, with the activity's source in it; it checks the
   source and keeps nothing. Each request gets a fresh server and no session; nothing of a request
   is stored and nothing is logged, not its body, not its address, not how it was answered, and no
   error of the protocol's, which may quote what was sent. `app.test.ts` holds it to this: a file
-  store that counts is never asked, and all the command ever writes is where it listens.
+  store that counts every connection gets none, an answer carries the address nowhere, and all
+  the command ever writes is where it listens.
 - **Two tools, in the local server's words.** `h5p_types` answers from `answers.mjs` as the local
   one does, without the lines on folders, which it has none of. `h5p_play` takes a source and
   checks it with the author package's check that reads no file (`check` with `unread`), since a
@@ -108,14 +112,15 @@ port. Its endpoint is `/mcp`.
   `openai/fileParams` and its schema is the reference's: `download_url` and `file_id` required,
   `mime_type` and `file_name`, nothing else. It is shown and not enforced, as `source` is: a
   model that writes the file's name there is answered that no attachment came, where a schema
-  would refuse the call unread. A reference is passed on only where its address is https.
+  would refuse the call unread. One file is taken: a source that names several gets the
+  attachment under its own name, and the page asks the person for the rest.
 - **The card is the play page's way to the chat, and holds nothing of the activity.**
   `lib/card.html` frames `/h5p/play/` of the org site with the source in its fragment; the page
   builds and plays in the person's browser, and its rules are that site's. The card gives it
-  what only the chat has, by the page's messages: the attached file's address (a new one by its
-  id, `getFileDownloadUrl`) and what it weighs, its bytes where the page needs them, the chat's
-  theme, a save (`ui/download-file`), and an open tab for a link of the site's and no other
-  (`openExternal`). It sends nothing to the server it came from and calls no tool. Its policy
+  what only the chat has, by the page's messages: the attached file's address, asked of the chat
+  by the file's id, and what it weighs, its bytes where the page needs them or that they did not
+  come, the chat's theme, a save (`ui/download-file`), and an open tab for a link of the site's
+  and no other (`openExternal`). It sends nothing to the server it came from and calls no tool. Its policy
   names the one site it frames and the chat's file store. A chat keeps a card by its address, so
   the address carries the card's hash.
 - **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
@@ -127,7 +132,8 @@ port. Its endpoint is `/mcp`.
 - **Tested as a host runs it.** `tests/app.test.ts` starts the command on a free port and asks it
   over HTTP with the SDK's own client: the two tools and their words, the file input's schema,
   the card and its policy, a source checked, one refused, an attachment handed to the card alone,
-  a call whose file is no reference, a body over 1 MB, and that nothing was written. The card in
-  a chat's frame is checked by hand, in ChatGPT and in a page that stands in for one.
+  a call whose file is no reference, a body over 1 MB, and that nothing was written. The card is
+  checked by hand in a page that stands in for a chat, its frame sandboxed as ChatGPT's was found
+  to be; in ChatGPT itself ran the probe's card, which this one is without its test parts.
 
 Not built yet: where the server is hosted, the app's privacy policy and its listing (#210).

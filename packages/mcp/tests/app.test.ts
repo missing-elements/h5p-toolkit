@@ -1,6 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import { createServer, type AddressInfo, type Server } from 'node:net'
 import { resolve } from 'node:path'
 import { Client } from '@modelcontextprotocol/client'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
@@ -35,7 +34,10 @@ let command: ChildProcess
 let written = ''
 let address: string
 let client: Client
-/** A store of a chat's files, which the server must never ask: it counts what it is asked. */
+/**
+ * A store of a chat's files, which the server must never ask. It counts every connection made to
+ * it, whatever is said on one: an address of https is asked by a connection first.
+ */
 let store: Server
 let asked = 0
 let fileAddress: string
@@ -44,9 +46,9 @@ const call = async (name: string, args: Record<string, unknown> = {}) => (await 
 const textOf = (answer: Answer) => answer.content.filter((part) => part.type === 'text').map((part) => part.text).join('\n')
 
 beforeAll(async () => {
-  store = createServer((_request, response) => { asked++; response.end('never') }).listen(0, '127.0.0.1')
+  store = createServer((socket) => { asked++; socket.destroy() }).listen(0, '127.0.0.1')
   await new Promise((done) => store.once('listening', done))
-  // An address as a chat gives one: https, with a key in it. Nothing listens there for https, and nothing should ask.
+  // An address as a chat gives one: https, with a key in it.
   fileAddress = `https://127.0.0.1:${(store.address() as AddressInfo).port}/files/abc?sig=KEY-TO-THE-FILE`
   command = spawn(process.execPath, [COMMAND, '--port', '0'], { stdio: ['ignore', 'pipe', 'pipe'] })
   address = await new Promise<string>((found, failed) => {
@@ -154,17 +156,20 @@ describe('the app server', () => {
     expect(textOf(draw)).toMatch(/What it holds:\nShows 1 of the 2 questions each time/)
   })
 
-  it('hands an attached file\'s reference to the card alone, and never asks for the file', async () => {
+  it('hands an attached file\'s id to the card, and neither asks its address nor passes it on', async () => {
+    // The store does count whoever asks that address: this test's own asking, here.
+    await fetch(fileAddress).catch(() => {})
+    expect(asked).toBe(1)
     const before = asked
     const played = await call('h5p_play', { source: VIDEO, file: { download_url: fileAddress, file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' } })
     expect(played.isError).toBeFalsy()
     // The source is checked without its file, which is named.
     expect(textOf(played)).toContain('Its file, IMG_0042.mp4, is not checked here: the card gets the attachment in the person\'s browser.')
     expect(textOf(played)).toContain('What it holds:\nVideo: IMG_0042.mp4')
-    // The reference goes back as it came, in the part of the answer the model does not see.
-    expect(played._meta?.['h5p/file']).toEqual({ download_url: fileAddress, file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' })
-    expect(textOf(played) + JSON.stringify(played.structuredContent)).not.toContain('KEY-TO-THE-FILE')
+    // The id goes to the card, with the name and the type; the address goes nowhere.
+    expect(played._meta?.['h5p/file']).toEqual({ file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' })
     expect(played.structuredContent).toEqual({ files: 1, fileId: 'file_abc', fileName: 'IMG_0042.mp4' })
+    expect(JSON.stringify(played)).not.toMatch(/KEY-TO-THE-FILE|127\.0\.0\.1/)
     expect(asked).toBe(before)
   })
 
@@ -174,15 +179,21 @@ describe('the app server', () => {
     expect(named.isError).toBeFalsy()
     expect(textOf(named)).toContain('no attachment came with the call')
     expect(named._meta?.['h5p/file']).toBeUndefined()
-    // An address that is not https, or not an address, is no reference.
-    for (const address of ['http://files.example/abc', 'file:///etc/passwd', 'not an address']) {
-      const other = await call('h5p_play', { source: VIDEO, file: { download_url: address, file_id: 'file_abc' } })
+    // A reference with no id is none: an address alone is passed to nobody.
+    for (const file of [{ download_url: fileAddress }, { download_url: fileAddress, file_id: '' }, { download_url: fileAddress, file_id: 7 }]) {
+      const other = await call('h5p_play', { source: VIDEO, file })
       expect(other._meta?.['h5p/file']).toBeUndefined()
       expect(textOf(other)).toContain('no attachment came with the call')
+      expect(JSON.stringify(other)).not.toContain('KEY-TO-THE-FILE')
     }
+    // Whatever address comes with an id, it is the id that is handed on.
+    const made = await call('h5p_play', { source: VIDEO, file: { download_url: 'https://attacker.example/any.mp4', file_id: 'file_abc' } })
+    expect(made._meta?.['h5p/file']).toEqual({ file_id: 'file_abc' })
+    expect(JSON.stringify(made)).not.toContain('attacker.example')
     // An attachment the source does not name is said, so the model names it.
     const unused = await call('h5p_play', { source: QUIZ, file: { download_url: fileAddress, file_id: 'file_abc' } })
     expect(textOf(unused)).toContain('the source names no file, so it is not used')
+    expect(asked).toBe(1)
     // A file of a type the field does not take is a problem of the source's, by its name alone.
     const wrong = await call('h5p_play', { source: { ...VIDEO, params: { interactiveVideo: { video: { files: [{ path: 'notes.txt' }] } } } } })
     expect(wrong.isError).toBe(true)

@@ -13,8 +13,9 @@ import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } fro
  *
  * It keeps nothing. Each request gets a fresh server, answers, and is gone; nothing of a request
  * is stored and nothing of it is logged. A file the person attached in the chat never comes here:
- * the chat sends its reference (an address and an id), which is handed back to the card in the
- * part of the answer the model does not see, and only the person's browser asks that address.
+ * the chat sends its reference, an address and an id. The address is never asked and never
+ * passed on. The id is handed to the card, which asks the chat itself for the file's address,
+ * from the person's browser: an address the chat did not give is one nobody fetches.
  *
  * @typedef {object} AppOptions
  * @property {string} [site] the origin of the site whose play page the card frames; `https://missing-elements.github.io` by default
@@ -54,16 +55,18 @@ const FILE = {
 const FILE_HOSTS = ['https://*.blob.core.windows.net', 'https://files.oaiusercontent.com', 'https://*.oaiusercontent.com']
 
 /**
- * The chat's reference to an attached file, as far as it is one: an http(s) address, and what
- * came with it. Text in its place is none.
+ * What of the chat's reference to an attached file goes to the card: its id, and its name and
+ * type where they came. Not its address, which lets whoever has it read the file, and which a
+ * call could carry a made-up one of: the card asks the chat for the address by the id. Text in
+ * the reference's place, or one with no id, is none.
  * @param {unknown} file
  */
 function attached(file) {
   if (!file || typeof file !== 'object') return null
-  const { download_url: address, file_id: id, mime_type: type, file_name: name } = /** @type {Record<string, unknown>} */ (file)
-  if (typeof address !== 'string' || !/^https:\/\//i.test(address) || !URL.canParse(address)) return null
-  const text = (/** @type {unknown} */ value) => (typeof value === 'string' && value.length <= 512 ? value : undefined)
-  return { download_url: address, file_id: text(id), mime_type: text(type), file_name: text(name) }
+  const { file_id: id, mime_type: type, file_name: name } = /** @type {Record<string, unknown>} */ (file)
+  const text = (/** @type {unknown} */ value) => (typeof value === 'string' && value.trim() && value.length <= 512 ? value : undefined)
+  const fileId = text(id)
+  return fileId ? { file_id: fileId, mime_type: text(type), file_name: text(name) } : null
 }
 
 /**
@@ -139,8 +142,8 @@ export async function createApp(options = {}) {
       lines.push(...heldLines(result))
       return {
         ...answer(lines.join('\n')),
-        structuredContent: { files: files.length, ...(given?.file_id ? { fileId: given.file_id } : {}), ...(given?.file_name ? { fileName: given.file_name } : {}) },
-        // To the card alone, which the model does not see: the attachment's address is a key to the file.
+        structuredContent: { files: files.length, ...(given ? { fileId: given.file_id } : {}), ...(given?.file_name ? { fileName: given.file_name } : {}) },
+        // For the card, as a chat hands a card either part of an answer.
         ...(given ? { _meta: { 'h5p/file': given } } : {})
       }
     })

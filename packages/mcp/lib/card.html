@@ -118,24 +118,24 @@ function reveal() {
   sizeToContent()
 }
 
-// The file the person attached, as the server was given it and handed it back in the part of the
-// tool's result the model does not see: its id, its name, and its address in the chat's store.
+// The file the person attached, as the server handed it on in the tool's result: its id in the
+// chat's store, and its name and type. Never its address: the card asks the chat for that.
 let attached = null
 function fromResult(meta, output) {
   if (attached) return
   const file = meta?.['h5p/file']
-  if (file && typeof file === 'object' && (file.file_id || file.download_url)) attached = { id: file.file_id, name: file.file_name, link: file.download_url, mime: file.mime_type }
-  else if (output?.fileId) attached = { id: output.fileId, name: output.fileName }
+  if (file && typeof file === 'object' && typeof file.file_id === 'string') attached = { id: file.file_id, name: file.file_name, mime: file.mime_type }
+  else if (typeof output?.fileId === 'string') attached = { id: output.fileId, name: output.fileName }
   if (attached) void answer()
 }
-// An address of the file that is good now: a new one by its id, or the one the tool was given.
+// An address of the file that is good now, asked of the chat by the file's id: no address comes
+// from anywhere else, so none is fetched that the chat did not give for a file of the person's.
 async function linkNow() {
   try {
-    const fresh = attached.id && await openai()?.getFileDownloadUrl?.({ fileId: attached.id })
+    const fresh = await openai()?.getFileDownloadUrl?.({ fileId: attached.id })
     const href = typeof fresh === 'string' ? fresh : fresh?.downloadUrl ?? fresh?.url
-    if (href) return href
-  } catch { /* the address the tool was given, then */ }
-  return attached.link ?? null
+    return typeof href === 'string' && /^https?:\/\//i.test(href) ? href : null
+  } catch { return null }
 }
 const plays = (name) => /\.(mp4|webm|ogv|mov|mp3|m4a|wav|ogg|oga)$/i.test(name)
 
@@ -145,8 +145,11 @@ let needed = null
 let answered = false
 async function answer() {
   if (answered || !attached || !needed?.length) return
+  // One file needed is the attachment, whatever each is called. Of several, it is the one of its
+  // own name, where it has one; the page asks the person for the rest, and for it where it has none.
+  const name = needed.length === 1 ? needed[0] : attached.name
+  if (typeof name !== 'string' || !name) return
   answered = true
-  const name = needed.length === 1 ? needed[0] : attached.name ?? needed[0]
   if (!plays(name)) return void bring(name)
   const href = await linkNow()
   if (!href) { answered = false; return }
@@ -194,6 +197,8 @@ async function bring(name, again = false) {
   } catch {
     // Once more with a new address: the first may have run out. Not where the fetch was given up.
     if (!again && !stop?.signal.aborted) return bring(name, true)
+    // It did not come: the page is told, so that it asks the person in place of waiting on.
+    if (!stop?.signal.aborted) toPage({ type: 'failed', name })
   }
   bringing = false
 }

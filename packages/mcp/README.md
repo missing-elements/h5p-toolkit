@@ -81,10 +81,12 @@ the person's browser and plays it there.
 
 What the server receives, and what it keeps:
 
-- It receives each tool call, with the activity's source in it, and checks the source.
+- A call of `h5p_play` brings it the activity's source, which it checks. A call of `h5p_types`
+  brings it the name of a content type, or nothing.
 - It never receives a file. For a file attached in the chat, the chat sends a reference, an
-  address and an id; the server does not ask that address, and hands the reference to the card,
-  where the person's browser fetches the file from the chat's own store.
+  address and an id. The server does not ask that address and does not pass it on: it hands the
+  id to the card, which asks the chat for the file's address, and the person's browser fetches
+  the file from the chat's own store.
 - It stores nothing and logs nothing of a request. Whoever hosts it may log requests on their own
   side: that is the host's to say.
 - A package up to about 8 MB is saved through the chat. A bigger one, with a video in it, is saved
