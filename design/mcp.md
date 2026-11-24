@@ -138,9 +138,11 @@ command is that handler on a port. Its endpoint is `/mcp`.
 
 - **It is hosted as a Cloudflare Worker, at an address of ours** (`apps/mcp-worker`, #272):
   `mcp.embed-my.org`, one line of its config, since the domain's zone is on the same account.
-  The free plan gives 100,000 requests a day and bills nothing. The limit is the account's: over
-  it, every Worker of the account answers an error until midnight UTC, and nothing on another
-  host is touched, the demo and the organisation's site among them. A function of the demo's Vercel project
+  The free plan gives 100,000 requests a day and bills nothing. The limit is the account's, until
+  midnight UTC: over it, a route set to fail closed answers Cloudflare's error 1027, and one set
+  to fail open passes its requests on as if there were no Worker. This Worker is a Custom
+  Domain, with no origin behind it, so either way a call gets no answer from the server. Nothing
+  on another host is touched, the demo and the organisation's site among them. A function of the demo's Vercel project
   was built and dropped: on its plan one account shares 4 CPU-hours a month, and over the limit
   the whole account is paused until someone acts, the demo and `/embed` with it, which an
   endpoint with no sign-in lets anyone bring about.
