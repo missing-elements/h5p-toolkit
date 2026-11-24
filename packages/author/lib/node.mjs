@@ -27,14 +27,15 @@ import { SourceError } from './source-error.mjs'
  * @typedef {import('./translate.mjs').TranslationReport} TranslationReport
  * @typedef {{
  *   output: string, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>,
- *   libraries: string[], install: string[], coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], media: string[], outline: string
+ *   libraries: string[], install: string[], coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], media: string[], unread: string[], outline: string
  * }} BuildResult what was written, and what is worth telling about it: `libraries`, the folders the
  *   package plays with; `install`, those carried for an H5P site's upload check; `coreApi`, the
  *   newest H5P core they ask for, which a site needs to take the package (`coreApiLine` says it);
  *   `outline`, the content as text for a review (`outlineOf`); `builtWith`, the content type and
  *   the pack's version of it, "H5P.Blanks 1.14", and `source`, the source as built, naming it: what
- *   to keep with the package, so that a build with a later pack can say the type has moved
- * @typedef {{ libraries?: string, base?: string, fetch?: typeof fetch, within?: string[], check?: boolean }} BuildOptions
+ *   to keep with the package, so that a build with a later pack can say the type has moved;
+ *   `unread`, the files a check with `unread` did not look at, as the source names them
+ * @typedef {{ libraries?: string, base?: string, fetch?: typeof fetch, within?: string[], check?: boolean, unread?: boolean }} BuildOptions
  *   `libraries`, a library pack's parts folder in place of the pinned pack; `base`, the folder a
  *   source's file paths are read from; `fetch`, for media named by web address; `within`, the
  *   folders the output and every local file a source names must be inside, on their real paths, a
@@ -42,7 +43,10 @@ import { SourceError } from './source-error.mjs'
  *   the result's `output` is empty, but a media file named by web address is still downloaded, to a
  *   temporary folder removed after, as the build checks it; a video on YouTube, Vimeo, Panopto or
  *   Echo360 stays an address, as in a build, a YouTube or Vimeo one asked of the site's oEmbed with
- *   `fetch` as a build asks it
+ *   `fetch` as a build asks it; `unread`, with `check`, for a source whose files are elsewhere, as
+ *   an attachment in a chat is (#270): no file is looked for, none downloaded and no site asked,
+ *   one named by a path is judged by its name alone and listed in the result's `unread`, and
+ *   `base`, `within` and `fetch` are not used
  * @typedef {{ output: string, source: import('./build.mjs').Source, files: string[], notes: Problem[] }} ReadResult
  *   `output`, the source's path; `files`, the media written beside it, by the paths the source
  *   names them by, from its folder; `notes`, what was left out or could not be read back as it is
@@ -369,8 +373,9 @@ function foldersOf(within) {
  * @returns {Promise<BuildResult>}
  */
 export async function buildPackage(input, output, options = {}) {
-  const { check = false } = options
+  const { check = false, unread = false } = options
   const within = foldersOf(options.within)
+  if (unread && !check) throw new TypeError('unread goes with a check (check: true): a package needs its files')
   if (!check && (typeof output !== 'string' || !output.trim())) throw new TypeError('a build takes the path to write its package to, and a check (check: true) none')
   // A check writes nothing, so where a package would go is not looked at.
   const target = check ? '' : resolve(/** @type {string} */ (output))
@@ -388,7 +393,8 @@ export async function buildPackage(input, output, options = {}) {
     const read = sourceOf(input, typeNames(pack))
     if (!read.typed) throw new SourceError(read.problems)
     temporary = await mkdtemp(join(check ? tmpdir() : dirname(target), '.h5p-author-'))
-    const media = new MediaStore(nodeMedia({ base: options.base ?? process.cwd(), temporary, within }), { fetch: options.fetch })
+    const access = nodeMedia({ base: options.base ?? process.cwd(), temporary, within })
+    const media = new MediaStore(unread ? { ...access, unread } : access, { fetch: options.fetch })
     const built = await composePackage(read.source, pack, media, read.problems)
     if (check) {
       return {
@@ -403,6 +409,7 @@ export async function buildPackage(input, output, options = {}) {
         translations: built.translations,
         notes: built.notes,
         media: media.files.map((item) => item.name),
+        unread: [...media.unread],
         get outline() { return built.outline }
       }
     }
@@ -443,6 +450,7 @@ export async function buildPackage(input, output, options = {}) {
       translations: built.translations,
       notes: built.notes,
       media: media.files.map((item) => item.name),
+      unread: [],
       get outline() { return built.outline }
     }
   } finally {

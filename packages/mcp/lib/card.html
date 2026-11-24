@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H5P activity</title>
+<style>
+  :root { color-scheme: light dark; --border: light-dark(#d9d6d0, #3a3833); --surface: light-dark(#f1eeea, #24231f); --text: light-dark(#1c1b19, #f2f0ec); --muted: light-dark(#6b6862, #a8a49c); --accent: light-dark(#2f6db5, #7fb0ea); }
+  /* A root of its own for the margins inside: a height short by one left a scroller in the card. */
+  body { display: flow-root; margin: 0; font: 14px/1.4 system-ui, sans-serif; color: var(--text); background: transparent; }
+  [hidden] { display: none !important; }
+  /* The page loads under the card's loader, laid out but not seen, and is shown once it has drawn. */
+  .stage { display: grid; }
+  .stage > * { grid-area: 1 / 1; min-width: 0; }
+  iframe { display: block; width: 100%; height: 100%; min-height: 150px; border: 0; visibility: hidden; }
+  iframe.on { visibility: visible; }
+  /* Before the activity's page is framed: its place, drawn, so the reply does not jump. */
+  .wait { z-index: 1; display: grid; place-items: center; align-content: center; gap: 12px; margin: 8px; padding: 0 16px; aspect-ratio: 16 / 9; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); text-align: center; }
+  .wait p { margin: 0; font-weight: 600; }
+  .wait small { color: var(--muted); font-size: 13px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; }
+  @media (prefers-reduced-motion: no-preference) { .spinner { animation: turn 0.8s linear infinite; } }
+  @keyframes turn { to { rotate: 1turn; } }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="wait" id="wait" role="status"><div class="spinner" id="spinner"></div><p id="wait-title">Opening the activity…</p><small id="wait-note">It is built in your browser.</small></div>
+<iframe id="page" title="The H5P activity" allow="fullscreen; clipboard-write"></iframe>
+</div>
+<script>
+// Runs whatever happens to the script below: a card that cannot go on says so, in place of a
+// loader that turns for good.
+window.addEventListener('error', () => {
+  const wait = document.getElementById('wait')
+  if (!wait || wait.hidden) return
+  document.getElementById('spinner').hidden = true
+  document.getElementById('wait-title').textContent = 'The activity could not be opened'
+  document.getElementById('wait-note').textContent = 'Ask the chat to show it again.'
+})
+</script>
+<script>
+// The card of the app server (h5p-toolkit #210, #270), shown by a chat in its reply. It frames the
+// play page of the site, which builds the activity in the person's browser and plays it, and is
+// that page's way to what only the chat has: the file the person attached, a save, an open tab.
+// It sends nothing to the server it came from, and writes nothing down.
+//
+// In a function of its own: a chat puts names of its own on the card's window.
+(() => {
+// The site whose play page is framed: the server writes its origin in.
+const SITE = '__SITE__'
+const PLAY = SITE + '/h5p/play/'
+const $ = (id) => document.getElementById(id)
+const frame = $('page')
+const openai = () => window.openai
+const toHost = (message) => window.parent.postMessage({ jsonrpc: '2.0', ...message }, '*')
+const toPage = (message) => frame.contentWindow?.postMessage({ source: 'h5p-play-host', ...message }, SITE)
+
+// The card's height, told the chat whatever changes it. The whole document's, whichever is more.
+let told = 0
+function sizeToContent() {
+  const height = Math.ceil(Math.max(document.body.getBoundingClientRect().height, document.documentElement.scrollHeight === document.documentElement.clientHeight ? 0 : document.body.scrollHeight))
+  if (height === told) return
+  told = height
+  try { openai()?.notifyIntrinsicHeight?.(height) } catch { /* not this chat's way */ }
+  if (window.parent !== window) toHost({ method: 'ui/notifications/size-changed', params: { height } })
+}
+sizeToContent()
+
+// The chat's theme, for the card and for the page it frames.
+let theme = null
+let revealed = false
+function themed() {
+  const now = openai()?.theme
+  if ((now !== 'light' && now !== 'dark') || now === theme) return
+  theme = now
+  document.documentElement.style.colorScheme = now
+  if (revealed) toPage({ type: 'theme', theme: now })
+}
+
+// The source as the play page's #source= takes it: its JSON, raw-deflated where that is shorter, in base64url.
+async function fragmentOf(source) {
+  let bytes = new TextEncoder().encode(JSON.stringify(source))
+  try {
+    const deflated = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())
+    if (deflated.length < bytes.length) bytes = deflated
+  } catch { /* nothing here compresses: the JSON as it is */ }
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return `#source=${btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
+}
+
+// The tool's input, which is the source: the page is framed with it, once.
+let shown = false
+async function show(input) {
+  if (shown || !input || typeof input !== 'object') return
+  const source = input.source ?? input
+  if (!source || typeof source !== 'object' || !source.type) return
+  shown = true
+  const fragment = await fragmentOf(source)
+  themed()
+  // The page loads behind the card's own loader, and takes its place once it has something drawn
+  // to show: its first word, or its load at the latest. Nothing is blank in between.
+  frame.addEventListener('load', () => setTimeout(reveal, 300), { once: true })
+  frame.src = PLAY + (theme ? `?theme=${theme}` : '') + fragment
+  sizeToContent()
+}
+
+function reveal() {
+  if (revealed) return
+  revealed = true
+  // Until the page says its own height, it keeps the loader's: the reply does not shrink and grow again.
+  if (!frame.style.height) frame.style.height = `${Math.round($('wait').getBoundingClientRect().height + 16)}px`
+  $('wait').hidden = true
+  frame.classList.add('on')
+  if (theme) toPage({ type: 'theme', theme })
+  sayWhatTheChatDoes()
+  sizeToContent()
+}
+
+// The file the person attached, as the server handed it on in the tool's result: its id in the
+// chat's store, and its name and type. Never its address: the card asks the chat for that.
+let attached = null
+function fromResult(meta, output) {
+  if (attached) return
+  const file = meta?.['h5p/file']
+  if (file && typeof file === 'object' && typeof file.file_id === 'string') attached = { id: file.file_id, name: file.file_name, mime: file.mime_type }
+  else if (typeof output?.fileId === 'string') attached = { id: output.fileId, name: output.fileName }
+  if (attached) void answer()
+}
+// An address of the file that is good now, asked of the chat by the file's id: no address comes
+// from anywhere else, so none is fetched that the chat did not give for a file of the person's.
+async function linkNow() {
+  try {
+    const fresh = await openai()?.getFileDownloadUrl?.({ fileId: attached.id })
+    const href = typeof fresh === 'string' ? fresh : fresh?.downloadUrl ?? fresh?.url
+    return typeof href === 'string' && /^https?:\/\//i.test(href) ? href : null
+  } catch { return null }
+}
+const plays = (name) => /\.(mp4|webm|ogv|mov|mp3|m4a|wav|ogg|oga)$/i.test(name)
+
+// The page asked for a file, and the attachment is known: a video or a recording goes as its
+// address and plays from there at once; anything else is brought whole, as the page needs its bytes.
+let needed = null
+let answered = false
+async function answer() {
+  if (answered || !attached || !needed?.length) return
+  // One file needed is the attachment, whatever each is called. Of several, it is the one of its
+  // own name, where it has one; the page asks the person for the rest, and for it where it has none.
+  const name = needed.length === 1 ? needed[0] : attached.name
+  if (typeof name !== 'string' || !name) return
+  answered = true
+  if (!plays(name)) return void bring(name)
+  const href = await linkNow()
+  if (!href) { answered = false; return }
+  toPage({ type: 'links', links: { [name]: href } })
+  // What the file weighs, from the answer's head, the request dropped before its body comes: the
+  // page then opens a tab at once for a package the chat could not save.
+  const bytes = await sizeOf(href)
+  if (bytes) toPage({ type: 'links', links: { [name]: href }, sizes: { [name]: bytes } })
+}
+async function sizeOf(href) {
+  const dropped = new AbortController()
+  try {
+    const response = await fetch(href, { signal: dropped.signal })
+    const total = Number(response.headers.get('content-length')) || 0
+    dropped.abort()
+    return total
+  } catch { return 0 }
+}
+
+// The whole file, counted for the page as it comes, and given to it. Kept by the browser as a
+// Blob, which it may hold on disk: never in this script's own memory.
+let bringing = false
+let stop = null
+async function bring(name, again = false) {
+  if (bringing && !again) return
+  bringing = true
+  try {
+    const href = attached && await linkNow()
+    if (!href) throw new Error('no address')
+    stop = new AbortController()
+    const response = await fetch(href, { signal: stop.signal })
+    if (!response.ok || !response.body) throw new Error(`status ${response.status}`)
+    const total = Number(response.headers.get('content-length')) || 0
+    let seen = 0
+    let last = 0
+    const counted = response.body.pipeThrough(new TransformStream({ transform(chunk, controller) {
+      seen += chunk.byteLength
+      const now = performance.now()
+      if (now - last > 150) { last = now; toPage({ type: 'progress', name, received: seen, total }) }
+      controller.enqueue(chunk)
+    } }))
+    const blob = await new Response(counted, { headers: { 'content-type': response.headers.get('content-type') ?? '' } }).blob()
+    toPage({ type: 'progress', name, received: blob.size, total: total || blob.size })
+    toPage({ type: 'files', files: [new File([blob], name, { type: attached.mime ?? blob.type })] })
+  } catch {
+    // Once more with a new address: the first may have run out. Not where the fetch was given up.
+    if (!again && !stop?.signal.aborted) return bring(name, true)
+    // It did not come: the page is told, so that it asks the person in place of waiting on.
+    if (!stop?.signal.aborted) toPage({ type: 'failed', name })
+  }
+  bringing = false
+}
+
+// What the play page says from inside the frame: its height, what it needs, the package it
+// built, and what it asks the chat to do.
+window.addEventListener('message', (event) => {
+  const message = event.data
+  if (event.source !== frame.contentWindow || event.origin !== SITE || message?.source !== 'h5p-play') return
+  reveal()
+  if (message.type === 'height' && Number.isFinite(message.height)) {
+    frame.style.height = `${Math.max(120, Math.min(message.height, 2000))}px`
+    sizeToContent()
+  } else if (message.type === 'needs-files' && Array.isArray(message.names)) {
+    needed = message.names.filter((name) => typeof name === 'string')
+    void answer()
+  } else if (message.type === 'needs-bytes') {
+    void bring(message.names?.[0] ?? needed?.[0] ?? attached?.name ?? 'file')
+  } else if (message.type === 'built') {
+    // The package is here: a file still on its way from the chat for it is not needed.
+    if (bringing) stop?.abort()
+  } else if (message.type === 'save') {
+    void save(message.file, message.id)
+  } else if (message.type === 'open') {
+    open(message.href)
+  }
+})
+
+// A chat's frame saves no file and opens no tab on a press (ChatGPT, November 2026), and the chat
+// does both for the card. So the card tells the page what the chat does, and passes on what the
+// page asks. A save takes a file up to MOST: of what ChatGPT was handed, 8 MB was saved and
+// 16 MB refused, with nothing said why (2026-11-24). A bigger package the page saves its own way.
+const MOST = 8 * 1048576
+let capabilities = null
+let saidSaves = false
+let saidOpens = false
+function sayWhatTheChatDoes() {
+  if (!revealed) return
+  if (!saidOpens && (typeof openai()?.openExternal === 'function' || capabilities?.openLinks)) {
+    saidOpens = true
+    toPage({ type: 'opens' })
+  }
+  if (!saidSaves && capabilities?.downloadFile) {
+    saidSaves = true
+    toPage({ type: 'saves', max: MOST })
+  }
+}
+// A link of the page's, opened by the chat: an address of the site, and nothing else.
+let asked = 100
+function open(href) {
+  if (typeof href !== 'string' || !URL.canParse(href) || new URL(href).origin !== SITE) return
+  try {
+    if (typeof openai()?.openExternal === 'function') void Promise.resolve(openai().openExternal({ href })).catch(() => {})
+    else toHost({ id: ++asked, method: 'ui/open-link', params: { url: href } })
+  } catch { /* the page keeps its link, for the browser's own menu */ }
+}
+// A package handed to the chat to save, as one message. How the chat answers is passed back to
+// the page under the number the page gave the save, and the page says it.
+const saving = new Map()
+async function save(file, id) {
+  if (!(file instanceof File) || file.size > MOST) return toPage({ type: 'saved', id, ok: false })
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+    const request = ++asked
+    saving.set(request, id)
+    toHost({ id: request, method: 'ui/download-file', params: { contents: [{ type: 'resource', resource: { uri: `file:///${file.name}`, mimeType: file.type || 'application/zip', blob: dataUrl.slice(dataUrl.indexOf(',') + 1) } }] } })
+  } catch {
+    toPage({ type: 'saved', id, ok: false })
+  }
+}
+
+// ChatGPT's own way: the tool's input and result as values on the window, there now or set later.
+function globals() {
+  const chat = openai()
+  if (!chat) return
+  themed()
+  if (chat.toolInput) void show(chat.toolInput)
+  fromResult(chat.toolResponseMetadata, chat.toolOutput)
+}
+window.addEventListener('openai:set_globals', globals)
+globals()
+
+// The MCP Apps way: the handshake, the tool's input and result as messages, and the chat's answers.
+window.addEventListener('message', (event) => {
+  if (event.source !== window.parent || window.parent === window) return
+  const message = event.data
+  if (!message || message.jsonrpc !== '2.0') return
+  if (message.method === 'ui/notifications/tool-input') void show(message.params?.arguments)
+  else if (message.method === 'ui/notifications/tool-result') fromResult(message.params?._meta, message.params?.structuredContent)
+  else if (message.id === 1 && !message.method) {
+    if (message.result) capabilities = message.result.hostCapabilities ?? null
+    if (!message.error) toHost({ method: 'ui/notifications/initialized', params: {} })
+    sayWhatTheChatDoes()
+  } else if (saving.has(message.id) && !message.method) {
+    const id = saving.get(message.id)
+    saving.delete(message.id)
+    toPage({ type: 'saved', id, ok: !message.error && message.result?.isError !== true })
+  } else if (message.method && message.id !== undefined) {
+    // A question of the chat's is answered, with nothing: none is one the card has more to say to.
+    toHost({ id: message.id, result: {} })
+  }
+})
+if (window.parent !== window) toHost({ id: 1, method: 'ui/initialize', params: { protocolVersion: '2026-01-26', appInfo: { name: 'h5p-mcp-app', version: '1' }, appCapabilities: {} } })
+
+// No activity came: said, in place of a loader that turns for good.
+setTimeout(() => {
+  if (shown) return
+  $('spinner').hidden = true
+  $('wait-title').textContent = 'No activity arrived'
+  $('wait-note').textContent = 'Ask the chat to show it again.'
+}, 6000)
+new ResizeObserver(sizeToContent).observe(document.body)
+})()
+</script>
+</body>
+</html>

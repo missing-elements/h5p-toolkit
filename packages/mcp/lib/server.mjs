@@ -1,11 +1,11 @@
-import { lstat, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { SourceError, buildPackage, contentTypes, coreApiLine, inside, openPack, publicFetch, readPackage, schemaOf, sourceSchema, sourceType } from '@missing-elements/h5p-author'
+import { SourceError, buildPackage, coreApiLine, inside, publicFetch, readPackage } from '@missing-elements/h5p-author'
 import { VerifyError, openBrowser, previewPackage, summarize, verifyPackage } from '@missing-elements/h5p-verify'
+import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } from './answers.mjs'
 import { defaultFolders, fileStem, rootFolders } from './folders.mjs'
 
 /**
@@ -28,27 +28,9 @@ To change a .h5p the person has, h5p_read it, change its source as asked, and h5
 
 const READ = `Reads a .h5p package back into its source, to change it and build it again with h5p_build: its type, title, language, licence, authors, and the params that differ from the defaults. Writes the source and the package's media into a new folder beside it, and answers with the source, each file named where it was written. Reads content made for the library pack's versions of its libraries.`
 
-const TYPES = `The H5P content types and how to write a source for one. With no type: the list, and how to write good content. With a type: its notes, a tested example and its fields. Read the type's answer before writing its source.`
-
 const BUILD = `Builds a .h5p package from a source, its params holding only what differs from the type's defaults. A file is { "path": ... }, in a folder this server may use or at a web address. Writes the package and its source (.source.json) to output, or under a new name in the first folder it may use. A source with problems is refused, each problem named by its path. With verify (the default), plays the package in a headless browser and reports whether it works.`
 
 const PREVIEW = `Opens a .h5p package in the person's browser in the real player, served from this computer until its tab is closed. Answers with the address.`
-
-const LIST_HEAD = `The content types the library pack has, by the name a source's "type" takes. Those marked * have notes and a tested example; for the rest h5p_types gives their fields.`
-
-/**
- * A source's own fields as the author package declares them (#230), shown to the app as the
- * properties of `source`, and nothing more: no field is said to be required and none forbidden.
- * The build is the check, which reads a source written another way as it is meant (#174) and says
- * every problem at once, where the SDK, or an app holding a call to the schema, would refuse it
- * before the build looked.
- */
-const SOURCE_PROPERTIES = z.toJSONSchema(sourceSchema, { io: 'input' }).properties
-
-/** @param {string} text */
-const answer = (text) => ({ content: [{ type: /** @type {const} */ ('text'), text }] })
-/** @param {string} text */
-const refusal = (text) => ({ content: [{ type: /** @type {const} */ ('text'), text }], isError: true })
 
 /** @param {number} bytes */
 const sized = (bytes) => (bytes < 1e6 ? `${Math.max(1, Math.round(bytes / 1e3))} kB` : `${(bytes / 1e6).toFixed(1)} MB`)
@@ -60,9 +42,6 @@ const sized = (bytes) => (bytes < 1e6 ? `${Math.max(1, Math.round(bytes / 1e3))}
 const whereFiles = (folders) => folders.length
   ? `This server reads files and writes packages only in ${folders.join(', ')}. A file's path written alone, as { "path": "picture.png" }, is read from ${folders[0]}.`
   : 'This server has no folder to read or write in: start it with --allow <folder>.'
-
-/** Lines of an outline past which an answer says how many more there are. */
-const OUTLINE_LINES = 80
 
 /** @param {string} path a package's */
 const sourceBeside = (path) => path.replace(/\.h5p$/i, '.source.json')
@@ -92,8 +71,7 @@ function located(value, folder) {
 export async function createServer(options = {}) {
   const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
   const server = new McpServer({ name: 'h5p-mcp', title: 'H5P Author MCP by Missing Elements', version }, { instructions: INSTRUCTIONS })
-  const author = dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json')))
-  const typeFiles = join(author, 'references', 'types')
+  const about = typeAnswers({ libraries: options.libraries })
   /** @type {Set<{ close: () => void }>} */
   const previews = new Set()
 
@@ -109,27 +87,6 @@ export async function createServer(options = {}) {
       }
     }
     return defaultFolders()
-  }
-
-  /** @type {Promise<{ name: string, title: string }[]> | undefined} */
-  let typeList
-  /** The pack's content types, read once: each needs its part opened. */
-  function types() {
-    typeList ??= (async () => {
-      const pack = await openPack(options.libraries)
-      try {
-        return (await contentTypes(pack)).map((part) => ({ name: part.library.machineName, title: part.library.title }))
-      } finally {
-        await pack.close()
-      }
-    })()
-    return typeList
-  }
-
-  /** The content types the skill has a file for, as the author package carries them. */
-  async function filed() {
-    const names = await readdir(typeFiles).catch(() => [])
-    return new Set(names.filter((name) => name.endsWith('.md')).map((name) => name.slice(0, -3)))
   }
 
   /** The packages being built, lower-cased, as macOS and Windows match a name in any case. */
@@ -176,20 +133,13 @@ export async function createServer(options = {}) {
     inputSchema: z.object({ type: z.string().optional().describe('A content type, as H5P.MultiChoice or "multiple choice"') }),
     annotations: { readOnlyHint: true, openWorldHint: false }
   }, async ({ type }) => {
-    const list = await types()
-    const files = await filed()
     // Said with every answer, before a source is written: a model cannot know the folders, and a
     // path it guesses is refused.
     const where = whereFiles(await folders())
-    if (!type) {
-      const lines = list.map(({ name, title }) => `${files.has(name) ? '*' : '-'} ${name}: ${title}`)
-      const brief = await readFile(join(author, 'references', 'authoring.md'), 'utf8').catch(() => '')
-      return answer([LIST_HEAD, ...lines, '', where, ...(brief ? ['', brief] : [])].join('\n'))
-    }
-    const name = sourceType({ type }, list.map((each) => each.name))
-    if (!name) return refusal(`The library pack has no content type "${type}". h5p_types with no type lists them.`)
-    const text = files.has(name) ? await readFile(join(typeFiles, `${name}.md`), 'utf8') : await schemaOf(name, { markdown: true, libraries: options.libraries })
-    return answer(`${text.trimEnd()}\n\n${where}`)
+    if (!type) return answer(await about.list([where]))
+    const text = await about.about(type)
+    if (text === null) return refusal(`The library pack has no content type "${type}". h5p_types with no type lists them.`)
+    return answer(`${text}\n\n${where}`)
   })
 
   server.registerTool('h5p_build', {
@@ -235,10 +185,7 @@ export async function createServer(options = {}) {
         ? `Its source was not written beside it: ${unwritten.message}`
         : `Its source is beside it, ${basename(sourceFile)}: https://missing-elements.github.io/h5p/build/ opens it under "Or open a file", to change and build again.`
     ]
-    for (const { path, message } of result.notes) lines.push(`Note: ${path} ${message}`)
-    const outline = result.outline.split('\n')
-    lines.push('', 'What it holds:', ...outline.slice(0, OUTLINE_LINES))
-    if (outline.length > OUTLINE_LINES) lines.push(`… and ${outline.length - OUTLINE_LINES} more lines.`)
+    lines.push(...heldLines(result))
     /** @type {{ type: 'image', data: string, mimeType: string }[]} */
     const images = []
     if (verify) {

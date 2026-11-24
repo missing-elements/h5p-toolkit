@@ -7,7 +7,8 @@ that it plays in a real H5P player, and opens it in your browser. It reads a `.h
 into its source too, to change it and build it again. No H5P site, server or account.
 
 It is a local [MCP](https://modelcontextprotocol.io) server: your app starts it on your computer,
-and it sends nothing to a server of ours. It needs Node 22 or newer, and for the check Chrome or
+and it sends nothing to a server of ours. For a chat app on the web there is a second command,
+[the app server](#the-app-server-for-a-chat-app-on-the-web). It needs Node 22 or newer, and for the check Chrome or
 Edge; without either, run `npx playwright install chromium` once.
 
 ## Add it to your app
@@ -62,6 +63,34 @@ anywhere. A YouTube or Vimeo address is sent to that site's oEmbed, to ask wheth
 video. Math is drawn by the package's own copy of MathJax, which loads nothing from elsewhere.
 The check and the preview play the package from your computer. Your app
 sends your conversation to its model, as it does without this server.
+
+## The app server, for a chat app on the web
+
+The package has a second command, `h5p-mcp-app`: an MCP server over HTTP for a chat app that shows
+a card in its reply, ChatGPT first. The person asks for an activity, the reply plays it, and its
+`.h5p` is saved from there. It is not a service we run yet: run it yourself to try it.
+
+```sh
+npx -y -p @missing-elements/h5p-mcp h5p-mcp-app --port 8787
+```
+
+Its endpoint is `/mcp`, with no sign-in. It has two tools: `h5p_types`, as above, and `h5p_play`,
+which checks an activity's source and shows the card. The card frames the play page of
+[missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity in
+the person's browser and plays it there.
+
+What the server receives, and what it keeps:
+
+- A call of `h5p_play` brings it the activity's source, which it checks. A call of `h5p_types`
+  brings it the name of a content type, or nothing.
+- It never receives a file. For a file attached in the chat, the chat sends a reference, an
+  address and an id. The server does not ask that address and does not pass it on: it hands the
+  id to the card, which asks the chat for the file's address, and the person's browser fetches
+  the file from the chat's own store.
+- It stores nothing and logs nothing of a request. Whoever hosts it may log requests on their own
+  side: that is the host's to say.
+- A package up to about 8 MB is saved through the chat. A bigger one, with a video in it, is saved
+  by a tab of the play page, which fetches the video from the chat and builds the package again.
 
 ## Licence
 
