@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer, type AddressInfo, type Server } from 'node:net'
-import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { Client } from '@modelcontextprotocol/client'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -207,6 +209,39 @@ describe('the app server', () => {
     expect((await fetch(`${origin}/`)).status).toBe(200)
     expect((await fetch(`${origin}/h5p/play/`)).status).toBe(404)
     expect((await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'h5p_play', arguments: { source: { ...QUIZ, title: 'x'.repeat(1024 * 1024) } } } }) })).status).toBe(413)
+  })
+
+  it('takes its card, its version and its type files from a host that carries them', async () => {
+    // A bundle has no package folder beside the code, so its host names what it carries (#272).
+    const references = await mkdtemp(join(tmpdir(), 'h5p-mcp-references-'))
+    try {
+      await mkdir(join(references, 'types'))
+      await writeFile(join(references, 'types', 'H5P.TrueFalse.md'), "# The host's own notes on a statement\n")
+      await writeFile(join(references, 'authoring.md'), "The host's own brief.\n")
+      const app = await createApp({ version: '9.9.9', card: "<p>A host's card for __SITE__</p>", references })
+      const ask = async (method: string, params: unknown) => {
+        const response = await app.fetch(new Request('https://host.example/mcp', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+        }))
+        const text = await response.text()
+        return JSON.parse(text.split('\n').find((line) => line.startsWith('data: '))?.slice(6) ?? text).result
+      }
+      expect((await ask('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '0' } })).serverInfo.version).toBe('9.9.9')
+      expect((await ask('resources/read', { uri: app.cardUri })).contents[0].text).toBe("<p>A host's card for https://missing-elements.github.io</p>")
+      expect((await ask('tools/call', { name: 'h5p_types', arguments: { type: 'H5P.TrueFalse' } })).content[0].text).toContain("The host's own notes on a statement")
+      // The list marks the types that have a file, and the host's folder has the one.
+      const list: string = (await ask('tools/call', { name: 'h5p_types', arguments: {} })).content[0].text
+      expect(list).toContain("The host's own brief.")
+      expect(list).toMatch(/^\* H5P\.TrueFalse\b/m)
+      expect(list).not.toMatch(/^\* H5P\.MultiChoice\b/m)
+      await app.close()
+      // A folder that is not the author package's is said at the start, not by thinner answers.
+      await expect(createApp({ references: join(references, 'types') })).rejects.toThrow(/is not the author package's references\/ folder/)
+    } finally {
+      await rm(references, { recursive: true, force: true })
+    }
   })
 
   it('writes down nothing of what it was asked', () => {

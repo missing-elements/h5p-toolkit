@@ -82,9 +82,9 @@ Not built yet: the MCP registry's `server.json` and Claude Desktop's one-click b
 
 `h5p-mcp-app` (`lib/app.mjs`, #210, #270) is an MCP server over HTTP for a chat app that shows a
 card in its reply, ChatGPT first: the person asks for an activity, the reply plays it, and its
-`.h5p` is saved from there. `createApp()` is a web-standard handler, `fetch(request)`, so a host
-that runs Node, or one that takes such a handler, serves it; the command is that handler on a
-port. Its endpoint is `/mcp`.
+`.h5p` is saved from there. `createApp()`, the package's `./app`, is a web-standard handler,
+`fetch(request)`, so a host that runs Node, or one that takes such a handler, serves it; the
+command is that handler on a port. Its endpoint is `/mcp`.
 
 - **No server of ours processes a person's file** (the owner's rule, 2026-11-24, and a goal of the
   whole toolkit). The chat sends the tool a reference to an attached file, an address and an id,
@@ -136,4 +136,40 @@ port. Its endpoint is `/mcp`.
   checked by hand in a page that stands in for a chat, its frame sandboxed as ChatGPT's was found
   to be; in ChatGPT itself ran the probe's card, which this one is without its test parts.
 
-Not built yet: where the server is hosted, the app's privacy policy and its listing (#210).
+- **It is hosted as a Cloudflare Worker, at an address of ours** (`apps/mcp-worker`, #272):
+  `mcp.embed-my.org`, one line of its config, since the domain's zone is on the same account.
+  The free plan gives 100,000 requests a day and bills nothing. The limit is the account's, until
+  midnight UTC: over it, a route set to fail closed answers Cloudflare's error 1027, and one set
+  to fail open passes its requests on as if there were no Worker. This Worker is a Custom
+  Domain, with no origin behind it, so either way a call gets no answer from the server. Nothing
+  on another host is touched, the demo and the organisation's site among them. A function of the demo's Vercel project
+  was built and dropped: on its plan one account shares 4 CPU-hours a month, and over the limit
+  the whole account is paused until someone acts, the demo and `/embed` with it, which an
+  endpoint with no sign-in lets anyone bring about.
+- **The Worker is the same handler, and carries what the server reads.** `createApp()`, the
+  package's `./app`, takes as options what `import.meta` cannot find in a bundle: `version`,
+  `card`, `references`. The library pack's parts, the brief with the type files and the card are
+  gathered into `staged/` by `scripts/stage.mjs` and ride in the Worker as modules
+  (`find_additional_modules`), which its file system shows under `/bundle`: the server's Node
+  entry reads them there as on a computer (`nodejs_compat`). 17 MB of the 64 MiB a Worker may be.
+  Modules, not static assets: nothing of them is served.
+- **The Worker writes no log of a call and has nowhere to keep one.** `observability.enabled`
+  is `false`, which switches off Workers Logs: no invocation log and no trace is stored. No
+  store is bound to it, and it has one address, no `workers.dev` name and no preview addresses.
+  That setting is the Worker's alone. What Cloudflare counts for any Worker and any domain it
+  serves, the requests, their statuses, the CPU time, is outside it: the privacy policy names
+  that from Cloudflare's own documents, and does not say "nothing". No token of the account is in the repository or in GitHub: it
+  is deployed by someone signed in to the account (`deploy:worker`), or by Cloudflare's own build
+  of the repository.
+- **Tested in the Workers runtime.** `tests/worker.test.ts` has wrangler bundle the Worker and
+  start it on this computer, and holds each answer to the server's on Node, word for word: the
+  tools, the list of types, a type's file, a type's fields from its part, a source checked, one
+  refused, the card and its address. It holds the config to its logs off, no store and one address.
+- **Not known until it is deployed** (2026-11-24). The free plan allows 10 ms of CPU a request,
+  with leeway for an overrun now and then; a check took 14 to 22 ms a call on a laptop in the
+  local runtime, and the first list of types 250 ms. A Worker may take 1 s to start, and this
+  one is 17 MB. If the free plan does not hold: the paid plan (30 s a request), or the parts as
+  static assets, read by the author package's entry for a page. A Worker runs near its caller
+  and cannot be held to a region below the Enterprise plan.
+
+Not built yet: the app's privacy policy and its listing (#210).

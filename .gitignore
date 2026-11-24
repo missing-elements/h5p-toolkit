@@ -37,6 +37,11 @@ packages/vscode/NOTICE.txt
 # h5p-verify writes its report and screenshot to <package>.verify/ beside the package by default.
 *.verify/
 
+# The app server's Worker: what it carries, gathered by its `stage` script, and wrangler's own
+# state on this computer.
+apps/mcp-worker/staged/
+.wrangler/
+
 # Incremental build state
 *.tsbuildinfo
 

@@ -25,6 +25,8 @@ pnpm --filter @missing-elements/h5p-author sync:skill  # the h5p-author skill's 
 pnpm --filter h5p-preview package  # the VS Code extension's .vsix, from the player as pnpm build left it
 pnpm --filter h5p-preview test:vscode  # its suite in a VS Code it downloads; under xvfb-run on Linux
 pnpm --filter h5p-preview screenshot  # its listing's screenshot, images/preview.png, in that VS Code
+pnpm --filter @missing-elements/h5p-mcp-worker dev            # the app server's Worker in the Workers runtime, on this computer
+pnpm --filter @missing-elements/h5p-mcp-worker deploy:worker  # deploys it; after `pnpm --filter @missing-elements/h5p-mcp-worker exec wrangler login`
 pnpm build:demo        # the hosted demo into apps/demo/dist-demo/, what Vercel runs
 pnpm demo:content      # rebuild apps/demo/demo/content/*.h5p from their sources; needs the H5P hub
 pnpm demo:og           # re-render the social card, apps/demo/demo/og-image.png

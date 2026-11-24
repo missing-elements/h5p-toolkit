@@ -26,7 +26,7 @@ green.
 limit stops a hang; it does not time a test. The author's Node tests ran on vitest's 5 s a test,
 and a CI runner builds packages and writes bundles two to four times slower than a laptop: three
 tests failed there in three days, each at 5.0 s, each after the one before it got a number of its
-own. So embed, mcp, the demo, the skills project, the author's Node project and the verifier each
+own. So embed, mcp, its Worker, the demo, the skills project, the author's Node project and the verifier each
 set `testTimeout` and `hookTimeout` to 120 s in their config, and the author's browser project sets
 both to 180 s, for a build in Chromium and a play in the verifier. A test names its own only to ask
 for more, or where the time is what it tests. A package whose tests run in milliseconds keeps the
@@ -53,6 +53,8 @@ cmi5 page also against CATAPULT (`pnpm cmi5:catapult`). Where a page's test was 
 package's behaviour, the test lives in the package: the embed page asking before it plays a
 package that needs its own code, and `resizer.js` answering a frame that loaded before it, are in
 `packages/embed/tests/site.test.ts`; the cmi5 page's are in `packages/cmi5/tests/`.
+The app server's Worker (`apps/mcp-worker`) is tested as well, in the Workers runtime: it answers
+for a listed app, from files read in another runtime's file system ([mcp](mcp.md)).
 The skills are source too, tested from `apps/skills`, a project of their own: what they tell an
 agent to write builds and plays. For h5p-to-scorm that is its commands, run as it writes them, and
 their zips, played as a learner under a stand-in LMS with real content. h5p-author's own code is

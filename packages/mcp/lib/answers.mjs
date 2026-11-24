@@ -48,11 +48,13 @@ export function heldLines(result) {
 /**
  * What `h5p_types` answers, for a server: the list with the skill's brief, and a type's file, or
  * its fields where it has none.
- * @param {{ libraries?: string }} [options] `libraries`, the pack's `parts/` folder; the installed pack by default
+ * @param {{ libraries?: string, references?: string }} [options] `libraries`, the pack's `parts/`
+ *   folder, the installed pack by default; `references`, the author package's `references/` folder,
+ *   the installed package's by default: a bundle has no package to find, and names its copy
  */
 export function typeAnswers(options = {}) {
-  const author = dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json')))
-  const typeFiles = join(author, 'references', 'types')
+  const references = options.references ?? join(dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json'))), 'references')
+  const typeFiles = join(references, 'types')
   /** @type {Promise<{ name: string, title: string }[]> | undefined} */
   let typeList
   /** The pack's content types, read once: each needs its part opened. */
@@ -76,13 +78,27 @@ export function typeAnswers(options = {}) {
   }
   return {
     /**
+     * Holds a folder a host named to being the author package's `references/`. A wrong path
+     * would answer every type with its fields and leave the brief out, and say nothing of it.
+     * The installed package's own is taken as it is found: in this repository its type files
+     * are copied in by a build step, and the fields stand in until then.
+     */
+    async held() {
+      if (options.references === undefined) return
+      const names = await readdir(typeFiles).catch(() => [])
+      const brief = await readFile(join(references, 'authoring.md'), 'utf8').catch(() => '')
+      if (!brief || !names.some((name) => name.endsWith('.md'))) {
+        throw new Error(`${references} is not the author package's references/ folder: it has no authoring.md, or no type file in types/`)
+      }
+    },
+    /**
      * The list, and how to write good content, with a server's own lines between them.
      * @param {string[]} [between]
      */
     async list(between = []) {
       const [list, files] = await Promise.all([types(), filed()])
       const lines = list.map(({ name, title }) => `${files.has(name) ? '*' : '-'} ${name}: ${title}`)
-      const brief = await readFile(join(author, 'references', 'authoring.md'), 'utf8').catch(() => '')
+      const brief = await readFile(join(references, 'authoring.md'), 'utf8').catch(() => '')
       return [LIST_HEAD, ...lines, ...(between.length ? ['', ...between] : []), ...(brief ? ['', brief] : [])].join('\n')
     },
     /**
