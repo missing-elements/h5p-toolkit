@@ -562,6 +562,15 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     the build archive attached (route 1, `references/build/archive.md`), npm (route 2, `npm.md`),
     Node (route 3, `two-files.md`), anything else (route 4, `browser.md`). Routes 1 to 3 hand over
     by `built-here.md`: the build's problems, the verifier where npm answered, and the hand-over.
+  - Route 0 (`references/build/tools.md`, #280) comes before that check: where the chat has the
+    tool `h5p_build` or `h5p_play`, they build, and their answer is the hand-over, with no command,
+    no npm check and no step 4. Both MCP servers serve the skill, and the skills CLI installs it
+    beside them, so a chat can hold the skill and the tools. Given both, Haiku in Claude Code,
+    asked for a True/False question, used the tools without opening the skill in 8 of 8 runs, on
+    the skill before route 0 and with it. Told to use the skill, the skill before route 0 ran
+    `npx` and left the tools unused in 3 of 3 runs ($0.007 each); with route 0 it built with the
+    tools in 9 of 9 ($0.004). Two of the first five also ran the npm check first, since the skill
+    said to run it early; after "unless route 0's tools build", none of the next four did.
   - A package the user has is changed by `references/change.md` (#242), in place of steps 1 and 2,
     asking nothing: read by the tool of the first route that holds (route 3 fetches the bundle of
     the type the package's `h5p.json` names; route 4 cannot read one), the source changed as asked,

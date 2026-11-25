@@ -4,6 +4,7 @@ import { basename, join, resolve } from 'node:path'
 import { Client } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 /**
  * The server as an app runs it: the command the package ships, started over standard input and
@@ -66,6 +67,15 @@ describe('the server', () => {
 })
 
 describe('h5p_types', () => {
+  it('serves the h5p-author skill beside its tools, with a first route for them', async () => {
+    // MCP's Skills extension, SEP-2640 (#280), as the app server serves it too.
+    expect(client.getServerCapabilities()?.extensions).toHaveProperty(['io.modelcontextprotocol/skills'])
+    const { skills } = await client.request({ method: 'skills/list', params: {} }, z.object({ skills: z.array(z.object({ uri: z.string() }).loose()) }).loose())
+    expect(skills.map((skill) => skill.uri)).toEqual(['skill://h5p-author/SKILL.md'])
+    const route = await client.readResource({ uri: 'skill://h5p-author/references/build/tools.md' })
+    expect((route.contents[0] as { text: string }).text).toMatch(/h5p_build/)
+  })
+
   it('lists the pack\'s content types, marking those with a type file, and how to write good content', async () => {
     const answer = await call('h5p_types')
     const text = textOf(answer)

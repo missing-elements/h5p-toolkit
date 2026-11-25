@@ -1,6 +1,7 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SkillsExtension, memorySkillFiles } from '@modelcontextprotocol/server/ext/skills'
 import { z } from 'zod'
 import { contentTypes, openPack, schemaOf, sourceSchema, sourceType } from '@missing-elements/h5p-author'
 
@@ -114,4 +115,46 @@ export function typeAnswers(options = {}) {
       return text.trimEnd()
     }
   }
+}
+
+/** The author package's `references/` folder, as installed. */
+const installedReferences = () => join(dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json'))), 'references')
+
+/**
+ * The h5p-author skill, for a server to serve over MCP (#280): the Skills extension, SEP-2640,
+ * which a chat that has it lists beside the server's tools and loads when it is needed. The skill
+ * as the author package ships it, and nothing else of the package: `SKILL.md` and `LICENSE`
+ * beside `references/`, and the `.md` files under it. Read once, as the server starts, and held
+ * in memory: a file read from a chat is one of these, whatever it names.
+ *
+ * A folder a host named must hold the skill, and a problem in it is said as the server starts,
+ * as with `typeAnswers`. The installed package's is taken as it is found: in this repository it
+ * is copied in by a build step, and where it is not there yet no skill is served.
+ * @param {{ references?: string }} [options] the author package's `references/`, as `typeAnswers` takes it; the installed package's by default
+ * @returns {Promise<SkillsExtension | null>}
+ */
+export async function skillCatalog(options = {}) {
+  const references = options.references ?? installedReferences()
+  const root = dirname(references)
+  /** @type {Record<string, Uint8Array>} */
+  const files = {}
+  try {
+    files['h5p-author/SKILL.md'] = await readFile(join(root, 'SKILL.md'))
+    files['h5p-author/LICENSE'] = await readFile(join(root, 'LICENSE'))
+    /** @param {string} folder @param {string} under */
+    const gather = async (folder, under) => {
+      for (const name of (await readdir(folder)).sort()) {
+        const path = join(folder, name)
+        if ((await stat(path)).isDirectory()) await gather(path, `${under}${name}/`)
+        else if (name.endsWith('.md')) files[`h5p-author/references/${under}${name}`] = await readFile(path)
+      }
+    }
+    await gather(references, '')
+  } catch (error) {
+    if (options.references !== undefined) throw new Error(`${root} does not hold the h5p-author skill: SKILL.md, LICENSE and references/`, { cause: error })
+    return null
+  }
+  // Strict: what would be a warning, a skill over the limits or a SKILL.md that does not read, is
+  // said as the server starts, and nothing is written to the console.
+  return SkillsExtension.load(memorySkillFiles(files), { strict: true })
 }

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { McpServer, ResourceNotFoundError, ResourceTemplate, createMcpHandler } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { SourceError, buildPackage } from '@missing-elements/h5p-author'
-import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } from './answers.mjs'
+import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typeAnswers } from './answers.mjs'
 
 /**
  * The app server (#210, #270): an MCP server over HTTP for a chat app that shows a card in its
@@ -20,7 +20,7 @@ import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } fro
  * @typedef {object} AppOptions
  * @property {string} [site] the origin of the site whose play page the card frames; `https://missing-elements.github.io` by default
  * @property {string} [libraries] the pack's `parts/` folder to check with; the installed pack by default
- * @property {string} [references] the folder of the author package's type files and brief, its `references/`; the installed package's by default
+ * @property {string} [references] the folder of the author package's type files and brief, its `references/`, with the skill's `SKILL.md` and `LICENSE` beside it, as in the package; the installed package's by default
  * @property {string} [card] the card's text, `lib/card.html`; read from beside this file by default
  * @property {string} [version] the version the server names itself with; this package's by default
  *
@@ -117,6 +117,9 @@ export async function createApp(options = {}) {
   const about = typeAnswers({ libraries: options.libraries, references: options.references })
   // Said as the server starts, not found out by whoever reads its answers.
   await about.held()
+  // The h5p-author skill, served beside the tools to a chat that loads skills from a server
+  // (#280): its first build route is h5p_play. Read once, here; one catalog serves every request.
+  const skills = await skillCatalog({ references: options.references })
   // The card's policy: the one site it frames, and the chat's file store, which it asks for the
   // attached file. Written twice, as the MCP Apps specification places it and as ChatGPT reads it.
   const cardMeta = {
@@ -214,6 +217,7 @@ export async function createApp(options = {}) {
         if (typeof hash !== 'string' || !/^[0-9a-f]{12}$/.test(hash)) throw new ResourceNotFoundError(uri.href)
         return { contents: [{ uri: uri.href, mimeType: CARD_TYPE, text: card, _meta: cardMeta }] }
       })
+    skills?.attach(mcp)
     return mcp
   }
 

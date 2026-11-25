@@ -21,9 +21,23 @@ below.
   reads one back into its source. The instructions are the flow in a few lines: the type is the one
   question, its answer is read before the source is written, then the build, where the file is and
   what the check found, and the preview offered; a package the person has is read, its source
-  changed, and built. Not `SKILL.md`, whose build routes do not apply here. An app sends the descriptions and the
-  instructions with every message, so they stay under about 1,500 tokens; `server.test.ts` holds
-  them under 6,000 characters.
+  changed, and built. Not `SKILL.md`, which is served as a skill instead (below): it is mostly
+  build routes for chats without these tools. An app sends the descriptions and the instructions
+  with every message, so they stay under about 1,500 tokens; `server.test.ts` holds them under
+  6,000 characters.
+- **Both servers serve the h5p-author skill over MCP, as the author package ships it** (#280).
+  MCP's Skills extension (SEP-2640, `io.modelcontextprotocol/skills`) has a server serve a skill
+  folder as `skill://` resources beside its tools, and answer `skills/list` and `skills/get`; a
+  chat that has it lists the skill and loads `SKILL.md` when it is needed. Both serve
+  `skill://h5p-author/`: `SKILL.md`, `LICENSE` and the `.md` files under `references/`, nothing
+  else of the package (`skillCatalog` in `answers.mjs`, the SDK's `SkillsExtension` over files
+  held in memory, read once as the server starts). The skill's first build route is these tools,
+  so a model that loaded it from a server, or that has it installed beside them, builds with them
+  and runs nothing (the skill's rule in [author.md](author.md)). A chat without the extension sees
+  nothing new, so the instructions and `h5p_types` stay. The other half of the pattern is the
+  skill installed in the agent, by the skills CLI, which writes it where each agent reads skills.
+  Not seen loaded anywhere yet: Claude Code 2.1.331 has the client and never called
+  `skills/list`, on the 2025 protocol or 2026-07-28, on Haiku, Sonnet or Opus (2026-11-25).
 - **`h5p_build` shows a source's own fields; the build checks them.** Its `source` carries the
   fields of the author package's `sourceSchema` as JSON Schema properties (#230), so a model writes
   the authors and the licence right before its first build: without them, Haiku wrote
@@ -209,7 +223,8 @@ command is that handler on a port. Its endpoint is `/mcp`.
   endpoint with no sign-in lets anyone bring about.
 - **The Worker is the same handler, and carries what the server reads.** `createApp()`, the
   package's `./app`, takes as options what `import.meta` cannot find in a bundle: `version`,
-  `card`, `references`. The library pack's parts, the brief with the type files and the card are
+  `card`, `references`. The library pack's parts, the h5p-author skill (its `references/`, with
+  `SKILL.md` and `LICENSE` beside it, which `references` names) and the card are
   gathered into `staged/` by `scripts/stage.mjs` and ride in the Worker as modules
   (`find_additional_modules`), which its file system shows under `/bundle`: the server's Node
   entry reads them there as on a computer (`nodejs_compat`). 17 MB of the 64 MiB a Worker may be.

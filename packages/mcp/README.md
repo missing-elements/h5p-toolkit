@@ -53,6 +53,11 @@ gets a number, and it says which.
   beside it, to change and build again. It reads content made for the library pack's versions of
   its libraries, and says what a source cannot hold, such as the author's comments.
 
+Both servers also serve the [h5p-author skill](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-author) over MCP's
+Skills extension (SEP-2640), for an app that loads skills from a server. Installed in your agent
+instead, with `npx skills add missing-elements/h5p-toolkit --skill h5p-author`, the same skill
+builds with these tools wherever they are connected.
+
 ## What leaves your computer
 
 The build downloads each picture, video, recording or other file your content names by web

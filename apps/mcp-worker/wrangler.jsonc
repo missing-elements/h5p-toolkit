@@ -11,7 +11,7 @@
   "base_dir": "staged",
   "rules": [
     { "type": "Data", "globs": ["parts/*.h5p"], "fallthrough": true },
-    { "type": "Text", "globs": ["parts/index.json", "references/**/*.md"], "fallthrough": true }
+    { "type": "Text", "globs": ["parts/index.json", "references/**/*.md", "SKILL.md", "LICENSE"], "fallthrough": true }
   ],
   // Workers Logs off: no invocation log and no trace of a call is stored. The test holds the
   // file to it. What Cloudflare counts for any Worker is not this setting's (design/mcp.md).
