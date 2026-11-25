@@ -6,7 +6,8 @@
  * loads them (`openPack`, `loadLibraries`, and `packageLibraries` for a package's own), its rules
  * for text (`markupText`, `plainText`, `allowedTags`), and the check it runs last on what it writes,
  * for saved content (`checkContent`). `readPackage` reads a package back into its source, to change
- * it and build it again. A content type's bundle (`writeBundle`) carries the parts a
+ * it and build it again. `describeMedia` says what a picture, a video or a recording is before a
+ * source names it: a video's length, a picture's size. A content type's bundle (`writeBundle`) carries the parts a
  * build of it reads, for a build where the pack cannot be installed. This is the entry for Node:
  * `./core` is what of it needs no Node, and `./browser` builds in a page.
  */
@@ -17,12 +18,14 @@ import { schemaLines, schemaMarkdown } from './schema.mjs'
 import { LAYOUTS } from './types.mjs'
 
 export * from './core.mjs'
-export { buildPackage, inside, openPack, publicFetch, readPackage, writeBundle, writeBundles } from './node.mjs'
+export { buildPackage, describeMedia, inside, openPack, publicFetch, readPackage, writeBundle, writeBundles } from './node.mjs'
 
 /**
  * @typedef {import('./node.mjs').BuildResult} BuildResult
  * @typedef {import('./node.mjs').BuildOptions} BuildOptions
  * @typedef {import('./node.mjs').BundleResult} BundleResult
+ * @typedef {import('./node.mjs').DescribeOptions} DescribeOptions
+ * @typedef {import('./node.mjs').MediaFacts} MediaFacts
  * @typedef {import('./node.mjs').ReadResult} ReadResult
  * @typedef {import('./node.mjs').ReadOptions} ReadOptions
  */

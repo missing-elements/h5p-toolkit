@@ -27,14 +27,16 @@ import { SourceError } from './source-error.mjs'
  * @typedef {import('./translate.mjs').TranslationReport} TranslationReport
  * @typedef {{
  *   output: string, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>,
- *   libraries: string[], install: string[], coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], media: string[], unread: string[], outline: string
+ *   libraries: string[], install: string[], coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], media: string[], lengths: import('./media.mjs').MediaLength[], unread: string[], outline: string
  * }} BuildResult what was written, and what is worth telling about it: `libraries`, the folders the
  *   package plays with; `install`, those carried for an H5P site's upload check; `coreApi`, the
  *   newest H5P core they ask for, which a site needs to take the package (`coreApiLine` says it);
  *   `outline`, the content as text for a review (`outlineOf`); `builtWith`, the content type and
  *   the pack's version of it, "H5P.Blanks 1.14", and `source`, the source as built, naming it: what
  *   to keep with the package, so that a build with a later pack can say the type has moved;
- *   `unread`, the files a check with `unread` did not look at, as the source names them
+ *   `unread`, the files a check with `unread` did not look at, as the source names them;
+ *   `lengths`, the length of each video an Interactive Video's times were held to, as the source
+ *   names it (`lengthLine` says one): an mp4's from its index, a Vimeo video's as Vimeo said it
  * @typedef {{ libraries?: string, base?: string, fetch?: typeof fetch, within?: string[], check?: boolean, unread?: boolean }} BuildOptions
  *   `libraries`, a library pack's parts folder in place of the pinned pack; `base`, the folder a
  *   source's file paths are read from; `fetch`, for media named by web address; `within`, the
@@ -58,6 +60,11 @@ import { SourceError } from './source-error.mjs'
  *   folders of the parts it holds; `size`, the zip's in bytes
  * @typedef {{ dev: bigint, ino: bigint }} Made a file this module created, by the device and
  *   inode it was given, which a file that takes its name later does not have
+ * @typedef {import('./media.mjs').MediaFacts} MediaFacts
+ * @typedef {{ base?: string, fetch?: typeof fetch, within?: string[] }} DescribeOptions
+ *   `base`, the folder a path is read from; `fetch`, for a file named by web address and for
+ *   asking a video's host; `within`, the folders a local file must be inside, on its real path, a
+ *   list even of one
  */
 
 /**
@@ -118,11 +125,13 @@ export async function packVersion() {
 /**
  * A source's files on disk: beside the source, by their paths from `base`; downloads kept in
  * `temporary`, numbered.
- * @param {{ base: string, temporary: string, within?: string[] }} folders `within`, the folders a file must be inside
+ * @param {{ base: string, temporary: string, within?: string[], beside?: string }} folders
+ *   `within`, the folders a file must be inside; `beside`, where a file is looked for, as a
+ *   problem says it of one that is not there
  * @returns {import('./media.mjs').MediaAccess<string>}
  * @internal
  */
-export function nodeMedia({ base, temporary, within }) {
+export function nodeMedia({ base, temporary, within, beside = ' beside the source' }) {
   let downloads = 0
   return {
     what: 'a file beside the source',
@@ -133,7 +142,7 @@ export function nodeMedia({ base, temporary, within }) {
       // or not something is there, and a confined build names no path but the one written.
       if (within && !(await inside(from, within))) return { missing: 'is outside the folders this build may read' }
       const found = await stat(from).catch(() => null)
-      if (!found?.isFile()) return { missing: within ? 'no such file in the folders this build may read' : `no such file beside the source (${from})` }
+      if (!found?.isFile()) return { missing: within ? 'no such file in the folders this build may read' : `no such file${beside} (${from})` }
       // Opened once here, so a file the build cannot read is a problem of the source's, said with
       // the rest, and not a failure halfway through the build that names its whole path.
       try {
@@ -409,6 +418,7 @@ export async function buildPackage(input, output, options = {}) {
         translations: built.translations,
         notes: built.notes,
         media: media.files.map((item) => item.name),
+        lengths: built.lengths,
         unread: [...media.unread],
         get outline() { return built.outline }
       }
@@ -450,12 +460,39 @@ export async function buildPackage(input, output, options = {}) {
       translations: built.translations,
       notes: built.notes,
       media: media.files.map((item) => item.name),
+      lengths: built.lengths,
       unread: [],
       get outline() { return built.outline }
     }
   } finally {
     await pack.close()
     if (temporary) await rm(temporary, { recursive: true, force: true })
+  }
+}
+
+/**
+ * What files are, before a source names them (#260): a picture's size, a video's or a recording's
+ * container, an mp4's length and what is worth saying of its tracks, read as a build reads them;
+ * of a video on YouTube, Vimeo, Panopto or Echo360, its host, and its length where the host says
+ * one. A model that writes an Interactive Video's times needs the length first, and wrote a
+ * parser of its own for it where it could run one. A file named by a web address is downloaded to
+ * a temporary folder removed after, as a check downloads it. `mediaLine` says each in a line.
+ * @param {string[]} sources paths from `base`, or web addresses
+ * @param {DescribeOptions} [options]
+ * @returns {Promise<MediaFacts[]>} one for each, in their order
+ */
+export async function describeMedia(sources, options = {}) {
+  const within = foldersOf(options.within)
+  if (!Array.isArray(sources) || !sources.every((source) => typeof source === 'string' && source.trim())) throw new TypeError('describeMedia takes a list of paths or web addresses')
+  const temporary = await mkdtemp(join(tmpdir(), '.h5p-author-'))
+  try {
+    const media = new MediaStore(nodeMedia({ base: options.base ?? process.cwd(), temporary, within, beside: '' }), { fetch: options.fetch })
+    /** @type {MediaFacts[]} */
+    const facts = []
+    for (const source of sources) facts.push(await media.describe(source))
+    return facts
+  } finally {
+    await rm(temporary, { recursive: true, force: true })
   }
 }
 

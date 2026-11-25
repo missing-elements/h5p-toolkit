@@ -8,7 +8,7 @@ over it, so a later build takes a new name (`course-2.h5p`). Copy the one you ha
 name the user asked for without writing over a file already there (`cp -n`). If that name is
 taken, take a new name and say so. Never delete or overwrite a file
 to free a name. Pass the build's notes on to the user: texts left in English, a slide that holds
-too much.
+too much, hotspots or times to look at in the preview.
 
 ## Verify
 

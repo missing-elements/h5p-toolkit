@@ -153,7 +153,9 @@ describe('the build in a page', () => {
     expect((built.content as any).interactiveVideo.video.files).toEqual([{ path: address, mime: 'video/mp4', copyright: { license: 'U' } }])
     expect(built.linked).toEqual(['clip.mp4'])
     expect(built.media).toEqual([])
-    expect(built.notes).toEqual([])
+    // Nothing of the file is read, so no length is said, and the one note is of the times (#260).
+    expect(built.lengths).toEqual([])
+    expect(built.notes).toEqual([{ path: 'params.interactiveVideo.assets.interactions', message: expect.stringContaining('holds 1 interaction shown at the times written') }])
     expect(asked).not.toHaveBeenCalled()
     const { entries } = await archive(new Uint8Array(await built.blob.arrayBuffer()))
     expect(entries.filter(({ filename }) => /^content\/(?:videos|audios|images|files)\//.test(filename))).toEqual([])

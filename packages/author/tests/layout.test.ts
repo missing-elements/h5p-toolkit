@@ -145,7 +145,10 @@ describe('Interactive Video', () => {
     expect(first).toMatchObject({ x: 5, y: 5, width: 17, height: 16 })
     expect(second).toMatchObject({ x: 50, y: 5, width: 17, height: 16 })
     expect(third).toMatchObject({ x: 5, y: 5 })
-    expect(notes).toEqual([{ path: 'params.interactiveVideo.assets.interactions[2]', message: expect.stringContaining('has no room left for it') }])
+    expect(notes).toEqual([
+      { path: 'params.interactiveVideo.assets.interactions[2]', message: expect.stringContaining('has no room left for it') },
+      { path: 'params.interactiveVideo.assets.interactions', message: expect.stringContaining('holds 6 interactions shown at the times written') }
+    ])
     // A text its lines, a picture its shape, as the editor gives one.
     expect(text).toMatchObject({ x: 5, y: 5, width: 12, height: 5.6 })
     expect(image).toMatchObject({ width: 13.33, height: 10 })

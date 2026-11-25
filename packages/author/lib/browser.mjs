@@ -29,14 +29,15 @@ export * from './core.mjs'
  *   library with its part's URL
  * @typedef {{
  *   blob: Blob, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, libraries: string[], install: string[],
- *   coreApi: import('./install.mjs').CoreApi, translations: import('./translate.mjs').TranslationReport[], notes: import('./build.mjs').Problem[], media: string[], linked: string[], outline: string
+ *   coreApi: import('./install.mjs').CoreApi, translations: import('./translate.mjs').TranslationReport[], notes: import('./build.mjs').Problem[], media: string[], lengths: import('./media.mjs').MediaLength[], linked: string[], outline: string
  * }} BuildResult the package, and what is worth telling about it: `libraries`, the folders it plays
  *   with; `install`, those it carries for an H5P site's upload check; `coreApi`, the newest H5P core
  *   they ask for, which a site needs to take the package (`coreApiLine` says it); `outline`, the
  *   content as text for a review (`outlineOf`); `builtWith`, the content type and the pack's version
  *   of it, "H5P.Blanks 1.14", and `source`, the source as built, naming it: what to keep with the
- *   package, so that a build with a later pack can say the type has moved; `media`, the files it
- *   carries, and `linked`, the files the source names that were left at an address: where there is
+ *   package, so that a build with a later pack can say the type has moved; `lengths`, the length
+ *   of each video an Interactive Video's times were held to (`lengthLine` says one); `media`, the
+ *   files it carries, and `linked`, the files the source names that were left at an address: where there is
  *   one, the package is a preview and not a file to keep, since the address may stop answering
  * @typedef {{ libraries: Pack | PackIndex | string | URL, files?: Map<string, Blob> | Record<string, Blob>, linked?: Map<string, string> | Record<string, string>, fetch?: typeof fetch }} BuildOptions
  *   `libraries`, a pack `openPack` opened, which a page keeps for its builds, or what to open one
@@ -216,6 +217,7 @@ export async function buildPackage(input, options) {
       translations: built.translations,
       notes: built.notes,
       media: media.files.map((item) => item.name),
+      lengths: built.lengths,
       linked: [...media.linked],
       get outline() { return built.outline }
     }

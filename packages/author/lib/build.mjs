@@ -11,7 +11,7 @@ import { outlineOf } from './outline.mjs'
 import { SourceError } from './source-error.mjs'
 import { authorHolds, holds, NO_FIELD, NO_SOURCE, sourceSchema, TYPE } from './source-schema.mjs'
 import { escapeText } from './text.mjs'
-import { LAYOUTS, placesOf, videoTimes } from './types.mjs'
+import { byNumber, LAYOUTS, placesOf, videoTimes } from './types.mjs'
 
 export { SourceError }
 
@@ -257,11 +257,12 @@ function stamped(source, builtWith) {
  * @param {import('./media.mjs').MediaStore<F>} media
  * @param {Problem[]} [said] the problems `sourceOf` found in the source's own fields, which come
  *   first among the content's: all of them in one round (#174)
- * @returns {Promise<{ source: Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, selected: Map<string, import('./pack.mjs').PartLibrary>, install: Map<string, import('./pack.mjs').PartLibrary>, coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], outline: string }>}
+ * @returns {Promise<{ source: Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, selected: Map<string, import('./pack.mjs').PartLibrary>, install: Map<string, import('./pack.mjs').PartLibrary>, coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], lengths: import('./media.mjs').MediaLength[], outline: string }>}
  *   `selected`, the libraries the package plays with; `install`, those an H5P site's upload check wants with them; `coreApi`, the
  *   newest H5P core any of them asks for (`coreApiOf`); `outline`, the
  *   content as text for a review (`outlineOf`), made when it is first read; `builtWith`, the
- *   content type and the version the pack has of it, and `source`, the source naming it (`stamped`)
+ *   content type and the version the pack has of it, and `source`, the source naming it (`stamped`);
+ *   `lengths`, the length of each video an Interactive Video's times were held to (#260)
  * @internal
  */
 export async function composePackage(source, pack, media, said = []) {
@@ -334,8 +335,17 @@ export async function composePackage(source, pack, media, said = []) {
   // Times past the end of a video whose length was read, which only a build, with the file, knows;
   // none in a list an item of which was refused, whose indices are no longer the source's.
   const timed = (/** @type {string} */ path, /** @type {string} */ message) => { if (!shortened(path)) report(path, message) }
+  // The length each Interactive Video's times were held to, which a build's output says (#260).
+  /** @type {import('./media.mjs').MediaLength[]} */
+  const lengths = []
   for (const place of placesOf(main, checked.params)) {
-    if (place.library === 'H5P.InteractiveVideo') videoTimes(place.params, inSource(place.path), (file) => media.lengthOf(file), timed)
+    if (place.library === 'H5P.InteractiveVideo') {
+      const length = videoTimes(place.params, inSource(place.path), (file) => media.lengthOf(file), timed)
+      if (length && !lengths.some(({ file }) => file === length.file)) lengths.push(length)
+    }
+    // What is placed or timed by numbers alone, which only a person looking at it can check.
+    const numbered = byNumber(place.library, place.params)
+    if (numbered) note(`${inSource(place.path)}.${numbered.at}`, numbered.message)
   }
   // What the source was last built with, where this pack has another version of the type: said
   // with the problems, which a field that changed since may have made, and a note where it builds.
@@ -375,7 +385,7 @@ export async function composePackage(source, pack, media, said = []) {
   let outline
   return {
     source: stamped(source, builtWith), builtWith,
-    manifest, content, selected, install, translations, notes,
+    manifest, content, selected, install, translations, notes, lengths,
     coreApi: coreApiOf([...selected.values(), ...install.values()].map((part) => part.library)),
     // Made when it is first read: it is for a review, which only some callers make, and a build
     // that never reads it never runs it.
