@@ -40,7 +40,7 @@ const INSTRUCTIONS = `Makes an H5P activity and plays it in the chat, built in t
 3. Call h5p_play with the source. Where it lists problems, fix each at its path and call it again.
 A file the person attached (a video, a recording, a picture): name it in the source by its file name, and pass the attachment in file. Do not open, read or analyse it yourself, with code or otherwise: pass it as it is, since nothing here needs what is in it.
 The author and the licence are what the person gave; otherwise the name you know them by, or "Unknown", and the licence "U".
-The card has the download of the .h5p file: do not offer a link of your own.`
+The card has the download of the .h5p file: give no link of your own, only an address h5p_play's answer gives.`
 
 const PLAY = `Checks an H5P activity's source and plays the activity in the chat, built in the person's browser, with a download of the .h5p file. The source is as h5p_types describes it for its type, its params holding only what differs from the type's defaults. A source with problems is refused, each problem named by its path. Nothing is stored.`
 
@@ -57,6 +57,33 @@ const FILE = {
   required: ['download_url', 'file_id'],
   additionalProperties: false
 }
+
+/** MCP Apps' name for a chat's cards, and the kind of card this server's is. */
+const UI = 'io.modelcontextprotocol/ui'
+const CARD_TYPE = 'text/html;profile=mcp-app'
+
+/**
+ * Whether the chat draws this server's card, as it says (#276): true or false where it says, as on
+ * protocol 2026-07-28, which carries the client's capabilities in each request; null where it says
+ * nothing here, as a chat on the 2025 protocols, which says them once as it starts, to a server
+ * that keeps no session.
+ * @param {unknown} capabilities
+ * @returns {boolean | null}
+ */
+function drawsCards(capabilities) {
+  if (!capabilities || typeof capabilities !== 'object') return null
+  const ui = /** @type {{ extensions?: Record<string, { mimeTypes?: unknown } | undefined> }} */ (capabilities).extensions?.[UI]
+  return Array.isArray(ui?.mimeTypes) && ui.mimeTypes.includes(CARD_TYPE)
+}
+
+/**
+ * What a chat that draws no card hands over in its place (#276): h5p-author's route 4, the whole
+ * source and the build page's plain address. Never a link that carries the source, which breaks
+ * where a model writes one character of it wrong (the owner, 2026-11-16).
+ * @param {string} site
+ * @param {number} files how many files the source names, which the page asks the person for
+ */
+const handOver = (site, files) => `hand the activity over to be built in the person's browser: the whole source, once, in one json code block, and one line telling them to copy it, open ${site}/h5p/build/, choose "Paste your chat's JSON", paste it into the box in place of the sample's, and press Build.${files ? ' Add that the page asks for the files the source names before it builds.' : ''} Give the page's address as it is, with nothing after it.`
 
 /** Where a chat keeps attached files, which the card asks from the person's browser: ChatGPT's, as seen in November 2026. */
 const FILE_HOSTS = ['https://*.blob.core.windows.net', 'https://files.oaiusercontent.com', 'https://*.oaiusercontent.com']
@@ -142,7 +169,18 @@ export async function createApp(options = {}) {
       const came = attached(file)
       // An attachment goes to the card only for a source that names a file: one it does not name is not used.
       const given = files.length ? came : null
-      const lines = [`The activity is checked and plays in the card: ${result.manifest.mainLibrary}, ${result.libraries.length} libraries. It is built in the person's browser; nothing was stored.`]
+      const cards = drawsCards(mcp.server.getClientCapabilities())
+      const what = `${result.manifest.mainLibrary}, ${result.libraries.length} libraries`
+      if (cards === false) {
+        // No card comes: the source, to the build page.
+        const lines = [`The activity is checked: ${what}. Nothing was stored. This chat draws no card, so ${handOver(site, files.length)}`]
+        if (files.length) lines.push(`Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here.`)
+        lines.push(...heldLines(result))
+        return answer(lines.join('\n'))
+      }
+      const lines = [`The activity is checked and plays in the card: ${what}. It is built in the person's browser; nothing was stored.`]
+      // A chat that did not say whether it draws cards: the way where it draws none, too.
+      if (cards === null) lines.push(`Where this chat draws no card, as a terminal or an editor's chat draws none, ${handOver(site, files.length)}`)
       if (files.length) {
         lines.push(given
           ? `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here: the card gets the attachment in the person's browser${files.length === 1 ? '' : ', and asks the person for any other'}.`
@@ -151,11 +189,17 @@ export async function createApp(options = {}) {
         lines.push('An attachment came with the call, and the source names no file, so it is not used: name it in the source, as the type\'s notes say, to use it.')
       }
       lines.push(...heldLines(result))
+      const text = lines.join('\n')
       return {
-        ...answer(lines.join('\n')),
-        structuredContent: { files: files.length, ...(given ? { fileId: given.file_id } : {}), ...(given?.file_name ? { fileName: given.file_name } : {}) },
-        // For the card, as a chat hands a card either part of an answer.
-        ...(given ? { _meta: { 'h5p/file': given } } : {})
+        ...answer(text),
+        // The attachment's id for the card, where one came, in both parts of an answer a chat may
+        // hand a card. Not otherwise: a chat may give the model this part in place of the text
+        // (Claude Code 2.1.331 gave Haiku `{"files":0}` and no word of the check, 2026-11-25,
+        // #276), so it carries the text too.
+        ...(given ? { structuredContent: { answer: text, files: files.length, fileId: given.file_id, ...(given.file_name ? { fileName: given.file_name } : {}) } } : {}),
+        // And the source, which a card drawn from the result alone, with no input, plays from
+        // (#276). Shown to the card, not the model. It came in the call; nothing of it is kept.
+        _meta: { 'h5p/source': source, ...(given ? { 'h5p/file': given } : {}) }
       }
     })
 

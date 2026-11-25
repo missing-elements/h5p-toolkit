@@ -108,6 +108,23 @@ command is that handler on a port. Its endpoint is `/mcp`.
   as it is and not to open it: a reply that began with the chat's own analysis of the file drew
   no card, twice, and without it the card came (ChatGPT, 2026-11-23 and 11-24; one cause is not
   proven).
+- **The model's words are in the answer's text, and its structured part comes only with an
+  attachment, carrying them too** (#276). A chat may give the model the structured part in place
+  of the text: Claude Code 2.1.331 gave Haiku `{"files":0}` and no word of the check, its
+  outline or what to hand over (2026-11-25). The structured part is there for a card that is
+  handed only it, with the attachment's id, which the card also gets in `_meta`.
+- **A chat that draws no card is told to hand the source to the build page, by what it says it
+  draws** (#276). MCP Apps names a chat's cards in its capabilities (`io.modelcontextprotocol/ui`,
+  with `text/html;profile=mcp-app`). Protocol 2026-07-28 carries them in each request, so there
+  the answer is one or the other: the card, or h5p-author's route 4, the whole source in one
+  JSON block and one line with the build page's plain address. A chat on the 2025 protocols says
+  them once, as it starts, to a server that keeps no session, so its answer says the card and,
+  for a chat that draws none, route 4 too. Never a link that carries the source: a model breaks
+  one by a character (the owner, 2026-11-16). The instructions let a model give only an address
+  the answer gives. Haiku in Claude Code with the two tools and nothing else, a chat with no
+  cards on the 2025 protocol, asked for a True/False question, a three-question quiz and flash
+  cards: a JSON block that parses, of the right type, with the build page's plain address and
+  "Paste your chat's JSON", in 3 of 3, and no link with the source (2026-11-25).
 - **The file input is ChatGPT's, to the letter, and not held to.** `file` is named in
   `openai/fileParams` and its schema is the reference's: `download_url` and `file_id` required,
   `mime_type` and `file_name`, nothing else. It is shown and not enforced, as `source` is: a
@@ -120,7 +137,9 @@ command is that handler on a port. Its endpoint is `/mcp`.
   what only the chat has, by the page's messages: the attached file's address, asked of the chat
   by the file's id, and what it weighs, its bytes where the page needs them or that they did not
   come, the chat's theme, a save (`ui/download-file`), and an open tab for a link of the site's
-  and no other (`openExternal`). It sends nothing to the server it came from and calls no tool. Its policy
+  and no other (`openExternal`). The answer carries the source for it in `_meta`, which a chat
+  shows the card and not the model, so a card drawn from the result alone, with no input, plays
+  all the same (#276). It sends nothing to the server it came from and calls no tool. Its policy
   names the one site it frames and the chat's file store. A chat keeps a card by its address, so
   the address carries the card's hash.
 - **Where the page cannot play in the card's frame, the card offers the activity in a tab, and
@@ -137,11 +156,24 @@ command is that handler on a port. Its endpoint is `/mcp`.
   would keep the card's sandbox and have no origin either (probed in Chromium, Firefox and
   WebKit, 2026-11-25). Whether a tab opened is not the
   card's to see, so the address is there to copy from the first press on, and at once in a chat
-  that opens no link. The page's own word from the frame takes the card back: a wrong conclusion
-  never hides a player that works. The chat's theme is ChatGPT's `window.openai.theme` or MCP
+  that opens no link. A page that has said nothing 10 s after its frame loaded did not start
+  there, refused without the browser saying so or blocked by a network, and the card offers the
+  tab too, saying the activity did not start in the reply (#276): the page speaks within a moment
+  of its load. The page's own word from the frame takes the card back: a wrong conclusion
+  never hides a player that works. Where the page starts in the frame and the player then cannot,
+  the page offers the tab itself (the site's #116). The chat's theme is ChatGPT's `window.openai.theme` or MCP
   Apps' `hostContext.theme`. In Claude the tab was seen to work (the owner, 2026-11-25). Not
   known: Open WebUI itself, which the card met only as a stand-in. A player without the Service
   Worker is not built for such a chat ([scope.md](scope.md)).
+- **Until the activity comes, the card says what the chat is doing** (#276). A chat may draw the
+  card while its model still writes the source, which takes longer than a moment for a long one:
+  where it says so as it goes (`tool-input-partial`), the card says the chat is writing it, and
+  never plays from a part. A call the chat stopped (`tool-cancelled`) is said. With no word at
+  all, it says at 6 s that it waits, and at a minute that nothing came: before, it said at 6 s
+  that nothing came and took it back when the source did. A word that ends the wait is as tall
+  as what it says. Its colours follow the chat's theme by an attribute the card writes, not by
+  `light-dark()`, and nothing asks for `URL.canParse`: Safari has them from 17.5 and 17, Chrome
+  from 123 and 120, Firefox from 120 and 115 (MDN's compatibility data).
 - **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
   saves no file and opens no tab on a press; the chat saves a file handed to it of 8 MB and
   refuses one of 16 MB, downloads from no address, and takes no package into its own files; its
@@ -155,7 +187,10 @@ command is that handler on a port. Its endpoint is `/mcp`.
   `tests/card.test.ts` runs the card in a browser, the verifier's, in three chats that stand in
   for the ones it was written against: one that sandboxes it without an origin, under the policy
   Open WebUI writes from the card's domains; one that refuses the frame; one that lets the page
-  be framed. Each speaks MCP Apps to it, and the play page there says its height and no more.
+  be framed. Each speaks MCP Apps to it, and the play page there says its height and no more:
+  the source streamed, a stopped call, a result with no input, nothing for a while, and a page
+  that never speaks. `app.test.ts` asks as a chat on protocol 2026-07-28 too, with and without
+  cards.
   With the site's own play page the card is checked by hand in a page that stands in for a chat,
   its frame sandboxed as ChatGPT's was found to be; in ChatGPT itself ran the probe's card, which
   this one is without its test parts.

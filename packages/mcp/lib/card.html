@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>H5P activity</title>
 <style>
-  :root { color-scheme: light dark; --border: light-dark(#d9d6d0, #3a3833); --surface: light-dark(#f1eeea, #24231f); --text: light-dark(#1c1b19, #f2f0ec); --muted: light-dark(#6b6862, #a8a49c); --accent: light-dark(#2f6db5, #7fb0ea); --accent-ink: light-dark(#ffffff, #10233b); }
+  /* The colours by the chat's theme, which the card writes on the root (`data-theme`), and by the
+     system's where the chat gives none. No light-dark(), which Safari before 17.5 and Chrome before 123 lack. */
+  :root { color-scheme: light dark; --border: #d9d6d0; --surface: #f1eeea; --text: #1c1b19; --muted: #6b6862; --accent: #2f6db5; --accent-ink: #ffffff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; } }
+  :root[data-theme="dark"] { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; }
   /* A root of its own for the margins inside: a height short by one left a scroller in the card. */
   body { display: flow-root; margin: 0; font: 14px/1.4 system-ui, sans-serif; color: var(--text); background: transparent; }
   [hidden] { display: none !important; }
@@ -20,8 +24,8 @@
   .wait small { color: var(--muted); font-size: 13px; }
   /* Where the chat cannot play the activity in its reply: what happens, and the one thing to press.
      As tall as what it says, not the player's place, since no player comes. */
-  .wait.tab { aspect-ratio: auto; padding: 28px 16px; }
-  .wait.tab small { max-width: 46ch; }
+  .wait.tab, .wait.ended { aspect-ratio: auto; padding: 28px 16px; }
+  .wait.tab small, .wait.ended small { max-width: 46ch; text-wrap: balance; }
   .wait button { font: inherit; font-weight: 600; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; }
   .wait #open { padding: 10px 18px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
   .wait button:hover { filter: brightness(1.08); }
@@ -87,6 +91,7 @@ function themed(now = openai()?.theme) {
   if ((now !== 'light' && now !== 'dark') || now === theme) return
   theme = now
   document.documentElement.style.colorScheme = now
+  document.documentElement.dataset.theme = now
   if (revealed) toPage({ type: 'theme', theme: now })
 }
 
@@ -108,6 +113,9 @@ async function show(input) {
   if (shown || !input || typeof input !== 'object') return
   const source = input.source ?? input
   if (!source || typeof source !== 'object' || !source.type) return
+  clearTimeout(slow)
+  clearTimeout(quiet)
+  waiting('Opening the activity…', 'It is built in your browser.')
   shown = true
   const fragment = await fragmentOf(source)
   address = PLAY + fragment
@@ -115,7 +123,13 @@ async function show(input) {
   if (self.origin === 'null') return void inTab()
   // The page loads behind the card's own loader, and takes its place once it has something drawn
   // to show: its first word, or its load at the latest. Nothing is blank in between.
-  frame.addEventListener('load', () => setTimeout(reveal, 300), { once: true })
+  // A page that says nothing did not start in the frame: a chat may refuse a frame without the
+  // browser saying so, and a network may block the site. The page speaks within a moment of its
+  // load, so ten seconds of silence offer the tab, which its first word still takes back (#276).
+  frame.addEventListener('load', () => {
+    setTimeout(reveal, 300)
+    setTimeout(() => { if (!spoke) inTab('silent') }, 10_000)
+  }, { once: true })
   frame.src = PLAY + (theme ? `?theme=${theme}` : '') + fragment
   sizeToContent()
 }
@@ -151,8 +165,15 @@ let address = ''
 let tabbed = false
 let spoke = false
 let opening = 0
-function inTab() {
+// What the tab state says of why: the chat's frame, or a page that said nothing from it.
+const WHY = {
+  chat: 'This chat does not play an activity inside a reply. It is built and played in your browser, and nothing is sent to a server.',
+  silent: 'The activity did not start inside this reply. In a tab of its own it is built and played in your browser, and nothing is sent to a server.'
+}
+let why = 'chat'
+function inTab(reason = 'chat') {
   if (tabbed || spoke || !address) return
+  why = reason
   tabbed = true
   frame.classList.remove('on')
   frame.hidden = true
@@ -166,7 +187,7 @@ function drawTab() {
   if (!tabbed) return
   const opens = typeof openai()?.openExternal === 'function' || !!capabilities?.openLinks
   $('wait-title').textContent = opens ? 'The activity opens in a new tab' : 'Open the activity in your browser'
-  $('wait-note').textContent = 'This chat does not play an activity inside a reply. It is built and played in your browser, and nothing is sent to a server.'
+  $('wait-note').textContent = WHY[why]
   $('open').hidden = !opens
   // A chat that opens no link: the address is all there is to give.
   if (!opens) copyThis('Copy this link into your browser’s address bar.')
@@ -209,6 +230,9 @@ $('link-copy').addEventListener('click', async () => {
 // chat's store, and its name and type. Never its address: the card asks the chat for that.
 let attached = null
 function fromResult(meta, output) {
+  // The source, where no input came: a reply drawn with its result alone plays all the same (#276).
+  const source = meta?.['h5p/source']
+  if (!shown && source && typeof source === 'object') void show({ source })
   if (attached) return
   const file = meta?.['h5p/file']
   if (file && typeof file === 'object' && typeof file.file_id === 'string') attached = { id: file.file_id, name: file.file_name, mime: file.mime_type }
@@ -337,7 +361,9 @@ function sayWhatTheChatDoes() {
 // A link of the page's, opened by the chat: an address of the site, and nothing else.
 let asked = 100
 function open(href) {
-  if (typeof href !== 'string' || !URL.canParse(href) || new URL(href).origin !== SITE) return
+  let origin = ''
+  try { origin = new URL(href).origin } catch { /* not an address */ }
+  if (typeof href !== 'string' || origin !== SITE) return
   try {
     if (typeof openai()?.openExternal === 'function') void Promise.resolve(openai().openExternal({ href })).catch(() => {})
     else toHost({ id: ++asked, method: 'ui/open-link', params: { url: href } })
@@ -363,6 +389,40 @@ async function save(file, id) {
   }
 }
 
+// Before the activity comes, what the chat is doing, in place of a loader that turns for good
+// (#276). A chat may draw the card while its model still writes the source, which takes longer
+// than a moment for a long one, and say so as it goes (tool-input-partial): each word of it
+// starts the minute again. A call the chat stopped is said (tool-cancelled). With no word at all,
+// the card says at 6 s that it waits, and at a minute that nothing came.
+function waiting(title, note, turning = true) {
+  if (shown || tabbed) return
+  $('spinner').hidden = !turning
+  // A word that ends the wait is as tall as what it says: no player comes to take the place.
+  $('wait').classList.toggle('ended', !turning)
+  $('wait-title').textContent = title
+  $('wait-note').textContent = note
+  sizeToContent()
+}
+let quiet = 0
+function listen() {
+  clearTimeout(quiet)
+  quiet = setTimeout(() => waiting('No activity arrived', 'Ask the chat to show it again.', false), 60_000)
+}
+let slow = setTimeout(() => waiting('Waiting for the activity…', 'The chat is still sending it.'), 6000)
+listen()
+function writing() {
+  if (shown) return
+  clearTimeout(slow)
+  waiting('The chat is writing the activity…', 'It is built in your browser once it is written.')
+  listen()
+}
+function cancelled() {
+  if (shown) return
+  clearTimeout(slow)
+  clearTimeout(quiet)
+  waiting('The activity was not made', 'The chat stopped before it was written. Ask it again.', false)
+}
+
 // ChatGPT's own way: the tool's input and result as values on the window, there now or set later.
 function globals() {
   const chat = openai()
@@ -380,6 +440,8 @@ window.addEventListener('message', (event) => {
   const message = event.data
   if (!message || message.jsonrpc !== '2.0') return
   if (message.method === 'ui/notifications/tool-input') void show(message.params?.arguments)
+  else if (message.method === 'ui/notifications/tool-input-partial') writing()
+  else if (message.method === 'ui/notifications/tool-cancelled') cancelled()
   else if (message.method === 'ui/notifications/tool-result') fromResult(message.params?._meta, message.params?.structuredContent)
   else if (message.id === 1 && !message.method) {
     if (message.result) capabilities = message.result.hostCapabilities ?? null
@@ -402,13 +464,6 @@ window.addEventListener('message', (event) => {
 })
 if (window.parent !== window) toHost({ id: 1, method: 'ui/initialize', params: { protocolVersion: '2026-01-26', appInfo: { name: 'h5p-mcp-app', version: '1' }, appCapabilities: {} } })
 
-// No activity came: said, in place of a loader that turns for good.
-setTimeout(() => {
-  if (shown) return
-  $('spinner').hidden = true
-  $('wait-title').textContent = 'No activity arrived'
-  $('wait-note').textContent = 'Ask the chat to show it again.'
-}, 6000)
 new ResizeObserver(sizeToContent).observe(document.body)
 })()
 </script>
