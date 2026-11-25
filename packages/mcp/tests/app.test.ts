@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { createServer, type AddressInfo, type Server } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -292,6 +292,9 @@ describe('the app server', () => {
       // The skill beside it, as in the author package (#280).
       await writeFile(join(carried, 'SKILL.md'), "---\nname: h5p-author\ndescription: The host's own copy of the skill.\n---\n\nBuild with the tools.\n")
       await writeFile(join(carried, 'LICENSE'), 'MIT\n')
+      // A link in the folder, to a file outside it, is not followed.
+      await writeFile(join(carried, 'outside.md'), 'Not the skill.\n')
+      await symlink(join(carried, 'outside.md'), join(references, 'linked.md'))
       const app = await createApp({ version: '9.9.9', card: "<p>A host's card for __SITE__</p>", references })
       const ask = async (method: string, params: unknown) => {
         const response = await app.fetch(new Request('https://host.example/mcp', {
@@ -311,7 +314,9 @@ describe('the app server', () => {
       expect(list).toMatch(/^\* H5P\.TrueFalse\b/m)
       expect(list).not.toMatch(/^\* H5P\.MultiChoice\b/m)
       // The skill it serves is the host's copy.
-      expect((await ask('skills/list', {})).skills.map((skill: { frontmatter: { description: string } }) => skill.frontmatter.description)).toEqual(["The host's own copy of the skill."])
+      const [skill] = (await ask('skills/list', {})).skills as { frontmatter: { description: string }, resources: { uri: string }[] }[]
+      expect(skill!.frontmatter.description).toBe("The host's own copy of the skill.")
+      expect(skill!.resources.map((resource) => resource.uri.replace('skill://h5p-author/', '')).sort()).toEqual(['LICENSE', 'SKILL.md', 'references/authoring.md', 'references/types/H5P.TrueFalse.md'])
       await app.close()
       // A folder that is not the author package's is said at the start, not by thinner answers.
       await expect(createApp({ references: join(references, 'types') })).rejects.toThrow(/is not the author package's references\/ folder/)

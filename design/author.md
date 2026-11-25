@@ -564,9 +564,11 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     by `built-here.md`: the build's problems, the verifier where npm answered, and the hand-over.
   - Route 0 (`references/build/tools.md`, #280) comes before that check: where the chat has the
     tool `h5p_build` or `h5p_play`, they build, and their answer is the hand-over, with no command,
-    no npm check and no step 4. Both MCP servers serve the skill, and the skills CLI installs it
-    beside them, so a chat can hold the skill and the tools. Given both, Haiku in Claude Code,
-    asked for a True/False question, used the tools without opening the skill in 8 of 8 runs, on
+    no npm check and no step 4. Both MCP servers serve the skill, and an agent that has the skill
+    installed by the skills CLI may have a server connected too, so a chat can hold the skill and
+    the tools; without the tools, the skill goes on to step 3's routes. Given both, Haiku in
+    Claude Code, asked for a True/False question, used the tools without opening the skill in 8
+    of 8 runs, on
     the skill before route 0 and with it. Told to use the skill, the skill before route 0 ran
     `npx` and left the tools unused in 3 of 3 runs ($0.007 each); with route 0 it built with the
     tools in 9 of 9 ($0.004). Two of the first five also ran the npm check first, since the skill

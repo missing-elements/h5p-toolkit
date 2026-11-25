@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SkillsExtension, memorySkillFiles } from '@modelcontextprotocol/server/ext/skills'
@@ -129,7 +129,8 @@ const installedReferences = () => join(dirname(fileURLToPath(import.meta.resolve
  *
  * A folder a host named must hold the skill, and a problem in it is said as the server starts,
  * as with `typeAnswers`. The installed package's is taken as it is found: in this repository it
- * is copied in by a build step, and where it is not there yet no skill is served.
+ * is copied in by a build step, and where a file of it is not there yet no skill is served; any
+ * other error reading it is said.
  * @param {{ references?: string }} [options] the author package's `references/`, as `typeAnswers` takes it; the installed package's by default
  * @returns {Promise<SkillsExtension | null>}
  */
@@ -143,15 +144,17 @@ export async function skillCatalog(options = {}) {
     files['h5p-author/LICENSE'] = await readFile(join(root, 'LICENSE'))
     /** @param {string} folder @param {string} under */
     const gather = async (folder, under) => {
-      for (const name of (await readdir(folder)).sort()) {
-        const path = join(folder, name)
-        if ((await stat(path)).isDirectory()) await gather(path, `${under}${name}/`)
-        else if (name.endsWith('.md')) files[`h5p-author/references/${under}${name}`] = await readFile(path)
+      // Real folders and files only: a link, which could lead out of the folder, is not followed.
+      for (const entry of (await readdir(folder, { withFileTypes: true })).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+        const path = join(folder, entry.name)
+        if (entry.isDirectory()) await gather(path, `${under}${entry.name}/`)
+        else if (entry.isFile() && entry.name.endsWith('.md')) files[`h5p-author/references/${under}${entry.name}`] = await readFile(path)
       }
     }
     await gather(references, '')
   } catch (error) {
     if (options.references !== undefined) throw new Error(`${root} does not hold the h5p-author skill: SKILL.md, LICENSE and references/`, { cause: error })
+    if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ENOENT') throw error
     return null
   }
   // Strict: what would be a warning, a skill over the limits or a SKILL.md that does not read, is
