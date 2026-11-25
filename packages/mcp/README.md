@@ -77,7 +77,9 @@ npx -y -p @missing-elements/h5p-mcp h5p-mcp-app --port 8787
 Its endpoint is `/mcp`, with no sign-in. It has two tools: `h5p_types`, as above, and `h5p_play`,
 which checks an activity's source and shows the card. The card frames the play page of
 [missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity in
-the person's browser and plays it there.
+the person's browser and plays it there. In a chat app that does not let a card frame a page, or
+gives the card no origin of its own, the card asks the chat to open the same page in a new tab
+instead, and shows the page's link to copy in case none opens.
 
 What the server receives, and what it keeps:
 

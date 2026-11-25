@@ -7,6 +7,16 @@ What is not built yet.
 The editor, offline management (save, library, delete), results storage and persistent file
 handles. xAPI is emitted as events and stored nowhere.
 
+**A player without the Service Worker** (the owner's decision, 2026-11-25). A chat app may give
+a card no origin, or refuse its frame, and a player could then run in the card itself, or in a
+framed page, on `blob:` addresses and storage kept in memory. Run on the 79 corpus packages that
+carry their libraries, under Open WebUI 0.13.4's rules for a card, such a player played 75 in
+Chromium, Firefox and WebKit, and 77 as a page the card frames. Among those that started, the
+six with a YouTube or Panopto video or another site embedded showed nothing in its place, since
+the sandbox breaks the embed itself, and twelve lost two libraries' sounds; two old types need
+`eval`. A player that plays some files and not others confuses the person using it, so the card
+opens the activity in a tab, where the whole player runs ([mcp.md](mcp.md)).
+
 ## Open
 
 **Demand-paced extraction, deferred on 2026-09-25.** The first request for a deflated entry
