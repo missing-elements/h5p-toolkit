@@ -141,8 +141,50 @@ describe('the app server', () => {
     expect(played.isError).toBeFalsy()
     expect(textOf(played)).toMatch(/^The activity is checked and plays in the card: H5P\.TrueFalse, \d+ libraries\./)
     expect(textOf(played)).toContain('What it holds:\nWater boils at 100 °C at sea level.\nCorrect answer: True')
-    expect(played.structuredContent).toEqual({ files: 0 })
+    // This client said nothing of cards, as a chat on the 2025 protocols says nothing to a server
+    // with no session: the way where no card comes is said too, h5p-author's route 4 (#276).
+    expect(textOf(played)).toContain('Where this chat draws no card, as a terminal or an editor\'s chat draws none, hand the activity over to be built in the person\'s browser: the whole source, once, in one json code block, and one line telling them to copy it, open https://missing-elements.github.io/h5p/build/, choose "Paste your chat\'s JSON"')
+    expect(textOf(played)).not.toMatch(/#source=/)
+    // No structured part, which a chat may show the model in place of the text (#276).
+    expect(played.structuredContent).toBeUndefined()
     expect(played._meta?.['h5p/file']).toBeUndefined()
+    // The source, for a card drawn from the result alone; the model is shown neither part.
+    expect(played._meta?.['h5p/source']).toEqual(QUIZ)
+  })
+
+  it('answers by what the chat says it draws, where it says so', async () => {
+    // Protocol 2026-07-28 carries the client's capabilities in each request, and MCP Apps names its own.
+    const asked = async (capabilities: Record<string, unknown>, source: unknown) => {
+      const response = await fetch(address, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2026-07-28', 'mcp-method': 'tools/call', 'mcp-name': 'h5p_play' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'h5p_play', arguments: { source }, _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientInfo': { name: 'a chat', version: '0' },
+          'io.modelcontextprotocol/clientCapabilities': capabilities
+        } } })
+      })
+      const text = await response.text()
+      return JSON.parse(text.split('\n').find((line) => line.startsWith('data: '))?.slice(6) ?? text).result as Answer
+    }
+    const drawn = await asked({ extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } }, QUIZ)
+    expect(textOf(drawn)).toMatch(/^The activity is checked and plays in the card: H5P\.TrueFalse/)
+    expect(textOf(drawn)).not.toContain('draws no card')
+    expect(drawn._meta?.['h5p/source']).toEqual(QUIZ)
+    // A chat that draws no card, or cards of another kind: the source, to the build page.
+    for (const capabilities of [{}, { extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/uri-list'] } } }]) {
+      const none = await asked(capabilities, QUIZ)
+      expect(textOf(none)).toMatch(/^The activity is checked: H5P\.TrueFalse, \d+ libraries\. Nothing was stored\. This chat draws no card, so hand the activity over to be built in the person's browser: the whole source, once, in one json code block/)
+      expect(textOf(none)).toContain('open https://missing-elements.github.io/h5p/build/, choose "Paste your chat\'s JSON", paste it into the box in place of the sample\'s, and press Build. Give the page\'s address as it is, with nothing after it.')
+      expect(textOf(none)).toContain('What it holds:\nWater boils at 100 °C at sea level.')
+      expect(textOf(none)).not.toMatch(/the card|#source=/)
+      expect(none.structuredContent).toBeUndefined()
+      // No card to hand the source to. (The SDK names the server in every result's _meta on this protocol.)
+      expect(none._meta?.['h5p/source']).toBeUndefined()
+    }
+    const video = await asked({}, VIDEO)
+    expect(textOf(video)).toContain('Add that the page asks for the files the source names before it builds.')
+    expect(textOf(video)).toContain('Its file, IMG_0042.mp4, is not checked here.\n')
   })
 
   it('refuses a source with problems, each by its path', async () => {
@@ -170,7 +212,8 @@ describe('the app server', () => {
     expect(textOf(played)).toContain('What it holds:\nVideo: IMG_0042.mp4')
     // The id goes to the card, with the name and the type; the address goes nowhere.
     expect(played._meta?.['h5p/file']).toEqual({ file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' })
-    expect(played.structuredContent).toEqual({ files: 1, fileId: 'file_abc', fileName: 'IMG_0042.mp4' })
+    // Where there is one, it carries the text too, for a chat that shows the model that part alone.
+    expect(played.structuredContent).toEqual({ answer: textOf(played), files: 1, fileId: 'file_abc', fileName: 'IMG_0042.mp4' })
     expect(JSON.stringify(played)).not.toMatch(/KEY-TO-THE-FILE|127\.0\.0\.1/)
     expect(asked).toBe(before)
   })
@@ -195,7 +238,7 @@ describe('the app server', () => {
     // An attachment the source does not name is said, so the model names it.
     const unused = await call('h5p_play', { source: QUIZ, file: { download_url: fileAddress, file_id: 'file_abc' } })
     expect(textOf(unused)).toContain('the source names no file, so it is not used')
-    expect(unused.structuredContent).toEqual({ files: 0 })
+    expect(unused.structuredContent).toBeUndefined()
     expect(unused._meta?.['h5p/file']).toBeUndefined()
     expect(asked).toBe(1)
     // A file of a type the field does not take is a problem of the source's, by its name alone.

@@ -79,12 +79,16 @@ which checks an activity's source and shows the card. The card frames the play p
 [missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity in
 the person's browser and plays it there. In a chat app that does not let a card frame a page, or
 gives the card no origin of its own, the card asks the chat to open the same page in a new tab
-instead, and shows the page's link to copy in case none opens.
+instead, and shows the page's link to copy in case none opens; so it does where the page does not
+start in the frame. A chat that draws no card is answered with the way to the
+[build page](https://missing-elements.github.io/h5p/build/) instead: the model gives the source,
+and the person pastes it there. Where the chat says what it draws, as on protocol 2026-07-28, the
+answer is one or the other; where it does not, the answer says both.
 
 What the server receives, and what it keeps:
 
-- A call of `h5p_play` brings it the activity's source, which it checks. A call of `h5p_types`
-  brings it the name of a content type, or nothing.
+- A call of `h5p_play` brings it the activity's source, which it checks, and gives back in its
+  answer for the card. A call of `h5p_types` brings it the name of a content type, or nothing.
 - It never receives a file. For a file attached in the chat, the chat sends a reference, an
   address and an id. The server does not ask that address and does not pass it on: it hands the
   id to the card, which asks the chat for the file's address, and the person's browser fetches

@@ -14,6 +14,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  * and one that lets the play page be framed, as ChatGPT does. Each speaks MCP Apps to the card:
  * the handshake, the tool's input, and an answer to `ui/open-link`. The play page is a stand-in
  * too, which says its height and nothing more: what the page does is the site's to test.
+ *
+ * And what comes before the activity, or in its place (#276): a source the chat streams as its
+ * model writes it, a call the chat stops, a reply drawn from the tool's result alone, and a page
+ * that never speaks from the frame.
  */
 
 const SOURCE = { language: 'en', license: 'U', authors: [{ name: 'Unknown', role: 'Author' }], type: 'H5P.TrueFalse', title: 'Boiling point', params: { question: '<p>Water boils at 100 °C at sea level.</p>', correct: 'true' } }
@@ -27,7 +31,7 @@ let SITE: string
 let CHAT: string
 /** The card as another site than the chat serves it, where it has an origin of its own. */
 let CARD: string
-/** How many times the play page was asked for, and how long it waits before it speaks. */
+/** How many times the play page was asked for, and how long it waits before it speaks: never, below 0. */
 let played = 0
 let lateBy = 0
 
@@ -54,7 +58,7 @@ beforeAll(async () => {
     if (!request.url?.startsWith('/h5p/play/')) { response.statusCode = 404; return response.end() }
     played++
     response.setHeader('Content-Type', 'text/html; charset=utf-8')
-    response.end(`<!doctype html><p>The play page</p><script>setTimeout(() => parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'), ${lateBy})</script>`)
+    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'), ${lateBy})</script>`)
   })
   await listening(site, '127.0.0.1')
   SITE = `http://127.0.0.1:${port(site)}`
@@ -78,8 +82,18 @@ addEventListener('message', (event) => {
   const message = event.data
   if (event.source !== card.contentWindow || !message || message.jsonrpc !== '2.0') return
   const answer = (body) => card.contentWindow.postMessage({ jsonrpc: '2.0', id: message.id, ...body }, '*')
+  const say = (method, params) => card.contentWindow.postMessage({ jsonrpc: '2.0', method, params }, '*')
   if (message.method === 'ui/initialize') answer({ result: { protocolVersion: message.params.protocolVersion, hostInfo: { name: 'stand-in', version: '0' }, hostCapabilities: ${url.searchParams.get('opens') === 'no' ? '{}' : '{ openLinks: {} }'}, hostContext: { theme: ${inScript(url.searchParams.get('theme') ?? 'light')} } } })
-  else if (message.method === 'ui/notifications/initialized') card.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-input', params: { arguments: { source: ${inScript(SOURCE)} } } }, '*')
+  else if (message.method === 'ui/notifications/initialized') {
+    const input = ${inScript(url.searchParams.get('input') ?? 'whole')}
+    const whole = () => say('ui/notifications/tool-input', { arguments: { source: ${inScript(SOURCE)} } })
+    // The source as the model writes it, closed where it breaks off, as MCP Apps sends it.
+    const part = () => say('ui/notifications/tool-input-partial', { arguments: { source: { type: 'H5P.TrueFalse', title: 'Boil' } } })
+    if (input === 'whole') whole()
+    else if (input === 'streamed') { part(); setTimeout(part, 400); setTimeout(whole, 1500) }
+    else if (input === 'stopped') { part(); setTimeout(() => say('ui/notifications/tool-cancelled', { reason: 'The person stopped it' }), 400) }
+    else if (input === 'result') say('ui/notifications/tool-result', { content: [{ type: 'text', text: 'The activity is checked' }], _meta: { 'h5p/source': ${inScript(SOURCE)} } })
+  }
   else if (message.method === 'ui/open-link') { window.asked.push(message.params.url); answer(${url.searchParams.get('answer') === 'no' ? "{ error: { code: -32000, message: 'no' } }" : '{ result: {} }'}) }
   else if (message.method === 'ui/notifications/size-changed') { window.heights.push(message.params.height); card.style.height = message.params.height + 'px' }
 })
@@ -113,6 +127,7 @@ function sourceIn(address: string) {
   const bytes = Buffer.from(new URL(address).hash.slice('#source='.length), 'base64url')
   try { return JSON.parse(inflateRawSync(bytes).toString()) } catch { return JSON.parse(bytes.toString()) }
 }
+const said = async (card: Frame) => ({ title: await card.locator('#wait-title').innerText(), note: await card.locator('#wait-note').innerText(), spinner: await card.locator('#spinner').isVisible() })
 const offered = async (card: Frame) => ({
   title: await card.locator('#wait-title').innerText(),
   note: await card.locator('#wait-note').innerText(),
@@ -209,6 +224,57 @@ describe('the card, where a chat lets the play page be framed', () => {
     await card.waitForSelector('#page.on')
     expect(await offered(card)).toMatchObject({ frame: true, button: false })
     expect(await card.locator('#wait').isVisible()).toBe(false)
+    await page.close()
+  })
+})
+
+describe('the card, before the activity comes or in its place', () => {
+  it('says the chat is writing the source as it streams, and frames the page once it is whole', async () => {
+    const { page, card } = await open('kind=framed&input=streamed')
+    await expect.poll(() => said(card)).toEqual({ title: 'The chat is writing the activity…', note: 'It is built in your browser once it is written.', spinner: true })
+    // A part of the source is never played from.
+    expect(played).toBe(0)
+    await card.waitForSelector('#page.on')
+    expect(sourceIn((await card.locator('#page').getAttribute('src'))!)).toEqual(SOURCE)
+    expect(played).toBe(1)
+    await page.close()
+  })
+
+  it('says a call the chat stopped, and frames nothing', async () => {
+    const { page, card } = await open('kind=framed&input=stopped')
+    await expect.poll(() => said(card)).toEqual({ title: 'The activity was not made', note: 'The chat stopped before it was written. Ask it again.', spinner: false })
+    // Not taken back by the word that the card still waits.
+    await page.waitForTimeout(6500)
+    expect((await said(card)).title).toBe('The activity was not made')
+    expect(await card.locator('#page').getAttribute('src')).toBeNull()
+    await page.close()
+  })
+
+  it('plays from the result where no input came', async () => {
+    const { page, card } = await open('kind=framed&input=result')
+    await card.waitForSelector('#page.on')
+    expect(sourceIn((await card.locator('#page').getAttribute('src'))!)).toEqual(SOURCE)
+    await page.close()
+  })
+
+  it('says it waits, where nothing comes for a while', async () => {
+    const { page, card } = await open('kind=framed&input=none')
+    expect((await said(card)).title).toBe('Opening the activity…')
+    await expect.poll(() => said(card), { timeout: 8000 }).toEqual({ title: 'Waiting for the activity…', note: 'The chat is still sending it.', spinner: true })
+    await page.close()
+  })
+
+  it('offers the tab where the page says nothing from the frame', async () => {
+    const { page, card } = await open('kind=framed', -1)
+    await card.waitForSelector('#page.on')
+    await card.waitForSelector('#wait.tab', { timeout: 15_000 })
+    expect(await offered(card)).toMatchObject({
+      title: 'The activity opens in a new tab',
+      note: 'The activity did not start inside this reply. In a tab of its own it is built and played in your browser, and nothing is sent to a server.',
+      button: true, frame: false
+    })
+    await card.locator('#open').click()
+    expect(sourceIn((await page.evaluate<string[]>(ASKED))[0]!)).toEqual(SOURCE)
     await page.close()
   })
 })
