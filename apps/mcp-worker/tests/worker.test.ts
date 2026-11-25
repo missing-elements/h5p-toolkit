@@ -78,6 +78,9 @@ describe('the app server as a Worker', () => {
     const { resources } = await ask(hosted, 'resources/list')
     expect(resources[0].uri).toBe(server.cardUri)
     expect(await ask(hosted, 'resources/read', { uri: server.cardUri })).toEqual(await ask(local, 'resources/read', { uri: server.cardUri }))
+    // And an earlier card's address, for a chat that kept one from before a change (#278).
+    const earlier = 'ui://h5p-play/card-df8ccbdd2aa8.html'
+    expect((await ask(hosted, 'resources/read', { uri: earlier })).contents[0].text).toBe((await ask(local, 'resources/read', { uri: server.cardUri })).contents[0].text)
   })
 
   it('answers the endpoint and nothing else, and no body over 1 MB', async () => {

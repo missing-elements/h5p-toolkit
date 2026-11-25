@@ -109,6 +109,13 @@ describe('the app server', () => {
     const { contents } = await client.readResource({ uri })
     const card = contents[0] as { mimeType: string, text: string, _meta: Record<string, any> }
     expect(card.mimeType).toBe('text/html;profile=mcp-app')
+    // An earlier card's address gets this card: a chat may ask one it kept from before a change (#278).
+    const earlier = await client.readResource({ uri: 'ui://h5p-play/card-df8ccbdd2aa8.html' })
+    expect(earlier.contents[0]).toMatchObject({ uri: 'ui://h5p-play/card-df8ccbdd2aa8.html', mimeType: 'text/html;profile=mcp-app', text: card.text })
+    expect((earlier.contents[0] as { _meta: unknown })._meta).toEqual(card._meta)
+    await expect(client.readResource({ uri: 'ui://h5p-play/card-latest.html' })).rejects.toThrow(/not found/i)
+    // One card is listed.
+    expect((await client.listResources()).resources.map((resource) => resource.uri)).toEqual([uri])
     expect(card.text).toContain("const SITE = 'https://missing-elements.github.io'")
     expect(card.text).not.toContain('__SITE__')
     expect(card._meta.ui.csp.frameDomains).toEqual(['https://missing-elements.github.io'])

@@ -141,7 +141,9 @@ command is that handler on a port. Its endpoint is `/mcp`.
   shows the card and not the model, so a card drawn from the result alone, with no input, plays
   all the same (#276). It sends nothing to the server it came from and calls no tool. Its policy
   names the one site it frames and the chat's file store. A chat keeps a card by its address, so
-  the address carries the card's hash.
+  the address carries the card's hash; and an earlier card's address gets this card, since a chat
+  may ask one it kept from before the card changed (#278): Grok could not load the app after #277
+  was deployed ("read-resource failed: 400", 2026-11-25), while ChatGPT's old replies played on.
 - **Where the page cannot play in the card's frame, the card offers the activity in a tab, and
   knows it from the browser** (#274), never from a chat's name. A card with no origin
   (`self.origin` is `"null"`) was sandboxed without one, and a sandbox passes to every frame
