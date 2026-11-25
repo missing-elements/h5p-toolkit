@@ -139,9 +139,9 @@ command is that handler on a port. Its endpoint is `/mcp`.
   card's to see, so the address is there to copy from the first press on, and at once in a chat
   that opens no link. The page's own word from the frame takes the card back: a wrong conclusion
   never hides a player that works. The chat's theme is ChatGPT's `window.openai.theme` or MCP
-  Apps' `hostContext.theme`. Not known: Claude and Open WebUI themselves, which the card met
-  only as stand-ins. A player without the Service Worker is not built for such a chat
-  ([scope.md](scope.md)).
+  Apps' `hostContext.theme`. In Claude the tab was seen to work (the owner, 2026-11-25). Not
+  known: Open WebUI itself, which the card met only as a stand-in. A player without the Service
+  Worker is not built for such a chat ([scope.md](scope.md)).
 - **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
   saves no file and opens no tab on a press; the chat saves a file handed to it of 8 MB and
   refuses one of 16 MB, downloads from no address, and takes no package into its own files; its
