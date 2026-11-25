@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import { McpServer, createMcpHandler } from '@modelcontextprotocol/server'
+import { McpServer, ResourceNotFoundError, ResourceTemplate, createMcpHandler } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { SourceError, buildPackage } from '@missing-elements/h5p-author'
 import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } from './answers.mjs'
@@ -203,8 +203,17 @@ export async function createApp(options = {}) {
       }
     })
 
-    mcp.registerResource('h5p-play-card', cardUri, { title: 'H5P activity', mimeType: 'text/html;profile=mcp-app', _meta: cardMeta },
-      async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'text/html;profile=mcp-app', text: card, _meta: cardMeta }] }))
+    mcp.registerResource('h5p-play-card', cardUri, { title: 'H5P activity', mimeType: CARD_TYPE, _meta: cardMeta },
+      async (uri) => ({ contents: [{ uri: uri.href, mimeType: CARD_TYPE, text: card, _meta: cardMeta }] }))
+    // An earlier card's address gets this card (#278): a chat may keep the tool list, or a reply it
+    // drew, from before the card changed, and ask that address again. Grok did after #277 was
+    // deployed, and could not load the app ("read-resource failed: 400", 2026-11-25); ChatGPT keeps
+    // the card it fetched. This card plays what an earlier one was handed. Not listed.
+    mcp.registerResource('h5p-play-card-earlier', new ResourceTemplate('ui://h5p-play/card-{hash}.html', { list: undefined }), { title: 'H5P activity', mimeType: CARD_TYPE, _meta: cardMeta },
+      async (uri, { hash }) => {
+        if (typeof hash !== 'string' || !/^[0-9a-f]{12}$/.test(hash)) throw new ResourceNotFoundError(uri.href)
+        return { contents: [{ uri: uri.href, mimeType: CARD_TYPE, text: card, _meta: cardMeta }] }
+      })
     return mcp
   }
 
