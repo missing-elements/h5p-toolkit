@@ -79,8 +79,8 @@ which checks an activity's source and shows the card. The card frames the play p
 [missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity in
 the person's browser and plays it there. In a chat app that does not let a card frame a page, or
 gives the card no origin of its own, the card asks the chat to open the same page in a new tab
-instead, and shows the page's link to copy in case none opens; so it does where the page does not
-start in the frame. A chat that draws no card is answered with the way to the
+instead, and shows the page's link to copy in case none opens. The card offers the same tab where
+the page says nothing from its frame. A chat that draws no card is answered with the way to the
 [build page](https://missing-elements.github.io/h5p/build/) instead: the model gives the source,
 and the person pastes it there. Where the chat says what it draws, as on protocol 2026-07-28, the
 answer is one or the other; where it does not, the answer says both.

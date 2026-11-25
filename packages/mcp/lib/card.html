@@ -5,13 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>H5P activity</title>
 <style>
-  /* The colours by the chat's theme (light-dark() follows the card's color-scheme, which the card
-     sets to the chat's), and by the system's in a browser from before 2024, which has no light-dark(). */
+  /* The colours by the chat's theme, which the card writes on the root (`data-theme`), and by the
+     system's where the chat gives none. No light-dark(), which a browser from before 2024 lacks. */
   :root { color-scheme: light dark; --border: #d9d6d0; --surface: #f1eeea; --text: #1c1b19; --muted: #6b6862; --accent: #2f6db5; --accent-ink: #ffffff; }
-  @media (prefers-color-scheme: dark) { :root { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; } }
-  @supports (color: light-dark(#000, #fff)) {
-    :root { --border: light-dark(#d9d6d0, #3a3833); --surface: light-dark(#f1eeea, #24231f); --text: light-dark(#1c1b19, #f2f0ec); --muted: light-dark(#6b6862, #a8a49c); --accent: light-dark(#2f6db5, #7fb0ea); --accent-ink: light-dark(#ffffff, #10233b); }
-  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; } }
+  :root[data-theme="dark"] { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; }
   /* A root of its own for the margins inside: a height short by one left a scroller in the card. */
   body { display: flow-root; margin: 0; font: 14px/1.4 system-ui, sans-serif; color: var(--text); background: transparent; }
   [hidden] { display: none !important; }
@@ -93,6 +91,7 @@ function themed(now = openai()?.theme) {
   if ((now !== 'light' && now !== 'dark') || now === theme) return
   theme = now
   document.documentElement.style.colorScheme = now
+  document.documentElement.dataset.theme = now
   if (revealed) toPage({ type: 'theme', theme: now })
 }
 

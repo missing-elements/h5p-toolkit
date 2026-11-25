@@ -121,8 +121,10 @@ command is that handler on a port. Its endpoint is `/mcp`.
   them once, as it starts, to a server that keeps no session, so its answer says the card and,
   for a chat that draws none, route 4 too. Never a link that carries the source: a model breaks
   one by a character (the owner, 2026-11-16). The instructions let a model give only an address
-  the answer gives. Haiku as such a chat, Claude Code with the two tools and nothing else: see
-  the PR of #276.
+  the answer gives. Haiku in Claude Code with the two tools and nothing else, a chat with no
+  cards on the 2025 protocol, asked for a True/False question, a three-question quiz and flash
+  cards: a JSON block that parses, of the right type, with the build page's plain address and
+  "Paste your chat's JSON", in 3 of 3, and no link with the source (2026-11-25).
 - **The file input is ChatGPT's, to the letter, and not held to.** `file` is named in
   `openai/fileParams` and its schema is the reference's: `download_url` and `file_id` required,
   `mime_type` and `file_name`, nothing else. It is shown and not enforced, as `source` is: a
@@ -169,8 +171,8 @@ command is that handler on a port. Its endpoint is `/mcp`.
   never plays from a part. A call the chat stopped (`tool-cancelled`) is said. With no word at
   all, it says at 6 s that it waits, and at a minute that nothing came: before, it said at 6 s
   that nothing came and took it back when the source did. A word that ends the wait is as tall
-  as what it says. Its colours are plain in a browser from before 2024, which has no
-  `light-dark()`, and nothing asks for `URL.canParse`.
+  as what it says. Its colours follow the chat's theme by an attribute the card writes, not by
+  `light-dark()`, and nothing asks for `URL.canParse`: neither is in a browser from before 2024.
 - **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
   saves no file and opens no tab on a press; the chat saves a file handed to it of 8 MB and
   refuses one of 16 MB, downloads from no address, and takes no package into its own files; its
