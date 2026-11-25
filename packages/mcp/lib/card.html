@@ -145,7 +145,8 @@ function reveal(spoken = false) {
 // no origin was sandboxed without one, and a sandbox passes to every frame inside: the page there
 // has no Service Worker to play with, so no frame is tried (Open WebUI 0.13.4, November 2026).
 // And where a chat refuses the frame, the browser says so (Claude, the same month). The tab is
-// the chat's to open: one opened from a sandboxed card keeps the sandbox.
+// the chat's to open, from its own page: one the card opened itself, by a link, would keep the
+// card's sandbox, and the page in it would have no origin either.
 let address = ''
 let tabbed = false
 let spoke = false

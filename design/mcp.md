@@ -132,8 +132,10 @@ command is that handler on a port. Its endpoint is `/mcp`.
   frame `blob:` and `data:` only, its `frameDomains` dropped). The card then
   shows one state in the loader's place, as tall as what it says: what happens, and "Open the
   activity", which asks the chat to open the play page's address with the source in it
-  (`ui/open-link`, or ChatGPT's `openExternal`). The tab is the chat's to open: one opened from
-  a sandboxed card keeps the sandbox, in all three engines. Whether a tab opened is not the
+  (`ui/open-link`, or ChatGPT's `openExternal`). The tab is the chat's to open, from its own
+  page, which no sandbox holds. One the card opened itself, by a link with `target="_blank"`,
+  would keep the card's sandbox and have no origin either (probed in Chromium, Firefox and
+  WebKit, 2026-11-25). Whether a tab opened is not the
   card's to see, so the address is there to copy from the first press on, and at once in a chat
   that opens no link. The page's own word from the frame takes the card back: a wrong conclusion
   never hides a player that works. The chat's theme is ChatGPT's `window.openai.theme` or MCP
