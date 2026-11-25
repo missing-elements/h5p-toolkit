@@ -172,7 +172,8 @@ command is that handler on a port. Its endpoint is `/mcp`.
   all, it says at 6 s that it waits, and at a minute that nothing came: before, it said at 6 s
   that nothing came and took it back when the source did. A word that ends the wait is as tall
   as what it says. Its colours follow the chat's theme by an attribute the card writes, not by
-  `light-dark()`, and nothing asks for `URL.canParse`: neither is in a browser from before 2024.
+  `light-dark()`, and nothing asks for `URL.canParse`: Safari has them from 17.5 and 17, Chrome
+  from 123 and 120, Firefox from 120 and 115 (MDN's compatibility data).
 - **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
   saves no file and opens no tab on a press; the chat saves a file handed to it of 8 MB and
   refuses one of 16 MB, downloads from no address, and takes no package into its own files; its

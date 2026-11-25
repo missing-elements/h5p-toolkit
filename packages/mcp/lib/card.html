@@ -6,7 +6,7 @@
 <title>H5P activity</title>
 <style>
   /* The colours by the chat's theme, which the card writes on the root (`data-theme`), and by the
-     system's where the chat gives none. No light-dark(), which a browser from before 2024 lacks. */
+     system's where the chat gives none. No light-dark(), which Safari before 17.5 and Chrome before 123 lack. */
   :root { color-scheme: light dark; --border: #d9d6d0; --surface: #f1eeea; --text: #1c1b19; --muted: #6b6862; --accent: #2f6db5; --accent-ink: #ffffff; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; } }
   :root[data-theme="dark"] { --border: #3a3833; --surface: #24231f; --text: #f2f0ec; --muted: #a8a49c; --accent: #7fb0ea; --accent-ink: #10233b; }
