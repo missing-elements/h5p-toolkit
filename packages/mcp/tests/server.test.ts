@@ -5,6 +5,8 @@ import { Client } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
+// An mp4 as its boxes, with the length its index gives: the author package's own test helper.
+import { mp4 } from '../../author/tests/helpers/mp4'
 
 /**
  * The server as an app runs it: the command the package ships, started over standard input and
@@ -22,6 +24,9 @@ const SOURCE = {
   authors: [{ name: 'Unknown', role: 'Author' }],
   params: { question: '<p>Water boils at 100 °C at sea level.</p>', correct: 'true' }
 }
+
+const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+const CLIP = mp4(true, { seconds: 20, tracks: [['vide', 'avc1'], ['soun', 'mp4a']] })
 
 type Content = { type: string, text?: string, data?: string, mimeType?: string }
 type Answer = { content: Content[], isError?: boolean }
@@ -51,10 +56,10 @@ afterAll(async () => {
 })
 
 describe('the server', () => {
-  it('offers four tools and the flow, in few words', async () => {
+  it('offers five tools and the flow, in few words', async () => {
     const { tools } = await client.listTools()
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['h5p_build', 'h5p_preview', 'h5p_read', 'h5p_types'])
-    expect(client.getInstructions()).toMatch(/h5p_types[\s\S]*h5p_build[\s\S]*h5p_preview[\s\S]*h5p_read/)
+    expect(tools.map((tool) => tool.name).sort()).toEqual(['h5p_build', 'h5p_media', 'h5p_preview', 'h5p_read', 'h5p_types'])
+    expect(client.getInstructions()).toMatch(/h5p_types[\s\S]*h5p_media[\s\S]*h5p_build[\s\S]*h5p_preview[\s\S]*h5p_read/)
     // A source's own fields as the author package declares them, before one is written (#230),
     // with nothing required or forbidden, so no app refuses a source the build would read (#174).
     const source = tools.find((tool) => tool.name === 'h5p_build')?.inputSchema.properties?.source as Record<string, any>
@@ -165,10 +170,39 @@ describe('h5p_build', () => {
   })
 })
 
+describe('h5p_media', () => {
+  it('says what a file in its folder is before a source names it, and refuses one outside (#260)', async () => {
+    await writeFile(join(folder, 'pixel.png'), PIXEL)
+    await writeFile(join(elsewhere, 'pixel.png'), PIXEL)
+    const answer = await call('h5p_media', { files: ['pixel.png', join(folder, 'pixel.png'), join(elsewhere, 'pixel.png'), 'gone.mp4'] })
+    expect(answer.isError).toBeFalsy()
+    // Words alone, with no structured part to stand in for them in an app that reads only that.
+    expect(answer).not.toHaveProperty('structuredContent')
+    expect(textOf(answer).split('\n')).toEqual([
+      'pixel.png: a PNG picture, 1 by 1 pixels',
+      `${join(folder, 'pixel.png')}: a PNG picture, 1 by 1 pixels`,
+      // No path but the one written, and where the files are, since a model cannot know.
+      `${join(elsewhere, 'pixel.png')}: is outside the folders this build may read`,
+      'gone.mp4: no such file in the folders this build may read',
+      `This server reads files and writes packages only in ${folder}. A file's path written alone, as { "path": "picture.png" }, is read from ${folder}.`
+    ])
+    // Nothing read at all is an error, for an app that shows one.
+    expect((await call('h5p_media', { files: ['gone.mp4'] })).isError).toBe(true)
+  })
+
+  it('says the length an Interactive Video\'s times were held to, with its build (#260)', async () => {
+    await writeFile(join(folder, 'clip.mp4'), CLIP)
+    expect(textOf(await call('h5p_media', { files: ['clip.mp4'] }))).toBe('clip.mp4: an MP4 video, 20 s long')
+    const interaction = { duration: { from: 2, to: 6 }, label: 'Look', action: { library: 'H5P.Text', params: { text: 'Look' } } }
+    const video = { ...SOURCE, type: 'H5P.InteractiveVideo', title: 'Timed video', params: { interactiveVideo: { video: { files: [{ path: 'clip.mp4' }] }, assets: { interactions: [interaction] } } } }
+    const text = textOf(await call('h5p_build', { source: video, verify: false }))
+    expect(text).toContain('The video clip.mp4 is 20 s long: keep every time within it.')
+    expect(text).toContain('Note: params.interactiveVideo.assets.interactions holds 1 interaction shown at the times written')
+  })
+})
+
 describe('h5p_read', () => {
   /** A picture of one pixel, which a build reads the size of. */
-  const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
-
   it('reads a package back into its source in a new folder beside it, its files named where they were written, to build again', async () => {
     await writeFile(join(folder, 'pixel.png'), PIXEL)
     const picture = { library: 'H5P.Image', params: { file: { path: 'pixel.png' }, alt: 'A pixel' } }

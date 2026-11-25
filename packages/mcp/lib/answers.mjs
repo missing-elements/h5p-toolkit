@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SkillsExtension, memorySkillFiles } from '@modelcontextprotocol/server/ext/skills'
 import { z } from 'zod'
-import { contentTypes, openPack, schemaOf, sourceSchema, sourceType } from '@missing-elements/h5p-author'
+import { contentTypes, lengthLine, openPack, schemaOf, sourceSchema, sourceType } from '@missing-elements/h5p-author'
 
 /**
  * What both servers of this package say alike: the local one over standard input and output
@@ -34,12 +34,12 @@ export const answer = (text) => ({ content: [{ type: /** @type {const} */ ('text
 export const refusal = (text) => ({ content: [{ type: /** @type {const} */ ('text'), text }], isError: true })
 
 /**
- * A build's notes, and what its content holds, as lines of an answer: the outline, 80 lines of it
- * at most.
- * @param {{ notes: { path: string, message: string }[], outline: string }} result
+ * The length of each video an Interactive Video's times were held to, a build's notes, and what
+ * its content holds, as lines of an answer: the outline, 80 lines of it at most.
+ * @param {{ notes: { path: string, message: string }[], lengths: import('@missing-elements/h5p-author').BuildResult['lengths'], outline: string }} result
  */
 export function heldLines(result) {
-  const lines = result.notes.map(({ path, message }) => `Note: ${path} ${message}`)
+  const lines = [...result.lengths.map(lengthLine), ...result.notes.map(({ path, message }) => `Note: ${path} ${message}`)]
   const outline = result.outline.split('\n')
   lines.push('', 'What it holds:', ...outline.slice(0, OUTLINE_LINES))
   if (outline.length > OUTLINE_LINES) lines.push(`… and ${outline.length - OUTLINE_LINES} more lines.`)
