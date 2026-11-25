@@ -83,6 +83,14 @@ describe('the app server as a Worker', () => {
     expect((await ask(hosted, 'resources/read', { uri: earlier })).contents[0].text).toBe((await ask(local, 'resources/read', { uri: server.cardUri })).contents[0].text)
   })
 
+  it('serves the h5p-author skill it carries, as the server on a computer does', async () => {
+    // Skills over MCP (#280): the same entry, every file listed, and the files read the same.
+    const listed = await ask(hosted, 'skills/list')
+    expect(listed).toEqual(await ask(local, 'skills/list'))
+    expect(listed.skills.map((skill: { uri: string }) => skill.uri)).toEqual(['skill://h5p-author/SKILL.md'])
+    for (const { uri } of listed.skills[0].resources) expect(await ask(hosted, 'resources/read', { uri })).toEqual(await ask(local, 'resources/read', { uri }))
+  })
+
   it('answers the endpoint and nothing else, and no body over 1 MB', async () => {
     const at = (path: string, init?: RequestInit) => hosted(new Request(`https://host.example${path}`, init))
     expect((await at('/')).status).toBe(200)

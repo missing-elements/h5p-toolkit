@@ -5,7 +5,7 @@ import { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { SourceError, buildPackage, coreApiLine, inside, publicFetch, readPackage } from '@missing-elements/h5p-author'
 import { VerifyError, openBrowser, previewPackage, summarize, verifyPackage } from '@missing-elements/h5p-verify'
-import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, typeAnswers } from './answers.mjs'
+import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typeAnswers } from './answers.mjs'
 import { defaultFolders, fileStem, rootFolders } from './folders.mjs'
 
 /**
@@ -253,6 +253,11 @@ export async function createServer(options = {}) {
     const opened = options.open !== false && (await openBrowser(address))
     return answer(`${opened ? `Opened ${basename(path)} in the browser at ${address}.` : `The preview of ${basename(path)} is at ${address}: open it in a browser.`} It is served from this computer until its tab is closed.`)
   })
+
+  // The h5p-author skill, for a chat that loads skills from a server (#280): its first build route
+  // is this server's h5p_build. A chat without the Skills extension sees no change.
+  const skills = await skillCatalog()
+  skills?.attach(server)
 
   return {
     server,

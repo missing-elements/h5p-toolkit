@@ -56,8 +56,9 @@ choose, and wait: "a quiz" or "flash cards" says what they want, not which type.
 | H5P.Audio | an audio player (a recording) |
 | H5P.GameMap | stages on a map, each with exercises (a map) |
 
-For a type not listed, say it has no notes here, and read its fields with the build tool:
-`npx @missing-elements/h5p-author@latest schema <Type>` where npm reaches its registry; otherwise,
+For a type not listed, say it has no notes here, and read its fields: with route 0's tools,
+`h5p_types` with the type; `npx @missing-elements/h5p-author@latest schema <Type>` where npm
+reaches its registry; otherwise,
 beside the tool and its libraries as route 1 or 3 of step 3 gets them,
 `node h5p-author.mjs schema <Type> --libraries parts`. Never read a library's semantics or code
 yourself: the type file and `schema` say what a source may write, and an agent that works it out
@@ -93,10 +94,14 @@ H5P.Video, H5P.Text.
 
 ## 3. Build
 
+Where this chat has the tool `h5p_build` or `h5p_play`, they build: follow
+[route 0](./references/build/tools.md), and run nothing below.
+
 Where a command runs here, work in a folder of your own, not the one the user named, with the
 source as `source.json`. Whether npm reaches its registry picks the route, and later whether the
-verifier runs. With no code tool it does not. Otherwise run this once, early, beside the files you
-read, since it waits on nothing. It prints a version, or gives up within ten seconds.
+verifier runs. With no code tool it does not. Otherwise, unless route 0's tools build, run this
+once, early, beside the files you read, since it waits on nothing. It prints a version, or gives
+up within ten seconds.
 
 ```bash
 npm view @missing-elements/h5p-author version --fetch-timeout=10000 --fetch-retries=0

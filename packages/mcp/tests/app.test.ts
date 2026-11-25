@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { createServer, type AddressInfo, type Server } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/client'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -114,8 +115,8 @@ describe('the app server', () => {
     expect(earlier.contents[0]).toMatchObject({ uri: 'ui://h5p-play/card-df8ccbdd2aa8.html', mimeType: 'text/html;profile=mcp-app', text: card.text })
     expect((earlier.contents[0] as { _meta: unknown })._meta).toEqual(card._meta)
     await expect(client.readResource({ uri: 'ui://h5p-play/card-latest.html' })).rejects.toThrow(/not found/i)
-    // One card is listed.
-    expect((await client.listResources()).resources.map((resource) => resource.uri)).toEqual([uri])
+    // One card is listed, beside the skill's SKILL.md (#280).
+    expect((await client.listResources()).resources.map((resource) => resource.uri).sort()).toEqual(['skill://h5p-author/SKILL.md', uri])
     expect(card.text).toContain("const SITE = 'https://missing-elements.github.io'")
     expect(card.text).not.toContain('__SITE__')
     expect(card._meta.ui.csp.frameDomains).toEqual(['https://missing-elements.github.io'])
@@ -130,6 +131,25 @@ describe('the app server', () => {
     const same = await createApp()
     expect(other.cardUri).not.toBe(uri)
     expect(same.cardUri).toBe(uri)
+  })
+
+  it('serves the h5p-author skill as the author package ships it, and no other file of the package', async () => {
+    // MCP's Skills extension, SEP-2640 (#280).
+    expect(client.getServerCapabilities()?.extensions).toHaveProperty(['io.modelcontextprotocol/skills'])
+    const listed = await fetch(address, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'skills/list', params: {} }) })
+    const text = await listed.text()
+    const { skills } = JSON.parse(text.split('\n').find((line) => line.startsWith('data: '))?.slice(6) ?? text).result as { skills: { uri: string, frontmatter: Record<string, unknown>, resources: { uri: string }[] }[] }
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toMatchObject({ uri: 'skill://h5p-author/SKILL.md', frontmatter: { name: 'h5p-author', description: expect.stringMatching(/^Create H5P content/) } })
+    // SKILL.md, LICENSE and every .md under references/: nothing else of the package.
+    const author = dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json')))
+    const own = (await readdir(join(author, 'references'), { recursive: true })).filter((name) => name.endsWith('.md')).map((name) => `references/${name.split(sep).join('/')}`)
+    expect(skills[0]!.resources.map((resource) => resource.uri.replace('skill://h5p-author/', '')).sort()).toEqual(['LICENSE', 'SKILL.md', ...own].sort())
+    expect(own).toContain('references/build/tools.md')
+    // Read as the package has it.
+    const read = await client.readResource({ uri: 'skill://h5p-author/SKILL.md' })
+    expect((read.contents[0] as { text: string }).text).toBe(await readFile(join(author, 'SKILL.md'), 'utf8'))
+    await expect(client.readResource({ uri: 'skill://h5p-author/package.json' })).rejects.toThrow()
   })
 
   it('lists the content types and answers for one, with no word of folders', async () => {
@@ -263,11 +283,18 @@ describe('the app server', () => {
 
   it('takes its card, its version and its type files from a host that carries them', async () => {
     // A bundle has no package folder beside the code, so its host names what it carries (#272).
-    const references = await mkdtemp(join(tmpdir(), 'h5p-mcp-references-'))
+    const carried = await mkdtemp(join(tmpdir(), 'h5p-mcp-carried-'))
+    const references = join(carried, 'references')
     try {
-      await mkdir(join(references, 'types'))
+      await mkdir(join(references, 'types'), { recursive: true })
       await writeFile(join(references, 'types', 'H5P.TrueFalse.md'), "# The host's own notes on a statement\n")
       await writeFile(join(references, 'authoring.md'), "The host's own brief.\n")
+      // The skill beside it, as in the author package (#280).
+      await writeFile(join(carried, 'SKILL.md'), "---\nname: h5p-author\ndescription: The host's own copy of the skill.\n---\n\nBuild with the tools.\n")
+      await writeFile(join(carried, 'LICENSE'), 'MIT\n')
+      // A link in the folder, to a file outside it, is not followed.
+      await writeFile(join(carried, 'outside.md'), 'Not the skill.\n')
+      await symlink(join(carried, 'outside.md'), join(references, 'linked.md'))
       const app = await createApp({ version: '9.9.9', card: "<p>A host's card for __SITE__</p>", references })
       const ask = async (method: string, params: unknown) => {
         const response = await app.fetch(new Request('https://host.example/mcp', {
@@ -286,11 +313,18 @@ describe('the app server', () => {
       expect(list).toContain("The host's own brief.")
       expect(list).toMatch(/^\* H5P\.TrueFalse\b/m)
       expect(list).not.toMatch(/^\* H5P\.MultiChoice\b/m)
+      // The skill it serves is the host's copy.
+      const [skill] = (await ask('skills/list', {})).skills as { frontmatter: { description: string }, resources: { uri: string }[] }[]
+      expect(skill!.frontmatter.description).toBe("The host's own copy of the skill.")
+      expect(skill!.resources.map((resource) => resource.uri.replace('skill://h5p-author/', '')).sort()).toEqual(['LICENSE', 'SKILL.md', 'references/authoring.md', 'references/types/H5P.TrueFalse.md'])
       await app.close()
       // A folder that is not the author package's is said at the start, not by thinner answers.
       await expect(createApp({ references: join(references, 'types') })).rejects.toThrow(/is not the author package's references\/ folder/)
+      // And so is one with no skill beside it.
+      await rm(join(carried, 'SKILL.md'))
+      await expect(createApp({ references })).rejects.toThrow(/does not hold the h5p-author skill/)
     } finally {
-      await rm(references, { recursive: true, force: true })
+      await rm(carried, { recursive: true, force: true })
     }
   })
 
