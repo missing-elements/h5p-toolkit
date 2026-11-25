@@ -236,6 +236,9 @@ importers:
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
+      playwright-core:
+        specifier: ^1.65.1
+        version: 1.65.1
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

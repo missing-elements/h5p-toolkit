@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>H5P activity</title>
 <style>
-  :root { color-scheme: light dark; --border: light-dark(#d9d6d0, #3a3833); --surface: light-dark(#f1eeea, #24231f); --text: light-dark(#1c1b19, #f2f0ec); --muted: light-dark(#6b6862, #a8a49c); --accent: light-dark(#2f6db5, #7fb0ea); }
+  :root { color-scheme: light dark; --border: light-dark(#d9d6d0, #3a3833); --surface: light-dark(#f1eeea, #24231f); --text: light-dark(#1c1b19, #f2f0ec); --muted: light-dark(#6b6862, #a8a49c); --accent: light-dark(#2f6db5, #7fb0ea); --accent-ink: light-dark(#ffffff, #10233b); }
   /* A root of its own for the margins inside: a height short by one left a scroller in the card. */
   body { display: flow-root; margin: 0; font: 14px/1.4 system-ui, sans-serif; color: var(--text); background: transparent; }
   [hidden] { display: none !important; }
@@ -18,6 +18,17 @@
   .wait { z-index: 1; display: grid; place-items: center; align-content: center; gap: 12px; margin: 8px; padding: 0 16px; aspect-ratio: 16 / 9; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); text-align: center; }
   .wait p { margin: 0; font-weight: 600; }
   .wait small { color: var(--muted); font-size: 13px; }
+  /* Where the chat cannot play the activity in its reply: what happens, and the one thing to press.
+     As tall as what it says, not the player's place, since no player comes. */
+  .wait.tab { aspect-ratio: auto; padding: 28px 16px; }
+  .wait.tab small { max-width: 46ch; }
+  .wait button { font: inherit; font-weight: 600; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; }
+  .wait #open { padding: 10px 18px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+  .wait button:hover { filter: brightness(1.08); }
+  .wait button:focus-visible, .wait input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .link { display: grid; gap: 8px; justify-items: center; width: min(100%, 440px); }
+  .link-row { display: flex; gap: 6px; width: 100%; }
+  .link-row input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--muted); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
   .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; }
   @media (prefers-reduced-motion: no-preference) { .spinner { animation: turn 0.8s linear infinite; } }
   @keyframes turn { to { rotate: 1turn; } }
@@ -25,7 +36,9 @@
 </head>
 <body>
 <div class="stage">
-<div class="wait" id="wait" role="status"><div class="spinner" id="spinner"></div><p id="wait-title">Opening the activity…</p><small id="wait-note">It is built in your browser.</small></div>
+<div class="wait" id="wait" role="status"><div class="spinner" id="spinner"></div><p id="wait-title">Opening the activity…</p><small id="wait-note">It is built in your browser.</small>
+<button type="button" id="open" hidden>Open the activity</button>
+<div class="link" id="link" hidden><small id="link-note"></small><span class="link-row"><input id="link-address" readonly aria-label="The activity's link"><button type="button" id="link-copy">Copy</button></span></div></div>
 <iframe id="page" title="The H5P activity" allow="fullscreen; clipboard-write"></iframe>
 </div>
 <script>
@@ -33,7 +46,7 @@
 // loader that turns for good.
 window.addEventListener('error', () => {
   const wait = document.getElementById('wait')
-  if (!wait || wait.hidden) return
+  if (!wait || wait.hidden || wait.classList.contains('tab')) return
   document.getElementById('spinner').hidden = true
   document.getElementById('wait-title').textContent = 'The activity could not be opened'
   document.getElementById('wait-note').textContent = 'Ask the chat to show it again.'
@@ -70,8 +83,7 @@ sizeToContent()
 // The chat's theme, for the card and for the page it frames.
 let theme = null
 let revealed = false
-function themed() {
-  const now = openai()?.theme
+function themed(now = openai()?.theme) {
   if ((now !== 'light' && now !== 'dark') || now === theme) return
   theme = now
   document.documentElement.style.colorScheme = now
@@ -98,7 +110,9 @@ async function show(input) {
   if (!source || typeof source !== 'object' || !source.type) return
   shown = true
   const fragment = await fragmentOf(source)
+  address = PLAY + fragment
   themed()
+  if (self.origin === 'null') return void inTab()
   // The page loads behind the card's own loader, and takes its place once it has something drawn
   // to show: its first word, or its load at the latest. Nothing is blank in between.
   frame.addEventListener('load', () => setTimeout(reveal, 300), { once: true })
@@ -106,8 +120,16 @@ async function show(input) {
   sizeToContent()
 }
 
-function reveal() {
-  if (revealed) return
+function reveal(spoken = false) {
+  if (spoken) spoke = true
+  // A frame the chat refused loads all the same, with nothing in it: only the page's own word
+  // takes the card back from the tab it offers.
+  if (tabbed ? !spoke : revealed) return
+  if (tabbed) {
+    tabbed = false
+    frame.hidden = false
+    $('wait').classList.remove('tab')
+  }
   revealed = true
   // Until the page says its own height, it keeps the loader's: the reply does not shrink and grow again.
   if (!frame.style.height) frame.style.height = `${Math.round($('wait').getBoundingClientRect().height + 16)}px`
@@ -117,6 +139,70 @@ function reveal() {
   sayWhatTheChatDoes()
   sizeToContent()
 }
+
+// Where the page cannot play in the card's frame, the card offers the activity in a tab, where
+// the whole player runs (#274). It knows from the browser, never from a chat's name. A card with
+// no origin was sandboxed without one, and a sandbox passes to every frame inside: the page there
+// has no Service Worker to play with, so no frame is tried (Open WebUI 0.13.4, November 2026).
+// And where a chat refuses the frame, the browser says so (Claude, the same month). The tab is
+// the chat's to open: one opened from a sandboxed card keeps the sandbox.
+let address = ''
+let tabbed = false
+let spoke = false
+let opening = 0
+function inTab() {
+  if (tabbed || spoke || !address) return
+  tabbed = true
+  frame.classList.remove('on')
+  frame.hidden = true
+  $('spinner').hidden = true
+  $('wait').classList.add('tab')
+  $('wait').hidden = false
+  $('link-address').value = address
+  drawTab()
+}
+function drawTab() {
+  if (!tabbed) return
+  const opens = typeof openai()?.openExternal === 'function' || !!capabilities?.openLinks
+  $('wait-title').textContent = opens ? 'The activity opens in a new tab' : 'Open the activity in your browser'
+  $('wait-note').textContent = 'This chat does not play an activity inside a reply. It is built and played in your browser, and nothing is sent to a server.'
+  $('open').hidden = !opens
+  // A chat that opens no link: the address is all there is to give.
+  if (!opens) copyThis('Copy this link into your browser’s address bar.')
+  sizeToContent()
+}
+function copyThis(why) {
+  $('link-note').textContent = why
+  $('link').hidden = false
+  sizeToContent()
+}
+const refused = () => copyThis('The chat did not open it. Copy this link into your browser’s address bar.')
+document.addEventListener('securitypolicyviolation', (event) => {
+  if (String(event.blockedURI).startsWith(SITE)) inTab()
+})
+$('open').addEventListener('click', () => {
+  // Whether a tab opened is not the card's to see: a browser may stop one, and a chat answers
+  // the same. So the address is shown from the first press on.
+  copyThis('A new tab should have opened. If none did, copy this link into your browser’s address bar.')
+  try {
+    if (typeof openai()?.openExternal === 'function') void Promise.resolve(openai().openExternal({ href: address })).catch(refused)
+    else { opening = ++asked; toHost({ id: opening, method: 'ui/open-link', params: { url: address } }) }
+  } catch { refused() }
+})
+$('link-address').addEventListener('focus', () => $('link-address').select())
+$('link-copy').addEventListener('click', async () => {
+  let copied = false
+  try {
+    await navigator.clipboard.writeText(address)
+    copied = true
+  } catch {
+    // No clipboard for a card without an origin: the browser's older way, and the address left
+    // selected for the person's own keys where that fails too.
+    $('link-address').select()
+    try { copied = document.execCommand('copy') } catch { /* selected, at least */ }
+  }
+  if (copied) $('link-copy').textContent = 'Copied'
+})
 
 // The file the person attached, as the server handed it on in the tool's result: its id in the
 // chat's store, and its name and type. Never its address: the card asks the chat for that.
@@ -208,7 +294,7 @@ async function bring(name, again = false) {
 window.addEventListener('message', (event) => {
   const message = event.data
   if (event.source !== frame.contentWindow || event.origin !== SITE || message?.source !== 'h5p-play') return
-  reveal()
+  reveal(true)
   if (message.type === 'height' && Number.isFinite(message.height)) {
     frame.style.height = `${Math.max(120, Math.min(message.height, 2000))}px`
     sizeToContent()
@@ -236,6 +322,7 @@ let capabilities = null
 let saidSaves = false
 let saidOpens = false
 function sayWhatTheChatDoes() {
+  drawTab()
   if (!revealed) return
   if (!saidOpens && (typeof openai()?.openExternal === 'function' || capabilities?.openLinks)) {
     saidOpens = true
@@ -295,8 +382,14 @@ window.addEventListener('message', (event) => {
   else if (message.method === 'ui/notifications/tool-result') fromResult(message.params?._meta, message.params?.structuredContent)
   else if (message.id === 1 && !message.method) {
     if (message.result) capabilities = message.result.hostCapabilities ?? null
+    themed(message.result?.hostContext?.theme)
     if (!message.error) toHost({ method: 'ui/notifications/initialized', params: {} })
     sayWhatTheChatDoes()
+  } else if (message.method === 'ui/notifications/host-context-changed') {
+    themed(message.params?.theme)
+  } else if (opening && message.id === opening && !message.method) {
+    opening = 0
+    if (message.error || message.result?.isError === true) refused()
   } else if (saving.has(message.id) && !message.method) {
     const id = saving.get(message.id)
     saving.delete(message.id)

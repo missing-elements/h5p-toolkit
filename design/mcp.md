@@ -123,6 +123,23 @@ command is that handler on a port. Its endpoint is `/mcp`.
   and no other (`openExternal`). It sends nothing to the server it came from and calls no tool. Its policy
   names the one site it frames and the chat's file store. A chat keeps a card by its address, so
   the address carries the card's hash.
+- **Where the page cannot play in the card's frame, the card offers the activity in a tab, and
+  knows it from the browser** (#274), never from a chat's name. A card with no origin
+  (`self.origin` is `"null"`) was sandboxed without one, and a sandbox passes to every frame
+  inside: the page there has no Service Worker, so no frame is tried (Open WebUI 0.13.4 frames a
+  card with `sandbox="allow-scripts allow-downloads allow-popups"`). A chat that refuses the
+  frame has the browser raise `securitypolicyviolation` for the page's address (Claude lets a card
+  frame `blob:` and `data:` only, its `frameDomains` dropped). The card then
+  shows one state in the loader's place, as tall as what it says: what happens, and "Open the
+  activity", which asks the chat to open the play page's address with the source in it
+  (`ui/open-link`, or ChatGPT's `openExternal`). The tab is the chat's to open: one opened from
+  a sandboxed card keeps the sandbox, in all three engines. Whether a tab opened is not the
+  card's to see, so the address is there to copy from the first press on, and at once in a chat
+  that opens no link. The page's own word from the frame takes the card back: a wrong conclusion
+  never hides a player that works. The chat's theme is ChatGPT's `window.openai.theme` or MCP
+  Apps' `hostContext.theme`. Not known: Claude and Open WebUI themselves, which the card met
+  only as stand-ins. A player without the Service Worker is not built for such a chat
+  ([scope.md](scope.md)).
 - **What ChatGPT's frame was found to do is written in the card, with its date.** A card's frame
   saves no file and opens no tab on a press; the chat saves a file handed to it of 8 MB and
   refuses one of 16 MB, downloads from no address, and takes no package into its own files; its
@@ -132,9 +149,14 @@ command is that handler on a port. Its endpoint is `/mcp`.
 - **Tested as a host runs it.** `tests/app.test.ts` starts the command on a free port and asks it
   over HTTP with the SDK's own client: the two tools and their words, the file input's schema,
   the card and its policy, a source checked, one refused, an attachment handed to the card alone,
-  a call whose file is no reference, a body over 1 MB, and that nothing was written. The card is
-  checked by hand in a page that stands in for a chat, its frame sandboxed as ChatGPT's was found
-  to be; in ChatGPT itself ran the probe's card, which this one is without its test parts.
+  a call whose file is no reference, a body over 1 MB, and that nothing was written.
+  `tests/card.test.ts` runs the card in a browser, the verifier's, in three chats that stand in
+  for the ones it was written against: one that sandboxes it without an origin, under the policy
+  Open WebUI writes from the card's domains; one that refuses the frame; one that lets the page
+  be framed. Each speaks MCP Apps to it, and the play page there says its height and no more.
+  With the site's own play page the card is checked by hand in a page that stands in for a chat,
+  its frame sandboxed as ChatGPT's was found to be; in ChatGPT itself ran the probe's card, which
+  this one is without its test parts.
 
 - **It is hosted as a Cloudflare Worker, at an address of ours** (`apps/mcp-worker`, #272):
   `mcp.embed-my.org`, one line of its config, since the domain's zone is on the same account.
