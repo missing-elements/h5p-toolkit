@@ -524,7 +524,7 @@ const BY_NUMBER = {
  * @returns {{ at: string, message: string } | undefined}
  */
 export function byNumber(library, params) {
-  const rule = BY_NUMBER[library]
+  const rule = Object.hasOwn(BY_NUMBER, library) ? BY_NUMBER[library] : undefined
   if (!rule) return undefined
   const list = rule.at.split('.').reduce((value, key) => (isObject(value) ? value[key] : undefined), params)
   if (!Array.isArray(list) || !list.length) return undefined

@@ -38,6 +38,7 @@ change it:
   `…/Panopto/Pages/Viewer.aspx?id=…`, Echo360's `echo360.org/media/…/h5p`.
 - Pictures: `.png`, `.jpg`, `.gif`, `.bmp`. Video: `.mp4`, `.webm`. Audio: `.mp3`, `.m4a`,
   `.wav`, `.ogg`. H5P takes no SVG or WebP.
-- Places on a picture (hotspots, areas, stages) are guesses until seen: open the picture and
-  look before you place anything. No tool watches a video, so its times stay guesses. The build
-  notes what it placed or timed by numbers alone: that note goes to the user.
+- Places on a picture (hotspots, areas, stages) are guesses until seen: where you can see the
+  picture, look before you place anything (route 0 passes an attachment on unopened). No tool
+  watches a video, so its times stay guesses. The build notes what it placed or timed by numbers
+  alone: that note goes to the user.

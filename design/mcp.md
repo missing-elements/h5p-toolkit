@@ -18,8 +18,8 @@ below.
   types, those with a type file marked, and the skill's brief; given a type, read as a build reads
   one (`sourceType`, so "true false" works), it answers with the type's file, or with `schemaOf` for
   a type with none. `h5p_build` builds a source, `h5p_preview` opens a package, and `h5p_read`
-  reads one back into its source. `h5p_media` says what a file is before a source names it, a
-  video's length first (`describeMedia`, author's #260): an app with no shell cannot read one
+  reads one back into its source. `h5p_media` says what a file is before a source names it, an
+  mp4's or a Vimeo video's length first (`describeMedia`, author's #260): an app with no shell cannot read one
   another way. It reads as a build reads a source's files, a name alone from the first folder, a
   local file only in the folders, a web address only on the public internet, and answers in
   words alone. Asked for an Interactive Video of a 10 s clip in the folder, Haiku in Claude Code

@@ -799,6 +799,8 @@ describe('media', () => {
       // A file's page on a wiki, at an address that ends as the file's name does (#218).
       else if (request.url === '/wiki/File:clip.mp4') response.writeHead(200, { 'content-type': 'text/html' }).end('<!DOCTYPE html><title>File:clip.mp4</title>')
       else if (request.url === '/odd%zz.png') response.writeHead(200, { 'content-type': 'image/png' }).end(png(20, 10))
+      // A recording at an address with no extension, its type the server's alone (#260).
+      else if (request.url === '/stream') response.writeHead(200, { 'content-type': 'audio/ogg' }).end(Buffer.concat([Buffer.from('OggS'), Buffer.alloc(60)]))
       else if (request.url === '/trickle.png') {
         // Slow, and never silent for long: eight pieces, 100 ms apart.
         const bytes = png(40, 30)
@@ -1139,7 +1141,7 @@ describe('media', () => {
     const named = [
       'wide.png', 'photo.jpg', 'talk.mp4', 'mute.mp4', 'voice.m4a', 'reel.webm', 'tune.mp3', `${origin}/pictures/map.png`, film, tube,
       'https://video.example.edu/Panopto/Pages/Viewer.aspx?id=0b6d3a5e', 'saved.mp4', 'torn.png', 'plan.txt', 'gone.png', 'https://vimeo.com/999999999',
-      'https://www.youtube.com/playlist?list=PL0', `${origin}/page.html`, 'ftp://files.example/clip.mp4'
+      'https://www.youtube.com/playlist?list=PL0', `${origin}/page.html`, 'ftp://files.example/clip.mp4', `${origin}/stream`
     ]
     const facts = await describeMedia(named, { base: dir, fetch })
     expect(facts.map(({ source }) => source)).toEqual(named)
@@ -1162,7 +1164,8 @@ describe('media', () => {
       'https://vimeo.com/999999999: Vimeo has no video there that others can play: give https://vimeo.com/ and the number of a public video, or all of an unlisted video\'s link, which has more after the number (it answered 404)',
       'https://www.youtube.com/playlist?list=PL0 is an address on YouTube that H5P.Video cannot play: give https://www.youtube.com/watch?v= and the video\'s id',
       `${origin}/page.html is text/html: only a picture, a video or a recording is read: .png, .jpg, .jpeg, .gif, .bmp, .mp3, .m4a, .wav, .ogg, .webm, .mp4`,
-      'ftp://files.example/clip.mp4: expected a file or an http(s) address'
+      'ftp://files.example/clip.mp4: expected a file or an http(s) address',
+      `${origin}/stream: an Ogg file, whose length a build does not read`
     ])
     expect(facts.slice(0, 3)).toEqual([
       { source: 'wide.png', kind: 'image', format: 'PNG', width: 1200, height: 800, notes: [] },

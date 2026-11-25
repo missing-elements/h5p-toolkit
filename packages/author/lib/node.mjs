@@ -131,7 +131,8 @@ export async function packVersion() {
  * @returns {import('./media.mjs').MediaAccess<string>}
  * @internal
  */
-export function nodeMedia({ base, temporary, within, beside = ' beside the source' }) {
+export function nodeMedia(folders) {
+  const { base, within, beside = ' beside the source' } = folders
   let downloads = 0
   return {
     what: 'a file beside the source',
@@ -154,7 +155,8 @@ export function nodeMedia({ base, temporary, within, beside = ' beside the sourc
     },
     async keep(body, extension) {
       downloads += 1
-      const from = join(temporary, `download-${downloads}.${extension}`)
+      // Read when a download is kept, so a caller may move it between files.
+      const from = join(folders.temporary, `download-${downloads}.${extension}`)
       await body.pipeTo(/** @type {WritableStream<Uint8Array>} */ (Writable.toWeb(createWriteStream(from))))
       return from
     },
@@ -484,16 +486,22 @@ export async function buildPackage(input, output, options = {}) {
 export async function describeMedia(sources, options = {}) {
   const within = foldersOf(options.within)
   if (!Array.isArray(sources) || !sources.every((source) => typeof source === 'string' && source.trim())) throw new TypeError('describeMedia takes a list of paths or web addresses')
-  const temporary = await mkdtemp(join(tmpdir(), '.h5p-author-'))
-  try {
-    const media = new MediaStore(nodeMedia({ base: options.base ?? process.cwd(), temporary, within, beside: '' }), { fetch: options.fetch })
-    /** @type {MediaFacts[]} */
-    const facts = []
-    for (const source of sources) facts.push(await media.describe(source))
-    return facts
-  } finally {
-    await rm(temporary, { recursive: true, force: true })
+  /** @type {MediaFacts[]} */
+  const facts = []
+  // A folder for each file, removed once it is read: one download on disk at a time, however
+  // many addresses are named. One store for all, so a host that does not answer is asked once.
+  let temporary = ''
+  const access = nodeMedia({ base: options.base ?? process.cwd(), get temporary() { return temporary }, within, beside: '' })
+  const media = new MediaStore(access, { fetch: options.fetch })
+  for (const source of sources) {
+    temporary = await mkdtemp(join(tmpdir(), '.h5p-author-'))
+    try {
+      facts.push(await media.describe(source))
+    } finally {
+      await rm(temporary, { recursive: true, force: true })
+    }
   }
+  return facts
 }
 
 /**

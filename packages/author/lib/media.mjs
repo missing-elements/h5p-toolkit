@@ -186,7 +186,7 @@ const IDLE_MS = 60_000
 /**
  * @typedef {{ file: string, seconds: number, host?: string }} MediaLength a video's or a
  *   recording's length: `file`, as the source names it; `seconds`, from its index, or as `host`
- *   said it, in whole seconds
+ *   said it, which is in whole seconds
  * @typedef {{
  *   source: string, kind?: 'image' | 'video' | 'audio', format?: string, width?: number, height?: number,
  *   seconds?: number, host?: string, notes: string[], problem?: string
@@ -322,6 +322,12 @@ function containerOf(head) {
  * where both have one (`.webm`, `.ogg`).
  */
 const DESCRIBED = { ...TYPES.image, ...TYPES.audio, ...TYPES.video }
+
+/**
+ * The served types `DESCRIBED` loses to a video's, which share an extension with a recording's:
+ * a web address with no extension, served so, is still read.
+ */
+const SERVED_AUDIO = { 'audio/ogg': 'ogg', 'audio/webm': 'webm' }
 
 /** Whose types those are, in a problem. */
 const DESCRIBED_AS = 'only a picture, a video or a recording is read:'
@@ -580,7 +586,7 @@ export class MediaStore {
       // Two letters or more before the colon: one alone is a Windows drive.
       return { source, notes, problem: `${source}: expected a file or an http(s) address` }
     }
-    const staged = web ? await this.#download(source, 'file', DESCRIBED, '', report, DESCRIBED_AS) : await this.#local(source, DESCRIBED, '', report, DESCRIBED_AS)
+    const staged = web ? await this.#download(source, 'file', DESCRIBED, '', report, DESCRIBED_AS, SERVED_AUDIO) : await this.#local(source, DESCRIBED, '', report, DESCRIBED_AS)
     if (!staged) return failed()
     const file = await this.access.open(staged.from)
     try {
@@ -795,8 +801,9 @@ export class MediaStore {
    * @param {string} at
    * @param {(path: string, message: string) => void} report
    * @param {string} [takes] what takes those types, for a problem
+   * @param {Record<string, string>} [served] an extension, by a served type `types` does not map to one
    */
-  async #download(source, kind, types, at, report, takes = 'this field takes') {
+  async #download(source, kind, types, at, report, takes = 'this field takes', served = /** @type {Record<string, string>} */ ({})) {
     let url
     try {
       url = new URL(source)
@@ -832,11 +839,11 @@ export class MediaStore {
         return null
       }
       const named = extensionOf(lastSegment(new URL(response.url || url.href).pathname))
-      const served = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === served)
+      const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === type) ?? (Object.hasOwn(served, type) ? served[type] : undefined)
       if (!extension) {
         await response.body.cancel()
-        report(`${at}.path`, `${source} is ${served || 'of an unknown type'}: ${takes} ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
+        report(`${at}.path`, `${source} is ${type || 'of an unknown type'}: ${takes} ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
         return null
       }
       let received = 0

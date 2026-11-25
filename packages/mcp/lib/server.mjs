@@ -210,7 +210,7 @@ export async function createServer(options = {}) {
   server.registerTool('h5p_media', {
     title: 'Look at media files',
     description: MEDIA,
-    inputSchema: z.object({ files: z.array(z.string()).min(1).max(20).describe('Each by its file name alone, its path in a folder this server may use, or its web address') }),
+    inputSchema: z.object({ files: z.array(z.string().regex(/\S/, 'a file name or an address, not blank')).min(1).max(20).describe('Each by its file name alone, its path in a folder this server may use, or its web address') }),
     annotations: { readOnlyHint: true, openWorldHint: true }
   }, async ({ files }) => {
     const allowed = await folders()

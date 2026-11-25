@@ -7,7 +7,7 @@ A video with questions, text and links appearing over it at set times, a bookmar
 - The build sizes a poster by what it holds: a question 17 by 16, room for four short answers and its buttons; a text as wide as keeps it short; a picture in its own shape. `width` and `height` size one yourself, in em: the video is 40 wide and 22.5 tall at 16:9. Check posters in the preview; on a phone they show as buttons.
 - Bookmarks: `interactiveVideo.assets.bookmarks`, `[{ "time": 30, "label": "…" }]`.
 - The summary task at the end is H5P.Summary at `interactiveVideo.summary.task`, shown at `interactiveVideo.summary.displayAt` seconds before the end; leave it out and there is none.
-- Read the video's length before you write a time, with `media` (SKILL.md, step 2) or the tool `h5p_media`, and keep every time within it: a start past the end is refused.
+- Read the video's length before you write a time, with `media` (SKILL.md, step 2) or the tool `h5p_media`, and keep every time within it: a start past the end is refused. Where it gives none (a WebM, a YouTube video), take the length the user gave, if any, and say in the reply that the times were not checked against it.
 
 ## Example
 

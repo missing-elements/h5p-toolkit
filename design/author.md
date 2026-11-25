@@ -147,8 +147,9 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   - **A build says the length it held the times to.** A result's `lengths` has it for each
     Interactive Video's video, by the name the source gives it, and the command line and both
     servers say each (`lengthLine`), so that whoever changes the times next starts from it.
-  - **What is placed or timed by numbers alone is a note of the build's**, one for each such
-    list, saying how many and to look at them in the preview (`byNumber` in `types.mjs`). It
+  - **What is placed or timed by numbers alone is a note of the build's**, one for each list of
+    hotspots, areas, stages or an Interactive Video's interactions (not its bookmarks or end
+    screens), saying how many and to look at them in the preview (`byNumber` in `types.mjs`). It
     is said whether or not a model looked at the file, since only a person's eyes check a place
     or a moment; and by the build, not `checkContent`, so a check of saved content says none.
     The skill passes a build's notes on. Its own sentence in the brief, to ask the user to check
