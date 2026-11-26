@@ -9,11 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildSite } from '../lib/build.mjs'
 
 /**
- * A written site deployed the way the README says: on a player origin of its own
- * (`127.0.0.1`), framed by a page on another site (`localhost`), with `resizer.js` from the player
- * origin on that page. Two sites, so the frame gets partitioned storage and a Service Worker of
- * its own, as on a real embed. The static server sends no headers but the type, like GitHub
- * Pages: the policy the page enforces is the `<meta>` one.
+ * A written site on a player origin (`127.0.0.1`), framed from another site (`localhost`) so its
+ * storage is partitioned, as in a real embed. Only the type is sent: the `<meta>` policy applies.
  */
 
 const quiz = resolve(import.meta.dirname, '../../../apps/demo/demo/content/quiz.h5p')
@@ -102,8 +99,7 @@ async function strippedQuiz(path: string) {
 
 /**
  * The quiz made against a Question Set newer than the pack's: played untrusted, its own copy is
- * withheld and nothing else supplies that version, so it plays at the pack's older one, or, with
- * `downgrade-libraries=off`, only with its own code.
+ * withheld, so it plays at the pack's older one, or with `downgrade-libraries=off` on its own code.
  */
 async function ownCodeQuiz(path: string) {
   const reader = new ZipReader(new BlobReader(new Blob([await readFile(quiz)])))
@@ -209,8 +205,7 @@ const playsSized = async (page: Page, origin: string) => {
   const frame = await playerFrame(page, origin)
   await frame.waitForFunction(() => (document.querySelector('h5p-player') as unknown as { state: string } | null)?.state === 'ready', null, { timeout: 60_000 })
   // `ready` comes before the content has reported its height. The quiz's intro page is taller than
-  // an iframe's default 150 px under every Question Set version; 1.21, from the library pack, draws
-  // it at about 300 px where the 1.20 the package carries drew about 370.
+  // an iframe's default 150 px in every Question Set version (about 300 px in 1.21, 370 in 1.20).
   await frame.waitForFunction(() => document.body.getBoundingClientRect().height > 200, null, { timeout: 15_000 })
   const content = await frame.evaluate(() => Math.ceil(document.body.getBoundingClientRect().height))
   await page.waitForFunction((h) => parseInt(document.querySelector('iframe')!.style.height, 10) === h, content, { timeout: 15_000 })
@@ -372,9 +367,8 @@ describe('a written site, framed from another site', () => {
   it('plays a package from elsewhere untrusted when opened on its own, with no question', async () => {
     const page = await browser.newPage()
     await page.goto(`${open.origin}/?src=${embedding.origin}/quiz.h5p`)
-    // Started at once, as data: the question comes only for a package that needs its own code.
-    // Whether it then plays is the policy's call: this site allows any https host, and the test's
-    // package is on plain http.
+    // Started at once, as data: the question comes only for a package needing its own code. Whether
+    // it then plays is the policy's: this site allows any https host, the package is on plain http.
     await started(page)
     expect(await untrusted(page)).toBe(true)
     expect(await librariesOf(page)).toBe('pack')

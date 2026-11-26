@@ -8,16 +8,8 @@ import type { Browser, Frame, Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
- * The card in a browser, in three chats that stand in for the ones it was written against (#274):
- * one that sandboxes a card without an origin, as Open WebUI 0.13.4 does, with the policy it
- * writes from the card's own domains; one that refuses the frame, by Claude's policy for a card;
- * and one that lets the play page be framed, as ChatGPT does. Each speaks MCP Apps to the card:
- * the handshake, the tool's input, and an answer to `ui/open-link`. The play page is a stand-in
- * too, which says its height and nothing more: what the page does is the site's to test.
- *
- * And what comes before the activity, or in its place (#276): a source the chat streams as its
- * model writes it, a call the chat stops, a reply drawn from the tool's result alone, and a page
- * that never speaks from the frame.
+ * The card in a browser, in three stand-in chats (#274): a sandbox with no origin (Open WebUI), a
+ * refused frame (Claude) and an allowed one (ChatGPT), and the waits before the activity (#276).
  */
 
 const SOURCE = { language: 'en', license: 'U', authors: [{ name: 'Unknown', role: 'Author' }], type: 'H5P.TrueFalse', title: 'Boiling point', params: { question: '<p>Water boils at 100 °C at sea level.</p>', correct: 'true' } }

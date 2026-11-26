@@ -5,9 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { runTests } from '@vscode/test-electron'
 
 /**
- * The extension in a real VS Code, downloaded into .vscode-test/: the demo's content folder open,
- * the built extension loaded, and `suite.cjs` run in its extension host. The editor's version is
- * stable unless VSCODE_TEST_VERSION names another; on Linux it needs a display (xvfb-run in CI).
+ * The extension in a real VS Code, downloaded into .vscode-test/, with the demo's content open and
+ * `suite.cjs` run in its extension host. Stable unless VSCODE_TEST_VERSION says; Linux needs xvfb.
  */
 
 const root = fileURLToPath(new URL('../..', import.meta.url))

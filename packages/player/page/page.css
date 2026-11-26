@@ -1,10 +1,5 @@
-/* The page around the player, as the demo draws it: its colours for light and dark, the bar with
-   the mark and a byline, buttons, the status strip with its state dot and timer, the player's box
-   while it loads, cards and messages. Shipped with the player so that every page that holds it —
-   the demo, h5p-verify's preview, the H5P Preview extension's page — looks
-   the same and cannot drift: the demo imports this file and adds its own rules after it. Plain
-   CSS, nothing reaches into the element; the one rule that names it sets its box. A page sets
-   `data-theme="light"` or `"dark"` on <html> to pin a theme, and follows the system without. */
+/* The page around the player as the demo draws it, shipped with it so every page that holds it
+   looks the same. Plain CSS: only the element's box is set. `data-theme` on <html> pins a theme. */
 
 :root {
   color-scheme: light dark;
@@ -50,11 +45,8 @@
   --ease: 160ms ease;
 }
 
-/* The dark tokens, twice, because they apply in two cases that no one selector covers: the
-   system prefers dark and the visitor has not pinned light, or the visitor has pinned dark
-   whatever the system says. `data-theme` is set by demo/theme.js; with no script the first rule
-   is the whole theme and follows the system. `color-scheme` travels with a pin so the browser's
-   own parts — scrollbars, form controls, the canvas behind the page — follow it too. */
+/* The dark tokens, twice: for a system preferring dark with light not pinned, and for dark pinned
+   (`demo/theme.js`). `color-scheme` goes with a pin so scrollbars and controls follow. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f1114;
@@ -113,9 +105,8 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* Hidden means hidden, whatever display a rule gives the element: the browser's own `[hidden]`
-   rule loses to any of them, `button`'s `display: inline-flex` below among them, which once left
-   the app's Start over button on screen with nothing open. */
+/* Hidden means hidden: the browser's `[hidden]` rule loses to any display, such as `button`'s
+   `inline-flex` below, which once left Start over on screen with nothing open. */
 [hidden] { display: none !important; }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -172,10 +163,8 @@ p code, li code, .lede code { padding: 0.1em 0.35em; border-radius: 4px; backgro
   height: 1.7rem;
 }
 
-/* The name with its author on a line under it, so the bar is no wider for it. H5P Group's
-   trademark policy lets a name lead with "H5P" only beside who made it (h5p.org/trademark; see
-   design/licensing.md, *Names and the H5P trademark*). The space before the byline keeps the
-   link's name "… by Missing Elements". */
+/* The name with its author under it: H5P Group's trademark policy lets a name lead with "H5P" only
+   beside its maker (design/licensing.md). A space before the byline keeps the name whole. */
 .brand-name { display: flex; flex-direction: column; line-height: 1.15; }
 .brand-by { color: var(--muted); font-size: 0.72rem; font-weight: 500; letter-spacing: 0; }
 
@@ -198,13 +187,8 @@ p code, li code, .lede code { padding: 0.1em 0.35em; border-radius: 4px; backgro
 /* The right-hand end: the theme switch as an icon, and the repository's Star. */
 .topbar-actions { display: flex; align-items: center; gap: 0.25rem; margin-left: auto; }
 
-/* Where the brand, the nav and the actions fit on one line, the nav sits in the middle of the
-   bar: three columns, the outer two equal, so the middle one is centred whichever end is wider.
-   It needed 57rem with macOS's system font and a four-character star count, and 60rem in the
-   app, whose bar carries the menu's icon too (2026-10-17); one width for every page keeps the
-   bar the same height wherever a visitor goes, and the rest is room for a wider font. The old
-   breakpoint, 44rem, was already short of the 50rem the bar needed before the Star button, and
-   between the two the icons dropped to a row of their own at the left. */
+/* Where brand, nav and actions fit on one line, the nav sits mid-bar: three columns, the outer two
+   equal. 64rem clears the widest bar (60rem, in the app) with room to spare, for every page. */
 @media (min-width: 64rem) {
   .topbar:has(nav) { display: grid; grid-template-columns: 1fr auto 1fr; }
   .topbar > .brand { justify-self: start; }
@@ -373,13 +357,8 @@ h5p-player {
   margin-top: 1.25rem;
 }
 
-/* A box like the page's other boxes only while it is one: empty, loading, or failed, with a
-   height of its own since nothing in it gives one. Once content is up the element is as tall as
-   the content says — a minimum height left on it showed as empty space under a short quiz, and
-   under a video on a phone — and the frame fills it edge to edge while the content draws its
-   own chrome, so the border and shadow would double it, and a rounded box that clips cuts the
-   corners out of whatever the content puts there — a Question Set's footer bar, a
-   presentation's controls, a video's picture. The element reflects its state as an attribute. */
+/* A box like the page's others only while empty, loading or failed; with content up it is as tall
+   as the content: a minimum height left space under a quiz, a border doubles its chrome. */
 h5p-player:not([state="ready"]) {
   min-height: clamp(16rem, 55vh, 28rem);
   border: 1px solid var(--line);

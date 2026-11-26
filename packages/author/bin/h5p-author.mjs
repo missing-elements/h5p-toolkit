@@ -43,11 +43,8 @@ npx @missing-elements/h5p-verify@latest before handing it over.`
 const sized = (bytes) => (bytes < 1_000_000 ? `${Math.max(1, Math.round(bytes / 1000))} kB` : `${(bytes / 1_000_000).toFixed(1)} MB`)
 
 /**
- * This package's version, from its package.json where the package is installed. The command line
- * as one file, `dist/h5p-author.mjs`, copied out of the package, has no package.json of its own
- * beside it, and the one above it may be another's: there it is the copy its bundler wrote in from
- * the import.
- * The file comes first, since Node before 22.12 warns on a JSON import.
+ * This package's version from its package.json, else the bundler's copy of it: the one-file command
+ * line has none of its own beside it. The file first, as Node before 22.12 warns on a JSON import.
  */
 async function ownVersion() {
   try {
@@ -84,10 +81,8 @@ function parse(argv) {
 }
 
 /**
- * The pack `--libraries` names. Where that folder holds none, neither in it nor in its `parts/`,
- * and the `parts/` beside this command does, as the build archive unpacks (h5p-author.mjs with
- * parts/ beside it), that one, by its path from here: in 5 of 31 lab runs the archive was unpacked
- * into a folder of its own, `tool/` or `build/`, and the build named `parts` from another (#285).
+ * The pack `--libraries` names; if it holds none and the `parts/` beside this command does, that
+ * one, as 5 of 31 lab runs unpacked the archive into a folder of its own and named `parts` (#285).
  * @param {string | undefined} named
  */
 async function packNamed(named) {
@@ -130,9 +125,8 @@ try {
     } catch (error) {
       throw new Error(`${rest[0]} is not a readable JSON file: ${error instanceof Error ? error.message : error}`)
     }
-    // The source a build keeps beside its package, naming what it was built with (#219): the
-    // package's name with `.source.json`. Looked at before any work, as the package's own name
-    // is: never written over, but where it is the file being built, which is kept up to date.
+    // The source a build keeps beside its package (#219), looked at before any work as the package
+    // is: never written over, except where it is the file being built, which is kept up to date.
     const beside = check ? '' : resolve(rest[1]).replace(/\.h5p$/i, '') + '.source.json'
     const same = !check && await sameFile(beside, sourcePath)
     const there = (/** @type {string} */ path) => lstat(path).then(() => true, () => false)

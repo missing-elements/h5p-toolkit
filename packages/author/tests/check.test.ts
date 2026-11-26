@@ -30,9 +30,8 @@ async function openPackage(path: string) {
 }
 
 /**
- * A saved package's content checked as a tool that edits it checks what it writes: the content type
- * and language its `h5p.json` names, against its own libraries and the pack's for what it does not
- * carry.
+ * A saved package's content checked as a tool that edits it checks what it writes: its `h5p.json`'s
+ * type and language, against its own libraries and the pack's for what it does not carry.
  */
 async function checkPackage(path: string, edit = (params: any) => params) {
   const { files, close } = await openPackage(path)

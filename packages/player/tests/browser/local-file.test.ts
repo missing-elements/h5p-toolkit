@@ -3,9 +3,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, createPlayer, frameDocument, waitForSettled } from './utils'
 
 /**
- * The local-file adapter. A host without CORS cannot be fetched from a browser at all, so this is
- * the path a user takes after downloading the archive by hand — and the one where the worker has
- * no way to rebuild its source on its own, because a `File` handle cannot be persisted.
+ * The local-file adapter, the path after downloading by hand from a host without CORS. A `File`
+ * handle cannot be persisted, so the worker cannot rebuild its source on its own.
  */
 describe('playing a picked file', () => {
   const pickFile = async (fixture: string, name = 'picked.h5p') => {

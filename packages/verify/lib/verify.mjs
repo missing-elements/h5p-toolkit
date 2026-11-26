@@ -11,13 +11,8 @@ export { openBrowser, previewPackage } from './preview.mjs'
 /** @import { DowngradedLibrary, H5PPlayerElement, PlayerErrorDetail, PlayerState, RefreshedLibrary } from '@missing-elements/h5p-offline-player' */
 
 /**
- * Plays a package the way a learner would — the real element, the real Service Worker, a real
- * browser — and reports what happened. The package is handed to the element as a picked file,
- * the same path the installable app uses, so nothing here needs `Range` support or a network.
- *
- * What the report can say: the package indexed (or which libraries it lacks), the runtime
- * booted, nothing threw before `ready`, the content drew something, and what the frame asked
- * for that was not there. What it cannot say: whether the content is any good.
+ * Plays a package as a learner would, in a real browser, and reports what happened. It goes in as a
+ * picked file, as in the installable app, so nothing needs `Range` support or a network.
  */
 
 const require = createRequire(import.meta.url)
@@ -48,9 +43,8 @@ const CONTENT_CHECK_HEADER = 'X-H5P-Content-Check'
 /**
  * @typedef {object} VerifyOptions
  * @property {string} file the `.h5p` to play
- * @property {string} [libraries] where libraries come from, tried in order: `pack`, a bundle's URL, a
- *   bundle on disk, or a copy of the library pack's `parts/` folder on disk, which plays as `pack`;
- *   the verifier serves what is on disk itself. Several separated by spaces
+ * @property {string} [libraries] where libraries come from, in order, space separated: `pack`, a
+ *   bundle's URL or path, or a path to a copy of the pack's `parts/`, which plays as `pack`
  * @property {boolean} [untrusted] play the package `untrusted`, as a site that did not make it plays it
  * @property {boolean} [refreshLibraries] with the pack, play its newer versions of the libraries the
  *   package carries, as the element does unless told otherwise; default true
@@ -247,10 +241,8 @@ export async function verifyPackage(options) {
           // the verdict rules read that as nothing drawn.
           .catch(() => null)
       : null
-    // Each video and recording in the frame, after the settle: one the browser gave up on does not
-    // play, though the rest of the content drew (#218). Where this browser plays no H.264, or for a
-    // recording no AAC, as a Chromium built without them, an mp4 or an m4a it gave up on says
-    // nothing of the file.
+    // Each video and recording after the settle: one the browser gave up on does not play (#218),
+    // but where this browser has no H.264 or AAC, that says nothing of the file.
     const media = frame
       ? await frame
           .evaluate(() => ({
@@ -281,9 +273,8 @@ export async function verifyPackage(options) {
     const timed = frame && collected.state === 'ready' ? await timedVideo(frame) : null
     /** @type {BlockedLoad[]} */
     const csp = frame ? await frame.evaluate(() => /** @type {PageWindow} */ (window).__csp ?? []).catch(() => []) : []
-    // Untrusted, the package's `content.json` beside what the runtime was handed: the Service
-    // Worker gives the file as written to a request that names the check, and the boot script
-    // leaves the checked parameters in `H5PIntegration`.
+    // Untrusted: `content.json` as written, which the Service Worker gives a request that names the
+    // check, beside what the runtime was handed, which the boot script leaves in `H5PIntegration`.
     const played =
       collected.untrusted && frame && collected.state === 'ready'
         ? await frame
@@ -317,9 +308,8 @@ export async function verifyPackage(options) {
       // The libraries the package carries that played at the pack's newer version: what a site
       // with the pack shows, and a sign the export is older than the pack.
       refreshed: collected.libraryBundle?.refreshed ?? [],
-      // Made for a newer minor than any source has, and played at an older one: what the newer
-      // version added is left out, which only a person playing it can judge.
-      // The load's, not the bundle's: a package that carries an older minor itself has no bundle.
+      // Played at an older minor than it was made for: what the newer one added is left out. The
+      // load's, not the bundle's: a package that carries an older minor itself has no bundle.
       downgraded: collected.downgradedLibraries ?? [],
       verdict: 'pass',
       reasons: [],
@@ -350,10 +340,8 @@ export async function verifyPackage(options) {
       report.verdict = 'fail'
       report.reasons.push('the content started but drew nothing: the frame is empty')
     }
-    // An uncaught error while the runtime boots is a defect in the package even when the content
-    // comes up around it — a library listed that is not a runtime library, a script that reaches
-    // for something absent — and the part that threw is missing from what was drawn. One after
-    // `ready` is the content running, and content types throw non-fatal exceptions routinely.
+    // An uncaught error while the runtime boots is a defect even if the content comes up around it:
+    // the part that threw is missing. One after `ready` is not, as content types throw routinely.
     const booting = report.errors.filter((e) => e.code === 'runtime' && !e.afterReady)
     if (report.verdict === 'pass' && booting.length > 0) {
       report.verdict = 'fail'
@@ -400,15 +388,12 @@ export async function verifyPackage(options) {
 }
 
 /**
- * An Interactive Video's times that have to be within its video: each interaction, from its start
- * to its end, each bookmark, and where the video itself starts. An end screen past the end the
- * library moves to the end. h5p-author's build holds these to a file's length, which it reads with
- * no browser.
+ * An Interactive Video's times that have to be within its video: each interaction's start and end,
+ * each bookmark, and where the video starts. h5p-author's build holds these to a file's length.
  * @internal
  * @param {any} params an Interactive Video's, as `content.json` holds them
  * @returns {({ path: string, from: number, to: number } | { path: string, time: number, says: 'starts at' | 'is' })[]}
- *   each by its JSON path, in seconds: an interaction's start and end, or, for one with no end after
- *   its start, its start; a bookmark's or the start's time
+ *   by JSON path, in seconds: an interaction's start and end, a bookmark's or the start's time
  */
 export function videoTimes(params) {
   const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
@@ -437,12 +422,8 @@ export function videoTimes(params) {
 }
 
 /**
- * The warnings for an Interactive Video's times against its video's length, as its player says it.
- * The library moves an interaction that ends past the video's last whole second as it loads
- * (`loaded()` in H5P.InteractiveVideo 1.28), to end there and start as much earlier, so one that
- * starts past the end shows before it; this is the number it counts from (#285). A bookmark or a
- * start past the end is never reached; a host's player says its length before anything plays, as
- * an estimate in whole seconds, so those are late only a second past it.
+ * Warnings for an Interactive Video's times against its video's length. `loaded()` in 1.28 moves an
+ * interaction ending past the last whole second to end there, so it starts earlier (#285).
  * @internal
  * @param {ReturnType<typeof videoTimes>} times
  * @param {number} seconds the video's length, from its player
@@ -459,15 +440,14 @@ export function lateTimes(times, seconds, exact) {
       const from = Math.max(0, Math.round((last - (time.to - time.from)) * 100) / 100)
       return [`video time: ${time.path}: runs from ${time.from} to ${time.to} s, and ${end}: Interactive Video plays it from ${from} to ${last} s instead`]
     }
+    // A host's player says its length in estimated whole seconds, so late only a second past it.
     return time.time > seconds + (exact ? 0 : 1) ? [`video time: ${time.path}: ${time.says} ${time.time} s, after ${end}`] : []
   })
 }
 
 /**
- * The times of an Interactive Video that is the content itself, and its video's length in seconds
- * as its own player says it: a file's from the browser, a hosted video's from the host's player,
- * which a build cannot ask (YouTube's answer to a build names no length, #283). A player still
- * loading is waited for, a little. `null` for any other content, and where there are no times.
+ * The times of an Interactive Video that is the content, and its length in seconds as its player
+ * says it, a host's too, which a build cannot ask (#283). Waited for a little; `null` for no times.
  * @param {import('playwright-core').Frame} frame
  * @returns {Promise<{ times: ReturnType<typeof videoTimes>, seconds: number | null, exact: boolean, failed: boolean } | null>}
  */
@@ -500,15 +480,8 @@ async function timedVideo(frame) {
 }
 
 /**
- * What the content as played lost against the package's own `content.json`, field by field, by
- * JSON path: markup removed from a text (tags, attributes and style properties by name), fields
- * removed, list items removed, values changed. A removed empty value is left out: the check drops
- * empty lists and groups as upstream does, and nothing reads them.
- *
- * Measured, not told: the runtime's own notes cover only part of what the check does, and none
- * of the markup it strips. The content upgrade runs first and can move fields too, when the
- * libraries served are newer than the ones the content was written for; a change that is not
- * markup may be its.
+ * What the content as played lost against the package's `content.json`, by JSON path. Measured, not
+ * told: the runtime's notes miss the markup it strips, and the content upgrade may move fields too.
  * @internal
  * @param {unknown} written
  * @param {unknown} played
@@ -553,6 +526,7 @@ export function contentChanges(written, played) {
         const next = Array.isArray(a) ? `${path}[${key}]` : path ? `${path}.${key}` : key
         // Own keys only: `in` finds `constructor` and `toString` on every object (#58).
         if (!Object.hasOwn(b, key)) {
+          // A removed empty value is left out: the check drops empty lists and groups, as upstream.
           if (!isEmpty(a[key])) changes.push({ path: next, change: 'removed' })
         } else walk(a[key], b[key], next)
       }
@@ -625,10 +599,8 @@ function lostMarkup(before, after) {
 }
 
 /**
- * Every `<` followed by a letter, up to the next `>`: what `/<[a-z][^>]*>/gi` matches, found in
- * one pass. The expression tries each `<` against the whole rest of the string, so a package
- * whose text runs `<a<a<a…` with no `>` took time quadratic in its length; here, once no `>`
- * follows one `<`, none follows any later one, and the scan stops.
+ * Every `<` and a letter up to the next `>`, as `/<[a-z][^>]*>/gi` matches, in one pass: the regex
+ * is quadratic on `<a<a<a…` with no `>`, where here the scan stops once no `>` follows.
  * @param {string} html
  */
 function openingTags(html) {

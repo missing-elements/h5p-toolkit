@@ -10,10 +10,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createApp } from '../lib/app.mjs'
 
 /**
- * The app server as a host runs it: the command the package ships, listening on a port, asked
- * over HTTP through the SDK's own client, as a chat app asks it. The check's rules are the author
- * package's and tested there; these hold the server to its two tools, its card, and to what it
- * may hold of a request: nothing.
+ * The app server as a host runs it: the package's command on a port, asked through the SDK's HTTP
+ * client. The check's rules are the author package's; these hold it to its tools, card, no state.
  */
 
 const COMMAND = resolve(import.meta.dirname, '../bin/h5p-mcp-app.mjs')

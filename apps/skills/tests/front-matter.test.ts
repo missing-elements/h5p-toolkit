@@ -3,12 +3,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /*
- * Each skill's front matter as a YAML parser reads it: skills.sh, a chat that takes the skill as a
- * zip and an agent's skill loader parse it, and one that does not parse is a skill they do not list
- * (#242's description broke it with a colon). No YAML parser is in the workspace, so each line is
- * held to the form the skills write, `key: value` with a plain value, which YAML ends at a colon
- * followed by a space and cuts at a space followed by `#`; and the name and description to the
- * Agent Skills specification's limits.
+ * One that does not parse is a skill skills.sh, chats and agents do not list (#242). No YAML parser
+ * is in the workspace, so each line is held to `key: value`, a plain value, and the spec's limits.
  */
 const skills = resolve(import.meta.dirname, '../../../skills')
 const names = (await readdir(skills, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name)

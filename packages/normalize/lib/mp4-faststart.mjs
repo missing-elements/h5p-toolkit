@@ -1,17 +1,14 @@
 /**
- * Moves an mp4's `moov` atom in front of its `mdat` in a range of an open file: the video may be
- * a stored entry read in place in the source archive, or an inflated copy in a temp file, and
- * neither is loaded whole. The plan is `faststartPlan`'s, in `mp4.mjs`, which a page runs on a
- * `Blob` too; this gives it the file's bytes and reads the pieces it names.
+ * Moves an mp4's `moov` in front of its `mdat` in a range of an open file, never loaded whole. The
+ * plan is `faststartPlan`'s in `mp4.mjs`; this gives it the file's bytes and reads its pieces.
  */
 import { faststartPlan } from './mp4.mjs'
 
 const READ_CHUNK = 1024 * 1024
 
 /**
- * @typedef {{ start: number, end: number } | { bytes: Uint8Array }} Piece a range of the open
- *   file, absolute positions in it, end exclusive, or literal bytes: where `faststartPlan`'s
- *   ranges are counted from the media file's start, these have `base` added
+ * @typedef {{ start: number, end: number } | { bytes: Uint8Array }} Piece a range of the open file,
+ *   absolute in it, end exclusive, or literal bytes; `faststartPlan`'s ranges plus `base`
  * @typedef {Omit<import('./mp4.mjs').FaststartPlan, 'pieces'> & { pieces: Piece[] }} FaststartPlan
  *   `faststartPlan`'s, its pieces positions in the open file
  */

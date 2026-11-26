@@ -12,9 +12,8 @@ describe('a library named another way than by its machine name', () => {
       ['blanks', 'H5P.Blanks'], ['h5p blanks', 'H5P.Blanks'], ['H5P_Blanks', 'H5P.Blanks'],
       ['dialog-cards', 'H5P.Dialogcards'], ['multichoice', 'H5P.MultiChoice'], ['Question Set', 'H5P.QuestionSet'], ['Course Presentation', 'H5P.CoursePresentation']
     ]) expect(machineNameOf(written, NAMES), written).toEqual({ machineName, exact: false })
-    // The name itself, alone or with the major and minor that sub-content names a library by, is
-    // exact, and says the version; a version of three parts is read loosely, as a version on a
-    // loose name, and left off, since what reads a library's name takes two.
+    // The name itself, alone or with the major and minor sub-content uses, is exact and says the
+    // version; a three-part version is read loosely and left off: a library's name takes two.
     expect(machineNameOf('H5P.Blanks', NAMES)).toEqual({ machineName: 'H5P.Blanks', exact: true })
     expect(machineNameOf(' H5P.Blanks 1.14 ', NAMES)).toEqual({ machineName: 'H5P.Blanks', exact: true, major: 1, minor: 14 })
     expect(machineNameOf('H5P.Blanks\t1.14', NAMES)).toEqual({ machineName: 'H5P.Blanks', exact: true, major: 1, minor: 14 })

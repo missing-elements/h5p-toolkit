@@ -226,9 +226,8 @@ describe('h5p-verify --preview', () => {
     }
   })
 
-  // npm runs the command as its child and passes on the signals it gets, while a terminal sends
-  // Ctrl+C to the whole process group, so through npx the command gets SIGINT twice (#79). The
-  // script stands in for npm, in a process group of its own, and the signal goes to the group.
+  // npm passes on the signals it gets while a terminal sends Ctrl+C to the whole process group, so
+  // through npx the command gets SIGINT twice (#79). A script stands in for npm, in its own group.
   it.skipIf(process.platform === 'win32')('ends with exit code 0 when Ctrl+C arrives twice, as through npx', async () => {
     const npm = `
       const command = require('node:child_process').spawn(process.execPath, process.argv.slice(1), { stdio: 'inherit' })

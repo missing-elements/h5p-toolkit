@@ -2,10 +2,8 @@
 // MANIFEST.json (the H5P core at cb64a1f388). Do not edit; run `pnpm sync:assets` in packages/player.
 
 /**
- * The text faces the runtime's stylesheet declares, in its order, by the file names under its
- * `fonts/`. The element resolves each against an `assets-base` or the default directory, and
- * the frame document declares the faces from the result; a host that imports the runtime package
- * hands over the resolved URLs instead, through the `runtime` property.
+ * The text faces the runtime's stylesheet declares, by file name under its `fonts/`, from its
+ * manifest so the two cannot drift. A host that imports it passes URLs in `runtime` instead.
  */
 export const FRAME_FONTS = [
   { family: 'Inter', style: 'normal', weight: '400', file: 'inter-400.woff2' },

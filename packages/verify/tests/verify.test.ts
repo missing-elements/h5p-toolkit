@@ -109,8 +109,7 @@ const quizNeedingNewerLibrary = () =>
 
 /**
  * The quiz whose `h5p.json` names Question Set 1.99 while its folder stays at the version it was
- * built with, as an export whose manifest and folders disagree: nothing has 1.99, and its own
- * older copy plays it, with no library source attached.
+ * built with, as an export whose manifest and folders disagree: nothing has 1.99, so its own plays.
  */
 const quizNamingNewerThanItCarries = () =>
   rewrittenQuiz('names-newer.h5p', async (entry, bytes, writer) => {

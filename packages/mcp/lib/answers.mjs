@@ -6,10 +6,8 @@ import { z } from 'zod'
 import { contentTypes, lengthLine, openPack, schemaOf, sourceSchema, sourceType } from '@missing-elements/h5p-author'
 
 /**
- * What both servers of this package say alike: the local one over standard input and output
- * (`server.mjs`) and the app server over HTTP (`app.mjs`). The content types and a type's file,
- * a source's own fields, and a build's notes and outline. None of it is a rule of this package's:
- * each is the author package's, put into an answer.
+ * What both servers say alike: the local one over standard input and output (`server.mjs`) and the
+ * app server over HTTP (`app.mjs`). None of it is this package's rule: each is the author's.
  */
 
 export const TYPES = `The H5P content types and how to write a source for one. With no type: the list, and how to write good content. With a type: its notes, a tested example and its fields. Read the type's answer before writing its source.`
@@ -17,11 +15,8 @@ export const TYPES = `The H5P content types and how to write a source for one. W
 const LIST_HEAD = `The content types the library pack has, by the name a source's "type" takes. Those marked * have notes and a tested example; for the rest h5p_types gives their fields.`
 
 /**
- * A source's own fields as the author package declares them (#230), shown to the app as the
- * properties of `source`, and nothing more: no field is said to be required and none forbidden.
- * The build is the check, which reads a source written another way as it is meant (#174) and says
- * every problem at once, where the SDK, or an app holding a call to the schema, would refuse it
- * before the build looked.
+ * A source's own fields as the author package declares them (#230), none required or forbidden:
+ * the build reads a source written another way (#174), which the SDK would refuse before it looked.
  */
 export const SOURCE_PROPERTIES = z.toJSONSchema(sourceSchema, { io: 'input' }).properties
 
@@ -49,9 +44,8 @@ export function heldLines(result) {
 /**
  * What `h5p_types` answers, for a server: the list with the skill's brief, and a type's file, or
  * its fields where it has none.
- * @param {{ libraries?: string, references?: string }} [options] `libraries`, the pack's `parts/`
- *   folder, the installed pack by default; `references`, the author package's `references/` folder,
- *   the installed package's by default: a bundle has no package to find, and names its copy
+ * @param {{ libraries?: string, references?: string }} [options] the pack's `parts/` and the author
+ *   package's `references/` folders, the installed ones by default: a bundle names its own copies
  */
 export function typeAnswers(options = {}) {
   const references = options.references ?? join(dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json'))), 'references')
@@ -79,10 +73,8 @@ export function typeAnswers(options = {}) {
   }
   return {
     /**
-     * Holds a folder a host named to being the author package's `references/`. A wrong path
-     * would answer every type with its fields and leave the brief out, and say nothing of it.
-     * The installed package's own is taken as it is found: in this repository its type files
-     * are copied in by a build step, and the fields stand in until then.
+     * Holds a host's folder to being the author package's `references/`: a wrong path would drop
+     * the brief without a word. The installed one is taken as found: a build step fills it in.
      */
     async held() {
       if (options.references === undefined) return
@@ -121,16 +113,8 @@ export function typeAnswers(options = {}) {
 const installedReferences = () => join(dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json'))), 'references')
 
 /**
- * The h5p-author skill, for a server to serve over MCP (#280): the Skills extension, SEP-2640,
- * which a chat that has it lists beside the server's tools and loads when it is needed. The skill
- * as the author package ships it, and nothing else of the package: `SKILL.md` and `LICENSE`
- * beside `references/`, and the `.md` files under it. Read once, as the server starts, and held
- * in memory: a file read from a chat is one of these, whatever it names.
- *
- * A folder a host named must hold the skill, and a problem in it is said as the server starts,
- * as with `typeAnswers`. The installed package's is taken as it is found: in this repository it
- * is copied in by a build step, and where a file of it is not there yet no skill is served; any
- * other error reading it is said.
+ * The h5p-author skill, to serve over MCP (#280): `SKILL.md`, `LICENSE` and the `.md` files of
+ * `references/`, held in memory. A named folder that lacks it is an error; the installed one, null.
  * @param {{ references?: string }} [options] the author package's `references/`, as `typeAnswers` takes it; the installed package's by default
  * @returns {Promise<SkillsExtension | null>}
  */

@@ -11,12 +11,8 @@ import { chromium, type Browser, type Frame, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /*
- * The h5p-to-scorm skill as an agent follows it: its commands run as it writes them, on packages
- * h5p-author builds, and the zips they write played by a learner under a stand-in for an LMS's
- * player page, which puts the SCORM API in its window, frames the launch page and keeps what it is
- * sent between launches, as Moodle's does. What the skill tells the user is held to what that LMS
- * kept. The zip's behaviour in full, call by call, is the embed package's tests'; these hold the
- * skill to it, with real content where those dispatch the element's events by hand.
+ * The h5p-to-scorm skill as an agent follows it: its commands run as written, and the zips played
+ * under a stand-in LMS with real content, where the embed package's tests dispatch events by hand.
  */
 
 const run = promisify(execFile)
@@ -73,9 +69,8 @@ async function example(type: string, title: string) {
   return { ...META, title, ...JSON.parse(block[1]) }
 }
 
-// The stand-in LMS: one page per version, its API in its window, the values it is sent kept
-// between launches, and a launch after a suspended session a resumed one. `cmi.interactions._count`
-// is one past the highest index written, as Moodle answers it.
+// The stand-in LMS: one page per version, its values kept between launches, a launch after a
+// suspended session a resumed one, and `_count` one past the highest index written, as Moodle's.
 const LMS = {
   '1.2': `
   window.values = { 'cmi.core.lesson_status': 'not attempted', 'cmi.core.entry': 'ab-initio', 'cmi.suspend_data': '' }
@@ -235,10 +230,8 @@ async function holds(page: Page, element: string, value: string) {
 }
 
 /**
- * Clicks the visible button that begins with these words, once it is there, as a learner would:
- * by its accessible name, which H5P often makes longer than its text ("Check the answers. …"), in
- * any case, since some content types write their buttons in capitals. A button that does not come
- * fails with what the frame offered instead.
+ * Clicks the visible button that begins with these words, as a learner would: by accessible name,
+ * which H5P often makes longer than its text, in any case. Fails with what the frame offered.
  */
 async function press(h5p: Frame, words: string) {
   const button = h5p.getByRole('button', { name: new RegExp(`^${words}`, 'i') }).locator('visible=true').last()
@@ -402,9 +395,8 @@ describe('the h5p-to-scorm skill', () => {
   })
 
   it("names the content that keeps the learner's place, and the content that starts over, as the pack's libraries are", async () => {
-    // The player saves what a content type's getCurrentState() returns, and a type without it
-    // starts over (docs/resume.md). The skill names some of each; a pack refresh that changes one
-    // makes the skill wrong, and fails here.
+    // The player saves what getCurrentState() returns, and a type without it starts over
+    // (docs/resume.md). The skill names some of each: a pack refresh that changes one fails here.
     const bullet = /^- The next launch continues where the learner was[\s\S]*?(?=\n- |\n\n)/m.exec(skill)?.[0]
     expect(bullet).toBeTruthy()
     const [keep, over] = bullet!.split(/(?<=\.) (?=An? )/)

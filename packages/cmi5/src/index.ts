@@ -1,20 +1,6 @@
 /**
- * cmi5 for `<h5p-player>`: turns a page holding the element into a cmi5 assignable unit.
- *
- * `startCmi5(player)` reads the launch an LMS put in the page's address, trades the one-time
- * `fetch` token for LRS credentials, sends `initialized`, relays every statement the content
- * emits as a "cmi5 allowed" statement — the launch actor, the registration and the LMS's context
- * template merged in, the player's `context.revision` kept — and, when the content finishes,
- * sends `passed` or `failed` by the mastery score and `completed`. The session it returns sends
- * `terminated`. `client.ts` speaks the protocol over `fetch`; this module is the wiring between it
- * and the element, and both have been run against ADL's CATAPULT player, the reference cmi5
- * launching system.
- *
- * Two rules it keeps that are easy to get wrong. Nothing is sent as the page unloads: a page
- * cannot tell a reload from a closed tab, and a `terminated` sent on a reload ends the session
- * the reloaded page goes on using; a session left without `terminated` is the LMS's to record as
- * `abandoned`. The single-use token stays in memory by default, so a reload must be launched
- * again by the LMS; a trusted host may opt into storing it across reloads.
+ * cmi5 for `<h5p-player>`: `startCmi5(player)` makes a page holding the element a cmi5 unit.
+ * Nothing is sent on unload (a reload looks like a close, and `terminated` ends the live session).
  */
 
 import { createCmi5Client, launchParametersOf, reasonIn } from './client.js'
@@ -92,8 +78,7 @@ export interface Cmi5Client {
   sendXapiStatement(statement: Statement): Promise<unknown>
   /**
    * `passed` or `failed`, then `completed`, then `terminated` unless disabled. `success` is the
-    * content's own verdict, used when the launch has no mastery score. Resolves with only what
-    * this call successfully sent.
+   * content's own verdict, used when the launch has no mastery score.
    */
   moveOn(options: { score?: Cmi5Score; success?: boolean; disableSendTerminated?: boolean }): Promise<MoveOnResult>
   terminate(): Promise<unknown>
@@ -144,10 +129,8 @@ export interface Cmi5Options {
   /** The cmi5 client; by default `createCmi5Client` on the launch in `url`. */
   client?: Cmi5Client
   /**
-   * The package to play. By default the `src` parameter of the page's address, then the AU's
-   * `launchParameters` from the launch data. `false` leaves the element's `src` alone. Only an
-   * http or https address reaches the element, resolved against `url`; anything else is an
-   * `unsafe-src` event, and the next source is tried.
+   * The package to play: the address's `src`, then the launch data's `launchParameters`; `false`
+   * leaves the element's `src` alone. Only http(s) reaches the element, else `unsafe-src`.
    */
   src?: string | false
   /** The page's address, for `src`; `location.href` by default. */
@@ -191,18 +174,14 @@ export function isCmi5Launch(url: string = globalThis.location?.href ?? ''): boo
 }
 
 /**
- * The content's statement as cmi5 allows it: the launch actor in place of H5P's, the
- * registration, and the LMS's context template merged into the statement's own context: the
- * template's values win, lists in `contextActivities` are joined, the template's first. No cmi5
- * category: that would mark it as a cmi5-defined statement, which it is not. An id is added when
- * it has none that is a UUID, as every statement an AU issues needs one (9.1.0.0-1).
+ * The content's statement as cmi5 allows it: launch actor, registration and the LMS's context
+ * template (it wins). No cmi5 category (it marks cmi5-defined ones); a UUID id (9.1.0.0-1).
  */
 export { adaptAllowedStatement as allowedStatement }
 
 /**
- * An H5P score as cmi5 records it. H5P reports `raw` and `max` and sometimes `scaled`; cmi5
- * requires `min` and `max` beside `raw` (requirement 9.5.1.0-3), and H5P's minimum is 0.
- * Undefined when there is nothing to scale.
+ * An H5P score as cmi5 records it: `min` and `max` are required beside `raw` (9.5.1.0-3), and
+ * H5P's minimum is 0. Undefined when there is nothing to scale.
  */
 export function cmi5Score(score: Statement | undefined | null): Cmi5Score | undefined {
   if (!score) return undefined
@@ -213,9 +192,8 @@ export function cmi5Score(score: Statement | undefined | null): Cmi5Score | unde
 }
 
 /**
- * An absolute http or https address, or null: all a page may send a learner to, or give the element
- * as its package. A `javascript:` return URL would run in the page. With `base`, a relative address
- * is resolved against it.
+ * An absolute http or https address, or null: a `javascript:` return URL would run in the page.
+ * With `base`, a relative address is resolved against it.
  */
 export function webAddress(value: unknown, base?: string): string | null {
   if (typeof value !== 'string' || !value.trim()) return null
@@ -246,9 +224,8 @@ const verbOf = (statement: Statement | undefined): string => {
 /* ------------------------------------------------------------------ the session kept across a reload */
 
 /**
- * What the record was made for. The storage key is the `fetch` URL alone, so a record is also held
- * to the launch it was made under: the token goes to the LRS in `endpoint`, and a record that
- * names another endpoint, registration or activity is ignored rather than handing its token on.
+ * The storage key is the `fetch` URL alone, so a record also names its launch: one for another
+ * endpoint, registration or activity is ignored, not handed its token on to the LRS.
  */
 interface KeptLaunch {
   endpoint: string
@@ -310,10 +287,8 @@ function forgetKept(storage: SessionStorage | null, key: string): void {
 /* ------------------------------------------------------------------ the session */
 
 /**
- * Starts the cmi5 session for this launch around the element. Listening begins at once, before
- * the handshake, because the package loads meanwhile: what the content emits before
- * `initialized` has gone out waits and is sent after it. Resolves once `initialized` is sent, or
- * the session resumed; rejects with the LMS's reason when the launch fails.
+ * Starts the session for this launch around the element. It listens at once, as the package loads
+ * meanwhile, and holds what is emitted before `initialized` until it is out.
  */
 export async function startCmi5(player: PlayerLike, options: Cmi5Options = {}): Promise<Cmi5Session> {
   const emit = (event: Cmi5Event) => {

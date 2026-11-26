@@ -4,10 +4,8 @@ import type { PlayerErrorDetail } from '../../src/h5p-offline-player'
 import { FIXTURES, frameWindow, play, waitForEvent } from './utils'
 
 /**
- * What an exception inside the content means once the content is up. H5P content types throw
- * non-fatal exceptions routinely — on resize in particular — and carry on working, so the
- * element reports them and keeps its state: a host that hides the player on `error` must not
- * hide working content.
+ * What an exception inside the content means once it is up: content types throw non-fatal ones
+ * routinely (on resize) and go on, so the element reports them and keeps its state, not hiding it.
  */
 describe('a runtime error after ready', () => {
   it('is reported as an event and leaves the state at ready', async () => {

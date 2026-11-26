@@ -1,9 +1,6 @@
 /**
- * Which folder serves a library, and the walk through what the libraries need in turn. Pure and
- * free of zip.js, like `content-libraries.ts`, so that the reader, the plan and the packages that
- * write what the player plays, through `./plan`, decide by one rule. Out of package-reader.ts on
- * 2026-11-02 (#109); `bootReady`, `mergedManifest`, `get` and the missing-library checks there
- * still decide by `reachableFolder`.
+ * Which folder serves a library, and the walk through what libraries need in turn. Pure, no zip.js,
+ * so the reader, the plan and `./plan` users decide by one rule (#109).
  */
 
 import { dependenciesIn, type LibraryDependency, type PackageManifest } from './content-libraries.js'
@@ -47,8 +44,8 @@ export function indexLibraryFolders(entryNames: Iterable<string>): Map<string, L
 }
 
 /**
- * The two folder names a library may be stored under: the versioned one, and the bare machine
- * name older packages use. Each is tried in that order, as h5p-standalone tried them.
+ * The two folder names a library may be stored under, tried in this order: the versioned one, and
+ * the bare machine name older packages use.
  */
 export function libraryFolderNames(dependency: LibraryDependency): string[] {
   return [
@@ -58,23 +55,8 @@ export function libraryFolderNames(dependency: LibraryDependency): string[] {
 }
 
 /**
- * Picks the folder that satisfies a dependency: the same major version, and a minor at least as
- * high as the one asked for. H5P bumps the major for a change content cannot follow, and gives a
- * minor that changed the shape of a library's parameters a step in its `upgrades.js`; the frame
- * runs those steps on content written for an older minor before the runtime starts
- * (`content-upgrade.ts` in the runtime package), as the platforms do when they install a newer one.
- *
- * This matters whenever libraries come from somewhere other than the package: the library pack ships
- * the current `H5P.Text-1.1` while content authored earlier asks for `H5P.Text-1.0`, and without
- * this every such request is a 404.
- *
- * The lowest satisfying version wins, as the closest to what the content was written against.
- *
- * With `downgrade`, a dependency nothing satisfies is served by the newest older minor of the same
- * major: content made on h5p.com after a minor bump the library pack has not caught up with (#85).
- * Three bumps in four add fields the older code ignores; the fourth moved some, which the older
- * code then does not find. The element asks for it only once every library source has been tried
- * for the version named, and never for an archive still arriving, which may yet carry it.
+ * Picks the folder satisfying a dependency: the same major, a minor at least as high, the lowest
+ * winning (the pack's `H5P.Text-1.1` for content asking 1.0). `downgrade` is the last resort (#85).
  */
 export function resolveLibraryFolder(
   available: Map<string, LibraryFolder[]>,
@@ -82,19 +64,17 @@ export function resolveLibraryFolder(
   downgrade = false
 ): string | undefined {
   const sameMajor = (available.get(dependency.machineName) ?? []).filter((candidate) => candidate.major === dependency.major)
+  // Content for an older minor is upgraded by the frame (`content-upgrade.ts` in the runtime).
   const satisfying = sameMajor.filter((candidate) => candidate.minor >= dependency.minor).sort((a, b) => a.minor - b.minor)
   if (satisfying.length > 0 || !downgrade) return satisfying[0]?.folder
 
+  // The newest older minor, for h5p.com content past the pack's: one bump in four moves fields.
   return [...sameMajor].sort((a, b) => b.minor - a.minor)[0]?.folder
 }
 
 /**
- * The folder a dependency is served from: its name as written, or the bare machine name
- * h5p-standalone falls back to, when that folder's `library.json` is among `names`; else a
- * compatible newer minor of the same major from `available`, the rule `get()` serves library
- * files by, or with `downgrade` an older one. `bootReady`, `mergedManifest` and
- * `findMissingLibraries` all decide by this, so it lives once; so does the SCORM writer, for the
- * zip it writes (#109).
+ * The folder a dependency is served from: as written or the bare machine name, if its
+ * `library.json` is in `names`; else a compatible minor of `available`, or older with `downgrade`.
  */
 export function reachableFolder(
   dependency: LibraryDependency,
@@ -134,15 +114,8 @@ export function findMissingLibraries(
 }
 
 /**
- * The walk the player makes before the runtime boots (`PackageReader.checkDependencies`), and the
- * SCORM writer before it writes a zip: from `roots`, what `h5p.json` declares and the parameters
- * name, through each library's own `preloadedDependencies`, a level of the tree at a time, so a
- * server can answer each level's `library.json` reads from its cache. `locate` says what serves a
- * dependency, by `reachableFolder` or a reader's lookup, or `undefined` for nothing; `read` gives
- * the `library.json` of what it located, parsed. Returns what nothing served, each dependency once
- * by the folder it would be in, and what was served with its `library.json`, for the caller to look
- * at: the reader reports the versions served below the minor asked. A `read` that throws ends the
- * walk with its error: counted as having no dependencies, the walk would pass a tree it did not see.
+ * The walk before boot (`PackageReader.checkDependencies`) and the SCORM write, a level at a time
+ * from `roots`, so a server answers each level from cache. Returns what nothing served, once each.
  */
 export async function walkDependencies<T>(
   roots: Iterable<LibraryDependency>,
@@ -166,6 +139,7 @@ export async function walkDependencies<T>(
           missing.push(dependency)
           return
         }
+        // A `read` that throws ends the walk: counted as none, it would pass a tree it never saw.
         const library = await read(located, dependency)
         found.push({ dependency, located, library })
         next.push(...dependenciesIn(library))

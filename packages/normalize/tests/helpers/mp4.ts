@@ -1,7 +1,6 @@
 /**
- * Tiny but structurally honest ISO media files for the faststart tests: real atom framing,
- * two tracks with a 32-bit and a 64-bit chunk offset table, and a payload the offsets point
- * into. Nothing here decodes; the remux only ever touches framing and offsets.
+ * Tiny but structurally honest ISO media files for the faststart tests: real atom framing, two
+ * tracks with a 32-bit and a 64-bit offset table. Nothing decodes; a remux only touches those.
  */
 const encoder = new TextEncoder()
 
@@ -52,9 +51,8 @@ export interface SampleMp4 {
 }
 
 /**
- * `ftyp`, `free`, `mdat`, `moov` — the layout every non-faststart encoder produces — or with
- * `faststart` the `moov` before the `mdat`. `trailer` adds a `free` after everything, the
- * shape a file gets when a tool appends metadata.
+ * `ftyp`, `free`, `mdat`, `moov`, as non-faststart encoders write, or with `faststart` the `moov`
+ * first. `trailer` adds a `free` at the end, as when a tool appends metadata.
  */
 export function sampleMp4(options: { faststart?: boolean; mdatSize?: number; trailer?: boolean } = {}): SampleMp4 {
   const mdatSize = options.mdatSize ?? 200
@@ -130,9 +128,8 @@ export function chunkOffsets(bytes: Uint8Array, table: FoundAtom): number[] {
 }
 
 /**
- * An mp4 whose index says what a reader looks for: the movie's length in `mvhd` (version 1 with
- * `wide`), and for each track its handler in `hdlr` and its codec in `stsd`. Before its media with
- * `faststart`, after it otherwise; `mdatSize` bytes of media nobody should read.
+ * An mp4 whose index says what a reader looks for: the length in `mvhd` (version 1 with `wide`),
+ * each track's handler in `hdlr` and codec in `stsd`; `mdatSize` bytes of media nobody should read.
  */
 export function describedMp4(options: {
   duration?: number, timescale?: number, wide?: boolean, faststart?: boolean, mdatSize?: number,

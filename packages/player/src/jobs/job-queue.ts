@@ -1,16 +1,8 @@
 import type { EntryLocation, SourceDescriptor } from '../shared/protocol.js'
 
 /**
- * The order extractions run in. One at a time — two concurrent inflates halve the rate of
- * whichever video the learner is actually looking at — so the order is the whole policy:
- *
- * - A demand request (the runtime asked, through the virtual server) queues behind the demands
- *   already waiting and ahead of every prefetch, however long those have waited.
- * - A repeated demand for a queued entry moves it to the front. The virtual server only asks
- *   again after its dedupe window, so the burst of probes a page fires at boot cannot reorder
- *   itself, while a learner opening a later chapter is heard at once. The running job is never
- *   interrupted: a deflate stream cannot resume, so its progress would be thrown away.
- * - A prefetch request queues at the back and never promotes anything, itself included.
+ * Extraction order, one at a time (two inflates slow the visible video): demands before
+ * prefetches, a repeat first. Never interrupt the running job: a deflate stream cannot resume.
  */
 
 export interface ExtractJob {

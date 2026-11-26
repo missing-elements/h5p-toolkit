@@ -2,14 +2,8 @@ import { decodeEntities, stripTags } from './text.mjs'
 import { blanksGaps } from './types.mjs'
 
 /**
- * What builds and is almost surely a mistake (#241, item 4 of #219): no answer marked correct, two
- * answers alike, a text with no gap, a picture with no alt text where its field is optional. And
- * what goes stale when a chat changes a content and leaves a setting as it was (#268): a number
- * of items to draw or to find that is not below how many there are, and a part named by its
- * number, id or name that is not there. H5P
- * allows each, so each is a note and not a problem, and nothing about the content is judged: whether
- * an answer is right stays the person's. Run by `checkContent` on content as H5P stores it, so a
- * build says them, and so does a check of saved content.
+ * What builds and is almost surely a mistake (#241, #268): no answer marked correct, two alike, a
+ * stale draw or part setting after a chat edits content. H5P allows each, so each is a note.
  */
 
 /** @typedef {(path: string, message: string) => void} Note */
@@ -30,19 +24,12 @@ function plain(value) {
 const count = (value) => (Array.isArray(value) ? value.length : 0)
 
 /**
- * What a draw shows, where a setting shows some of a list's items picked at random each time, as
- * each library works it out (#268):
- * - Question Set (questionset.js): `poolSize` above 0 shuffles the questions and keeps that many,
- *   so it also shows them in a random order where it keeps them all.
- * - Memory Game (memory-game.js): `numCardsToUse` pairs, at least 2.
- * - Crossword (h5p-crossword.js): `poolSize` 0 is all, else at least 2; the words fixed on the
- *   grid are always kept, and the others drawn to make up the rest; a word without an answer or
- *   a clue is left out first.
+ * What a draw shows, where a setting shows a random pick of a list's items, as each library works
+ * it out (#268): Question Set `poolSize`, Memory Game `numCardsToUse`, Crossword `poolSize`.
  * @param {string} library
  * @param {unknown} params as H5P stores them
  * @returns {{ at: string, what: string, used: number, total: number, shown: number, fixed: number, shuffles: boolean } | null}
- *   `at`, the setting's path in the parameters; `used`, the number the library draws; null where
- *   nothing is drawn
+ *   `at`, the setting's path in the parameters; `used`, the number drawn; null if nothing is drawn
  * @internal
  */
 export function drawOf(library, params) {
@@ -50,7 +37,8 @@ export function drawOf(library, params) {
   if (library === 'H5P.QuestionSet') {
     const total = count(params.questions)
     if (typeof params.poolSize !== 'number' || !(params.poolSize > 0) || !total) return null
-    // `slice(0, poolSize)`, which drops a fraction.
+    // questionset.js: a `poolSize` above 0 shuffles the questions and keeps `slice(0, poolSize)`,
+    // which drops a fraction.
     const used = Math.trunc(params.poolSize)
     return { at: 'poolSize', what: 'questions', used, total, shown: Math.min(used, total), fixed: 0, shuffles: true }
   }
@@ -58,6 +46,7 @@ export function drawOf(library, params) {
     const total = count(params.cards)
     const setting = params.behaviour?.numCardsToUse
     if (typeof setting !== 'number' || !(setting >= 1) || !total) return null
+    // memory-game.js: `numCardsToUse` pairs, at least 2.
     const used = Math.max(2, Math.trunc(setting))
     return { at: 'behaviour.numCardsToUse', what: 'pairs', used, total, shown: Math.min(used, total), fixed: 0, shuffles: false }
   }
@@ -65,7 +54,8 @@ export function drawOf(library, params) {
     const setting = params.behaviour?.poolSize
     const words = Array.isArray(params.words) ? params.words.filter((/** @type {any} */ word) => word?.answer && word?.clue) : []
     if (typeof setting !== 'number' || !setting || !words.length) return null
-    // `Math.max(2, poolSize)`, then a `splice` that drops a fraction.
+    // h5p-crossword.js: `poolSize` 0 is all, else at least 2, less a fraction; fixed words are kept
+    // always, and a word without an answer or a clue is left out first.
     const used = Math.trunc(Math.max(2, setting))
     const fixed = words.filter((/** @type {any} */ word) => word.fixWord && word.row !== undefined && word.column !== undefined && word.orientation !== undefined).length
     const shown = fixed + Math.min(Math.max(0, used - fixed), words.length - fixed)
@@ -75,9 +65,8 @@ export function drawOf(library, params) {
 }
 
 /**
- * A draw's note: below the list's length, what it shows, since it may be meant; at or above it,
- * that it leaves none out now and would once items are added, what a chat that adds items and
- * keeps the setting gets.
+ * A draw's note: below the list's length, what it shows (it may be meant); at or above it, that it
+ * leaves none out now but would once items are added.
  * @param {string} library @param {Record<string, any>} params @param {string} path @param {Note} note
  */
 function noteDraw(library, params, path, note) {
@@ -127,9 +116,8 @@ const noneCorrect = (items) => Array.isArray(items) && items.length > 0 && !item
 const gapless = (text) => typeof text === 'string' && !/\*[^*]+\*/.test(text)
 
 /**
- * Pictures whose alt text is an optional field beside them, by content type: the group that holds
- * both, as a path in the type's parameters (`[]` for each item of a list), the picture's field, and
- * its alt text's. H5P.Image's alt text is required, so a build refuses one without it already.
+ * Pictures whose alt text is an optional field beside them, by type: the holding group's path (`[]`
+ * per list item), the picture's field and its alt's. H5P.Image's is required already.
  * @type {Record<string, [string, string, string][]>}
  * @internal
  */
@@ -211,11 +199,8 @@ const CHECKS = {
       })
     })
   },
-  // A drop zone names its right elements, and an element the zones it can be dropped in, by
-  // their place in the other list, as text (h5p-drag-question.js reads both). An element that
-  // can be dropped in none of the zones it is right in can never be put right. One that can be
-  // in some of them is left: a real package of the owner's names two elements right in a zone
-  // they cannot reach, beside the one they can, and plays as meant.
+  // Zones and elements name each other by place, as text (h5p-drag-question.js). An element
+  // droppable in none of its right zones can never be put right; one reaching some is left.
   'H5P.DragQuestion'(params, path, note) {
     const task = params.question?.task
     const elements = Array.isArray(task?.elements) ? task.elements : []
@@ -243,9 +228,8 @@ const CHECKS = {
       })
     })
   },
-  // Held to the images there are (h5p-agamotto.js constrains it), so nothing breaks: it starts
-  // elsewhere than written. A fraction never gets here: its field takes a whole number, which
-  // the build holds it to.
+  // Held to the images there are (h5p-agamotto.js), so nothing breaks: it starts elsewhere than
+  // written. A fraction never gets here: the field takes whole numbers.
   'H5P.Agamotto'(params, path, note) {
     const start = params.behaviour?.startImage
     const items = count(params.items)
@@ -268,10 +252,8 @@ const CHECKS = {
       })
     })
   },
-  // An answer names its personalities by name. The library splits the text at ", " and counts a
-  // name only where it is a personality's exactly (personalityQuiz.js: `split(', ')`, `===`), so
-  // another capital, a comma with no space after it, or a personality renamed counts for none;
-  // the answer's other names still count.
+  // An answer names personalities, split at ", " and counted only if exactly a personality's
+  // (personalityQuiz.js): another capital, a comma without a space, or a rename counts for none.
   'H5P.PersonalityQuiz'(params, path, note) {
     if (!Array.isArray(params.personalities) || !Array.isArray(params.questions)) return
     const names = new Set(params.personalities.map((/** @type {any} */ one) => one?.name).filter((/** @type {any} */ name) => typeof name === 'string' && name))

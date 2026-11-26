@@ -1,16 +1,6 @@
 /**
- * The files opened in the app, for the list on its home screen: each one's title, name and when it
- * was last opened, and what it takes to open it again. Installed from Chrome or Edge on the
- * desktop, the app gets a file handle — from their file picker, from a file dropped on it, and
- * from the file manager through the manifest's `file_handlers` — and IndexedDB keeps it, so the
- * file is read again from where it is on disk; why only installed is in `app.js`. Everywhere else
- * there is a `File` and nothing to find it by later, so the app keeps a copy of it instead, in a
- * store beside the list, and the list says how large it is. A link is kept as its address.
- *
- * All of it is in a database of the app's own, on this device, like the content's saved state, and
- * like that state any package played here can read it. Every call fails soft: the list is a
- * convenience, and a browser that keeps no IndexedDB, in a private window say, plays files without
- * it.
+ * The files opened in the app, for the home list, and what reopens each: a file handle where the
+ * browser gives one, else a copy; a link as its address. Any package played here can read it.
  */
 
 const DB_NAME = 'h5p-app'
@@ -96,9 +86,8 @@ export async function recentFiles() {
 }
 
 /**
- * Records an open whose content came up. `entry` is `{ id, kind, name, title, size, lastModified,
- * url, handle }`; `file`, for a file with no handle, is kept as a copy unless one is kept already,
- * and the entry notes its size. A handle makes a copy kept before unnecessary, so it goes.
+ * Records an open whose content came up. `file`, with no handle, is kept as a copy unless one is
+ * kept; a handle makes an earlier copy unnecessary, so it goes.
  */
 export async function remember(entry, file) {
   try {
@@ -125,12 +114,8 @@ async function keepCopy(id, file) {
 }
 
 /**
- * The copy kept of a file, under the name and date of the file it copies, which the player knows
- * a file by; `null` when none is kept, the browser has cleared it, or it cannot be read. A private
- * profile keeps a reference to the file on disk rather than its bytes — Chromium in the profile
- * Playwright opens did, where a profile on disk, Chromium's and Chrome's, kept the bytes
- * (2026-10-12) — so there a file moved or deleted since has no copy left, which a byte read finds
- * out before the player is handed it.
+ * The copy kept of a file, or `null` when none is kept, cleared or unreadable. A private profile
+ * may keep only a reference to the file on disk, so a byte read finds a moved file out first.
  */
 export async function copyOf(entry) {
   try {

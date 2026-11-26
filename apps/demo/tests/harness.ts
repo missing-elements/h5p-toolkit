@@ -7,8 +7,7 @@ import { createServer, type ViteDevServer } from 'vite'
 
 /**
  * What the demo's browser tests start and wait on: the site's dev server, a second origin that
- * serves packages with CORS open, and the element's state. Each file once carried its own copy
- * of these, four of the dev server and two of the package host.
+ * serves packages with CORS open, and the element's state.
  */
 
 export const rootDir = resolve(import.meta.dirname, '..')

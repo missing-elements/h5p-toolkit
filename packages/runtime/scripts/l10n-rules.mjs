@@ -7,12 +7,8 @@ import { resolve } from 'node:path'
  */
 
 /**
- * The core's interface strings in English, by key: the player's part of `getLocalization()` in
- * the vendored core, which the boot script puts into `H5PIntegration` and lays a language's
- * strings over. `scripts/sync-core.mjs` writes it with the core, so the keys are the ones the
- * vendored core knows, and in its order. They came from h5p-standalone's bundle until the core was
- * vendored (#37): the same 67, word for word.
- *
+ * The core's interface strings in English, by key: the player's part of `getLocalization()` in the
+ * vendored core, written by `sync-core.mjs` with it.
  * @returns {Record<string, string>}
  */
 export function coreStrings() {
@@ -28,11 +24,8 @@ export function coreStrings() {
 const placeholders = (/** @type {string} */ value) => (value.match(/:[A-Za-z]+/g) ?? []).sort().join(' ')
 
 /**
- * Why a translation cannot stand in for the core's English string, or `null` when it can. The
- * core fills `:placeholders` in by name, so a translation that renamed or dropped one would show
- * it raw. Some strings are written into HTML and into attributes in double quotes, so markup and
- * a double quote are refused rather than escaped: none of the English strings has either.
- *
+ * Why a translation cannot replace the English, or `null`: the core fills `:placeholders` in by
+ * name, so a renamed one shows raw; markup and `"` are refused, as strings go into HTML attributes.
  * @param {string} english
  * @param {unknown} translated
  * @returns {string | null}
@@ -49,14 +42,8 @@ export function translationProblem(english, translated) {
 const PACK_TAGS = /** @type {Record<string, string>} */ ({ sr_cr: 'sr-Cyrl', sr_lt: 'sr-Latn', ca_valencia: 'ca-valencia' })
 
 /**
- * The language tag a Moodle language pack is written under, or `null` for a pack that is a
- * variant rather than a language — for the workplace, for children, for a university. A code of
- * letters alone is a language (`de`, `szl`). Any other `xx_yy` is the region `YY` only where the
- * pack's own `langconfig.php` places it there, by its locale (`pt_BR.UTF-8`) or its ISO code
- * (`es-mx`), because the code alone misleads: `fi_co` is Finnish for companies, not for
- * Colombia, and `no_gr` Norwegian for primary schools, not for Greece. The tag is then put in its
- * canonical form, the one a page declares: Moodle has `pan` and `hat` where pages say `pa` and `ht`.
- *
+ * The tag a Moodle pack is written under, or `null` for a variant. `xx_yy` is region `YY` only
+ * where the pack's `langconfig.php` says so: `fi_co` is Finnish for companies, not Colombia.
  * @param {string} code
  * @param {Record<string, string>} config the strings of the pack's `langconfig.php`
  * @returns {string | null}

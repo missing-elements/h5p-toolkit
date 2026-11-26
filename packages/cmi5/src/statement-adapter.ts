@@ -27,11 +27,8 @@ export function allowedStatement(statement: Statement, launch: LaunchParameters,
 }
 
 /**
- * Adapts only the Activity statements the player has stamped: `context.platform` proves the
- * element passed the statement through `withProvenance`, so one without it is reported and
- * dropped. `context.revision` is kept when present but not required, because the element
- * releases held statements without one on a host without `Range` when the load ends or the page
- * is hidden before the index answered, rather than lose a learner's record.
+ * Adapts only Activity statements the player stamped (`context.platform`); others are dropped.
+ * `context.revision` is optional: without `Range` the element releases held ones without it.
  */
 export function adaptPlayerStatement(statement: Statement, launch: LaunchParameters, data: Pick<LaunchData, 'contextTemplate'>): StatementAdaptation {
   const object = statement?.object

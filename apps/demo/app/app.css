@@ -1,13 +1,10 @@
-/* The installable app's page, on top of the shared sheet. Every rule starts with `.app`, the class
-   on <body>: the build links this sheet ahead of the shared one, so a rule here has to outweigh
-   the one it changes rather than come after it. */
+/* The installable app's page, on top of the shared sheet. Every rule starts with `.app`, the body's
+   class: this sheet is linked ahead of the shared one, so a rule must outweigh what it changes. */
 
 /* ---------------------------------------------------------------- the bar */
 
-/* Opaque, in the page's own colour, which app.js also gives the window's title bar
-   (theme-color), so an installed app's two bars read as one; the insets keep it clear of a
-   phone's notch in landscape. As tall as the other pages' bar, so the header does not jump on the
-   way into the app. */
+/* Opaque, in the colour app.js gives the title bar (theme-color), so an installed app's two bars
+   read as one; the insets clear a phone's notch. As tall as the other pages' bar: no jump. */
 .app .topbar {
   padding: max(0.75rem, env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right)) 0.75rem
     max(var(--gutter), env(safe-area-inset-left));
@@ -17,17 +14,13 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The bar's start: the app's name on home, and on the open file's screen the back button and the
-   file's title in its place. One box, so the shared sheet's grid has the three it centres the
-   links between on either screen; the title takes what the box has spare and is cut short with
-   an ellipsis, its column kept to its share by `minmax(0, …)` so a long one cannot push the links
-   off the middle. */
+/* The bar's start: the app's name on home, the back button and file title on a file's screen. One
+   box, so the grid has three to centre the links between; `minmax(0, …)` stops a long title. */
 .app .appbar-start { display: flex; flex: 1 1 auto; align-items: center; gap: inherit; }
 .app .topbar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 
-/* The open file's own title, where the app's name was. It counts for no width of its own
-   (`contain: inline-size`), so the box around it is as wide as the back button: sized by the text,
-   the box pushed the icons onto a row of their own on a narrow screen. */
+/* The open file's title, where the app's name was. `contain: inline-size` gives it no width of its
+   own: sized by its text, the box pushed the icons onto a row of their own on a narrow screen. */
 .app .appbar-title {
   flex: 1 1 0;
   min-width: 0;
@@ -39,10 +32,8 @@
   white-space: nowrap;
 }
 
-/* The Star gives up its count sooner than on the other pages: this bar carries one more icon, the
-   menu's, and at 390px a four-character count pushed the icons onto a row of their own
-   (2026-10-17). The site's links take a row of their own below 64rem, the shared sheet's width,
-   which is set wide enough for that icon too. */
+/* The Star drops its count sooner than on other pages: this bar has one more icon, and at 390px a
+   four-character count pushed the icons onto a row of their own (2026-10-17). */
 @media (width < 26rem) {
   .app .star-button { width: 1.9rem; padding: 0; justify-content: center; }
   .app .star-count { display: none; }
@@ -87,13 +78,8 @@
 
 /* ---------------------------------------------------------------- the menu */
 
-/* A popover; app.js puts it under its button, and these are the places it falls back to. Hidden
-   by a rule of its own as well as the browser's, so that without the Popover API (Safari before
-   17, Firefox before 125) it is not a block on the page: there it is left out, button and all,
-   and Choose a file is on the home screen. Its size is its content's whatever the insets, and
-   its rows are packed at the top: on an iPhone, in Safari, the menu filled the screen's height
-   and stretched its items to fill it (2026-10-13), which neither Playwright's WebKit nor
-   Chromium showed at any phone size; with these rules it does not, on the same iPhone. */
+/* A popover; app.js puts it under its button, and these are its fallbacks. Hidden by a rule of
+   its own too, so without the Popover API (Safari before 17, Firefox before 125) it is no block. */
 .app .menu {
   display: none;
   inset: auto;
@@ -101,6 +87,8 @@
   right: max(var(--gutter), env(safe-area-inset-right));
   bottom: auto;
   left: auto;
+  /* Sized by its content, rows packed at the top: on an iPhone in Safari the menu filled the screen
+     and stretched its items (2026-10-13), which Playwright's WebKit and Chromium never showed. */
   width: max-content;
   height: max-content;
   min-width: 12rem;
@@ -121,9 +109,8 @@
 
 /* ---------------------------------------------------------------- the screens */
 
-/* Home until a file is opened, and the player from then until it is closed. In a tab the page's
-   account of itself follows the home screen, where search engines read it; nothing follows the
-   player. */
+/* Home until a file is opened, then the player. In a tab the page's account of itself follows home,
+   where search engines read it, and nothing follows the player. */
 .app[data-screen="player"] :is(.home, .about, main > footer) { display: none; }
 .app[data-screen="home"] .stage { display: none; }
 
@@ -205,9 +192,8 @@
 }
 .app .recent-list li { display: flex; align-items: center; padding-right: 0.4rem; }
 .app .recent-list li + li { border-top: 1px solid var(--line); }
-/* One column as wide as the row, the text at its start: the shared sheet centres a button's
-   content, which centred the column, and a column as wide as a long title would overflow the row
-   rather than end it in an ellipsis. */
+/* One column as wide as the row, text at its start: the shared sheet centres a button's content,
+   and a column as wide as a long title would overflow the row instead of ending in an ellipsis. */
 .app .recent-open {
   display: grid;
   flex: 1;
@@ -233,10 +219,8 @@
 /* The list clips its corners, so an outline drawn outside a row would be cut off. */
 .app .recent-list :focus-visible { outline-offset: -2px; }
 
-/* The player: as wide as the window on a phone, edge to edge, and at the page's width with room
-   at its sides on a larger screen. Never with room above it: there it costs the window's height,
-   and content that fits the window below the bar, as a book's chapter can, would scroll the
-   window by that much (#168). A message above the player keeps room of its own. */
+/* The player: edge to edge on a phone, the page's width with side room on a larger screen. Never
+   room above it: it costs height, and content that fits below the bar would scroll (#168). */
 .app[data-screen="player"] main { width: min(100%, var(--content)); padding: 0 0 env(safe-area-inset-bottom); }
 .app[data-screen="player"] .message { margin: 0.75rem var(--gutter) 0; }
 
@@ -343,10 +327,8 @@
 
 /* ---------------------------------------------------------------- installed */
 
-/* Installed, the app is a window of its own: the site's navigation and the page's account of
-   itself lead out of it, so they go, and About in the menu says what matters; and the window
-   acts as an app's does, with no pull-to-refresh and no text selected in its bar. On the desktop
-   Chrome and Edge report `window-controls-overlay` rather than `standalone`, so both are named. */
+/* Installed, the app is a window of its own: the site's navigation and account of itself lead out
+   of it, so they go. Desktop Chrome and Edge report `window-controls-overlay`: both are named. */
 @media (display-mode: standalone), (display-mode: window-controls-overlay) {
   .app .topbar nav[aria-label="Site"],
   .app .topbar .star-button,
@@ -354,9 +336,8 @@
   .app .menu-install,
   .app .about,
   .app main > footer { display: none; }
-  /* The bar, then the screen filling the rest of the window: home with nothing to scroll until
-     the list of recent files is longer than the window, and then the window scrolls. Never
-     shorter than its content, or the centred content would spill out of the top, out of reach. */
+  /* The bar, then the screen filling the window: home scrolls only when the recent list is longer.
+     Never shorter than its content, or centred content would spill out of the top, out of reach. */
   .app { display: flex; flex-direction: column; }
   .app main { display: flex; flex: 1; flex-direction: column; padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
   .app .home { flex: 1 0 auto; min-height: 0; }

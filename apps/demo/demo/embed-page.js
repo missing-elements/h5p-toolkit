@@ -1,7 +1,6 @@
 /**
- * The demo's `/embed`: the page `@missing-elements/h5p-embed` writes for a player domain, run
- * with the demo's own copy of the library pack, which `libraries=pack` then names. One script for
- * both, so what the demo shows is what a host deploys.
+ * The demo's `/embed`: the page `@missing-elements/h5p-embed` writes for a player domain, with the
+ * demo's own library pack. One script for both, so the demo shows what a host deploys.
  */
 
 import '@missing-elements/h5p-embed/embed.css'

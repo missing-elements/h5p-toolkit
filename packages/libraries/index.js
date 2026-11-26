@@ -1,9 +1,7 @@
 // Written by scripts/parts.mjs. Do not edit; run `pnpm parts` in packages/libraries.
 
-// Vite's dev server pre-bundles dependencies into `node_modules/.vite/deps/`, which rewrites
-// these URLs to files that were never put there. The package's own copy is still served at its
-// real path, so a URL that landed in the pre-bundle directory is pointed back at it. A Vite
-// build, Rollup and webpack never produce such a URL.
+// Vite's dev server pre-bundles dependencies into `node_modules/.vite/deps/`, where these URLs
+// point at files never put there: one that landed in it is pointed back at the real path.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIR = "/node_modules/@missing-elements/h5p-libraries/"
 
@@ -17,10 +15,8 @@ function unbundled(href) {
 }
 
 /**
- * The library pack, for `<h5p-player>`'s `pack` property: what `parts/index.json` says of each
- * library the player serves, and where its part is. Each URL is a static `new URL`, so a bundler
- * emits the part and rewrites the address; a learner's browser fetches only the parts a package
- * needs. The libraries carried for an H5P site's upload check only are in `install.js`.
+ * The library pack, for `<h5p-player>`'s `pack` property: each library the player serves and its
+ * part's URL (a static `new URL`, so a bundler emits it). The rest are in `install.js`.
  */
 export const pack = {
   libraries: [

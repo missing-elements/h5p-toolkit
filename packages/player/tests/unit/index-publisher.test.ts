@@ -3,9 +3,8 @@ import { IndexPublisher } from '../../src/jobs/index-publisher'
 import type { ForwardEntry, ForwardIndexSnapshot } from '../../src/shared/forward-index'
 
 /**
- * The forward index a download publishes, and the progress reports after it (#144). The element
- * asks the Service Worker whether the frame can boot on each report, and the worker answers from
- * the stored snapshot: a report that overtook its write was answered from the one before.
+ * The forward index a download publishes, and the progress reports after it (#144): the element
+ * asks on each report whether the frame can boot; one that overtook its write was answered stale.
  */
 
 /** A scanner the test feeds entries to by name. */

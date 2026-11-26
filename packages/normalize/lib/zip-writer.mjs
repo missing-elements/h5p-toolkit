@@ -1,14 +1,6 @@
 /**
- * A zip writer that streams. Every entry's sizes and CRC are known before its data is written,
- * so each local header is complete when it goes out, no data descriptor is ever needed, and no
- * entry is held in memory. zip.js's own `ZipWriter` cannot do this: asked not to write a
- * descriptor, it buffers the entry until it knows the sizes, which for a 220 MB video means the
- * whole video. The normalizer always knows the sizes — it copies stored bytes whose size the
- * source recorded, or bytes it has already measured — so it does not need to pay for that.
- *
- * Writes local headers, a central directory, and the zip64 records when a size, an offset or the
- * entry count outgrows its 32- or 16-bit field. Extra fields, comments and file attributes are
- * not written: nothing that plays an H5P package reads them.
+ * A zip writer that streams: sizes and CRC are known first, so no data descriptor is needed and no
+ * entry is held in memory, as zip.js's `ZipWriter` would hold a 220 MB video to learn them.
  */
 
 const LOCAL_HEADER = 0x04034b50
@@ -63,10 +55,8 @@ export class StreamingZipWriter {
   }
 
   /**
-   * Writes one entry. `produce` receives a sink and must write exactly `meta.compressedSize`
-   * bytes to it in their stored form — deflated bytes for method 8, the plain bytes for
-   * method 0 — and then close it. A count that does not match is an error rather than a warning:
-   * the header has already gone out, and an archive whose header lies is corrupt.
+   * Writes one entry: `produce` gets a sink and must write exactly `meta.compressedSize` bytes,
+   * then close it. A mismatch is an error: the header has gone out, and a lying one corrupts it.
    *
    * @param {EntryMeta} meta
    * @param {(sink: WritableStream<Uint8Array>) => Promise<unknown>} produce
@@ -131,9 +121,8 @@ export class StreamingZipWriter {
   }
 
   /**
-   * Gives the destination up without a central directory: for a run that failed partway, so the
-   * file is released at once rather than when the stream is collected. Nothing can be added or
-   * closed after it.
+   * Gives the destination up without a central directory, for a failed run, so the file is released
+   * at once, not when the stream is collected. Nothing can be added or closed after it.
    * @param {unknown} reason
    */
   async abort(reason) {

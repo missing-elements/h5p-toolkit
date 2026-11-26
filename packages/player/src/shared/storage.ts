@@ -1,9 +1,6 @@
 /**
- * What to say when the browser refuses a write for lack of space. The number that matters to
- * whoever reads it is not "quota exceeded" but what was needed against what the browser reports
- * for the site — enough to tell a package that is too big for this browser from a site that has
- * merely filled up. Both workers write the chunk store, so both build this message; the element
- * only relays it.
+ * What to say when the browser refuses a write for lack of space: what was needed against what the
+ * browser reports, to tell a package too big for this browser from a site that has filled up.
  */
 
 export function formatBytes(bytes: number): string {

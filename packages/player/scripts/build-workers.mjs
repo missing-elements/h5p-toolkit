@@ -4,14 +4,8 @@ import { transform } from 'esbuild'
 import { buildJobsWorker, buildMountModule, buildPlanModule, buildServiceWorker, playerNotice } from './lib/worker-bundle.mjs'
 
 /**
- * Builds the artefacts Vite's library build cannot produce.
- *
- * `dist/h5p-sw.js` is a self-contained classic script, because a Service Worker is registered by
- * URL and has to run on a site with no build step at all. `dist/h5p-sw-mount.js` is the same
- * handlers as an ES module, for hosts that enforce a single worker per origin and mount ours
- * into theirs. `dist/h5p-jobs.js` is the Jobs worker the element otherwise spawns from a `blob:`
- * URL, for a page whose policy does not allow one. `dist/h5p-plan.js` is the player's library
- * rules, `./plan`, for the packages that write what it plays.
+ * Builds what Vite's library build cannot: the worker and plan files in `dist/`. `h5p-sw.js` is a
+ * classic script, as a Service Worker is registered by URL on a site with no build step.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
@@ -22,10 +16,8 @@ await buildMountModule(resolve(distDir, 'h5p-sw-mount.js'))
 await buildJobsWorker(resolve(distDir, 'h5p-jobs.js'))
 await buildPlanModule(resolve(distDir, 'h5p-plan.js'))
 
-// Vite leaves an ES library's whitespace and comments alone on purpose: esbuild drops the
-// `/* @__PURE__ */` annotations when it minifies whitespace, and a consumer's bundler tree-shakes
-// a library by them. This module registers the element on import, so nothing in it can be shaken
-// out and nothing is lost — it is minified here, after Vite, with the same settings as the workers.
+// Vite keeps an ES library's whitespace so `/* @__PURE__ */` survives for tree-shaking; this module
+// registers the element on import, so nothing is shaken out and it is minified here, after Vite.
 const elementPath = resolve(distDir, 'h5p-player.js')
 const element = await readFile(elementPath, 'utf8')
 const minified = await transform(element, { minify: true, format: 'esm', target: 'es2022', legalComments: 'none' })
@@ -45,9 +37,8 @@ await writeFile(
   'utf8'
 )
 
-// The page around the player, for the pages that hold it — h5p-verify's preview, the extension's
-// page, the build page, the demo: the demo's tokens and components, and the mark. Copied as
-// they are, so a page imports `@missing-elements/h5p-offline-player/page.css` and nothing drifts.
+// Copied as they are, so the pages around the player (verify's preview, the extension, the demo)
+// import `@missing-elements/h5p-offline-player/page.css` and nothing drifts.
 for (const name of ['page.css', 'mark.svg']) await copyFile(resolve(rootDir, 'page', name), resolve(distDir, name))
 
 console.log(`[build-workers] ${await sizeOf('h5p-player.js')} (minified after Vite), ${await sizeOf('h5p-sw.js')}, ${await sizeOf('h5p-sw-mount.js')}, ${await sizeOf('h5p-jobs.js')}, ${await sizeOf('h5p-plan.js')}, ${await sizeOf('page.css')}`)

@@ -1,30 +1,8 @@
 import type { ByteRange } from './range.js'
 
 /**
- * Small reads of an archive, kept in fixed blocks so that reading the same bytes again costs no
- * request. pdf.js's loader is the model: it reads a document in ranges aligned to 64 kB chunk
- * boundaries and fetches each chunk once (`ChunkedStreamManager`).
- *
- * zip.js reads an index in small pieces, one after another: 64 kB from the end to find the end of
- * the central directory, then the directory, which in a package of a few hundred entries lies
- * inside those same bytes, then each entry's 30-byte local header and after it the data. Over
- * HTTP each piece was a request, and the reader the Service Worker builds again once libraries are
- * attached read every one of them again: thirteen ranged requests in sequence before a 1.5 MB quiz
- * booted (#133). Through this cache the tail and the directory are one request, a small entry's
- * header and data share one, and a rebuilt reader asks for nothing.
- *
- * Blocks are aligned to multiples of the block size from the start of the archive, and the blocks
- * a read is missing are fetched in one request per contiguous run. A block on its way is shared: a
- * second read that needs it waits for that fetch instead of asking again, and a fetch that fails
- * is forgotten, so the next read asks again. Once more than `maxBytes` are held the least recently
- * used block goes first; a read keeps hold of the blocks it is assembling, so eviction never takes
- * bytes out from under it.
- *
- * Nothing here is authority: the key names the bytes — the archive's URL, validator and size, the
- * ingredients of its package id — and the cache dies with the worker that holds it. The blocks
- * an index was read from are the exception: kept with the package when the archive has a
- * validator (`blocksOf`), and put back by the next worker (`seed`), so a worker the browser
- * stopped does not read the index again (#136).
+ * Small archive reads kept in fixed blocks, so no byte is asked for twice: a 1.5 MB quiz took 13
+ * sequential ranged requests to boot (#133). An index's blocks outlive the worker (#136).
  */
 export class BlockCache {
   /** Held blocks by `blockId`, oldest use first: a use moves a block to the end. */
@@ -48,9 +26,8 @@ export class BlockCache {
   }
 
   /**
-   * The bytes of `range` in an archive of `size` bytes: from the blocks held, and for the blocks
-   * missing from `fetchRange`, which is asked for whole blocks, one request per contiguous run. A
-   * range reaching past the end of the archive is cut at the end, as a host cuts it.
+   * The bytes of `range` in an archive of `size` bytes: held blocks, and `fetchRange` for missing
+   * ones, one request per contiguous run. A range past the end is cut there, as a host cuts it.
    */
   async read(
     key: string,
@@ -98,9 +75,8 @@ export class BlockCache {
   }
 
   /**
-   * The blocks of `key` held among `indices`, in that order, for keeping beyond this worker
-   * (#136): a worker the browser stops takes its cache with it, and the next one read the index
-   * again. One not held is left out.
+   * The blocks of `key` held among `indices`, in that order, for keeping beyond this worker (#136):
+   * a stopped worker takes its cache along. One not held is left out.
    */
   blocksOf(key: string, indices: Iterable<number>): Array<{ index: number; bytes: Uint8Array }> {
     const out: Array<{ index: number; bytes: Uint8Array }> = []
@@ -112,9 +88,8 @@ export class BlockCache {
   }
 
   /**
-   * Holds blocks of `key`, in an archive of `size` bytes, that an earlier worker read: from then
-   * on a read finds them as if fetched. A block of the wrong length for its place is left out,
-   * and so is one already held or on its way, which is as good or newer.
+   * Holds blocks an earlier worker read, as if fetched. One of the wrong length for its place is
+   * left out, and so is one already held or on its way, which is as good or newer.
    */
   seed(key: string, size: number, blocks: Iterable<{ index: number; bytes: Uint8Array }>): void {
     for (const { index, bytes } of blocks) {

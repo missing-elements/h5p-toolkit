@@ -1,7 +1,6 @@
 /**
- * The site's pages: what `vite.config.ts` builds and what `build-demo.mjs` lists in the sitemap,
- * from one list, so a page added to one is not missing from the other. `indexed: false` keeps a
- * page out of the sitemap: `/embed` carries `noindex`.
+ * The site's pages, one list for `vite.config.ts` and the sitemap in `build-demo.mjs`, so neither
+ * misses a page. `indexed: false` keeps one out of the sitemap: `/embed` carries `noindex`.
  */
 export const PAGES = [
   { name: 'index', file: 'index.html', path: '/' },

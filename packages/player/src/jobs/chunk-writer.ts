@@ -2,16 +2,8 @@ import { CHUNK_SIZE } from '../shared/constants.js'
 import type { ChunkStore } from '../shared/chunk-store.js'
 
 /**
- * Smallest partial chunk that is worth publishing. Chunks are the unit of storage, but waiting
- * for a whole 8 MB before advancing the watermark would keep a cold video from starting, so a
- * partial chunk is written early and rewritten as it fills.
- *
- * Each rewrite copies everything written so far, so a fixed interval would cost O(n²): an 8 MB
- * chunk flushed every megabyte writes 36 MB. The interval doubles instead — 256 kB, 512 kB, 1, 2,
- * 4, 8 MB — which keeps the first bytes prompt and bounds the total rewritten at roughly twice
- * the entry. 256 kB rather than 1 MB because the first flush is what a media element's opening
- * probe and the virtual server's stall bound both wait on, and on a slow link a megabyte of
- * inflated video is several seconds of nothing visible.
+ * Smallest partial chunk worth publishing, so a cold video need not wait for a whole 8 MB chunk.
+ * The interval doubles from here, so rewrites total about twice the entry, not O(n²).
  */
 const FIRST_FLUSH_SIZE = 256 * 1024
 
@@ -27,8 +19,7 @@ export interface ChunkWriterOptions {
 
 /**
  * A `WritableStream` that lands bytes in the chunk store and publishes a watermark as it goes.
- * The watermark is always a prefix — chunks are written in order — so a reader can serve
- * everything below it without checking which chunks exist.
+ * The watermark is always a prefix (chunks are written in order), so readers need not check chunks.
  */
 export function createChunkWriter(options: ChunkWriterOptions): WritableStream<Uint8Array> {
   const { store, entry, totalSize, onProgress } = options
@@ -89,10 +80,8 @@ export function createChunkWriter(options: ChunkWriterOptions): WritableStream<U
     },
 
     abort() {
-      // Nothing to publish. Everything that reached the store is already recorded by the
-      // `publish` that followed its write, and that is the whole truth: bytes still sitting in
-      // `buffer` were never stored, so advancing the watermark to `written` here would promise a
-      // reader bytes it cannot get. What is there stays, and a retry resumes from it.
+      // Nothing to publish: bytes still in `buffer` were never stored, so moving the watermark
+      // to `written` would promise a reader bytes it cannot get. A retry resumes from the store.
     }
   })
 }

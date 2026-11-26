@@ -1,15 +1,8 @@
 import { ContentGenerator, librariesIn, libraryString } from '@missing-elements/h5p-author'
 
 /**
- * The sweep's way of running the content generator, which is @missing-elements/h5p-author's (one
- * copy since 2026-11-01, #100): lenient, taking what `apps/demo/sweep/<machineName>.json` writes as
- * it is, and filling every required field the semantics give no default for with the smallest
- * value the content check accepts — a label as text, the first sample a pattern accepts, the
- * minimum number, the first option, the sample image, video or audio, the first sub-content the
- * pack has. Authoring refuses such a field instead; the sweep has to make every content type play.
- *
- * Deterministic: sub-content ids are numbered, so generated packages are the same bytes every run.
- * `tests/sweep-content.test.ts` holds the sweep's rules; the generator's own are the package's.
+ * The sweep's run of h5p-author's generator, lenient: a required field with no default gets the
+ * smallest value the content check accepts, as every type must play. Ids are numbered: same bytes.
  */
 
 export { ContentGenerator, librariesIn, libraryString }
@@ -23,9 +16,8 @@ export const MEDIA = {
 }
 
 /**
- * Text tried, in order, for a required field whose semantics give a pattern and no default: the
- * first that matches is used. Covers every pattern in the pack on 2026-10-14 — colours, dates,
- * times, coordinates, sizes, an address, a phone number, a URL.
+ * Text tried in order for a required field with a pattern and no default: the first that matches
+ * is used. Covers every pattern in the pack on 2026-10-14.
  */
 const PATTERNED_SAMPLES = ['Sample', '#808080', 'https://example.org/', 'sample@example.org', '+1 555 0100', '2026/1/1', '12:00', '2026,1,1', '100px', '0', 'a']
 

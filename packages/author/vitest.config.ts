@@ -13,9 +13,8 @@ import type { BrowserCommand } from 'vitest/node'
 const parts = resolve(import.meta.dirname, '../libraries/parts')
 
 /**
- * A package the page's build wrote in Chromium, handed to Node as base64 and played by the verifier
- * untrusted, as a site that did not make it plays it: the report's verdict, what it warns of, and
- * what the content check changed.
+ * A package the page's build wrote in Chromium, given to Node as base64 and played untrusted by the
+ * verifier: its verdict, warnings and what the content check changed.
  */
 const playUntrusted: BrowserCommand<[name: string, base64: string]> = async (_context, name, base64) => {
   const dir = await mkdtemp(join(tmpdir(), 'h5p-author-page-'))
@@ -33,10 +32,8 @@ const playUntrusted: BrowserCommand<[name: string, base64: string]> = async (_co
 const clipFile = resolve(import.meta.dirname, '../../apps/demo/demo/content/src/video/videos/big-buck-bunny.mp4')
 
 /**
- * A video at a web address of its own, for a build that leaves it there (#263): a server on another
- * origin than the player's, answering for a part of the file and sending no CORS header, as a file
- * store answers a video element. `serveClip` starts the server and gives the address, `clipAsked`
- * gives the `Range` of each request it got and stops it.
+ * A video at a web address of its own (#263): a server on another origin, answering for part of the
+ * file with no CORS header. `serveClip` starts it, `clipAsked` gives each `Range` and stops it.
  */
 let clip: { server: Server, asked: string[] } | undefined
 const serveClip: BrowserCommand<[]> = async () => {
@@ -73,10 +70,8 @@ export default defineConfig({
           include: ['tests/**/*.test.ts'],
           exclude: [...configDefaults.exclude, 'tests/browser/**'],
           setupFiles: ['tests/helpers/oembed.ts'],
-          // The package's limit, and no test's own (design/testing.md, #255). These tests build
-          // packages from the library pack and write every content type's bundle, which a CI
-          // runner does two to four times slower than a laptop: on vitest's 5 s a test, three
-          // of them failed there in three days, each after the one before it got its own number.
+          // The package's limit, no test's own (design/testing.md, #255): these build from the
+          // pack, 2 to 4 times slower on CI than a laptop; three failed on vitest's 5 s.
           testTimeout: 120_000,
           hookTimeout: 120_000
         }
@@ -89,8 +84,7 @@ export default defineConfig({
           name: 'browser',
           include: ['tests/browser/**/*.test.ts'],
           // This project's limit, longer than the Node one: a test here builds in Chromium and
-          // plays the result in the verifier. Named here because a project takes nothing from
-          // the other.
+          // plays the result in the verifier. A project takes nothing from the other.
           testTimeout: 180_000,
           hookTimeout: 180_000,
           browser: {

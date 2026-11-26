@@ -24,9 +24,8 @@ import { findMissingLibraries, indexLibraryFolders, libraryFolderNames, parseLib
 import { ownLibraries as carriedLibraries, type OwnLibrary } from './pack-plan.js'
 
 /**
- * The package reader: a zip central directory turned into a name → entry index, plus the decision
- * of how each entry gets served. It does not walk dependencies — h5p-standalone resolves
- * `preloadedDependencies` itself and asks for the files it needs by name.
+ * The package reader: a zip central directory as a name → entry index, plus how each entry is
+ * served. It also settles which libraries a package carries, lacks, or needs from another archive.
  */
 
 export type Strategy =
@@ -57,9 +56,8 @@ export interface IndexedEntry {
 }
 
 /**
- * The file types an `untrusted` package may serve from `content/`: H5P's own default list for
- * content (`H5PCore::$defaultContentWhitelist` in h5p-php-library), the one the CMS plugins hold
- * an author's upload to. No script, stylesheet, page, SVG or XML: nothing a browser would run.
+ * The file types an `untrusted` package may serve from `content/`: H5P's own default list
+ * (`H5PCore::$defaultContentWhitelist`), nothing a browser would run: no script, page, SVG or XML.
  */
 const CONTENT_FILE_TYPES = new Set(
   (
@@ -69,9 +67,8 @@ const CONTENT_FILE_TYPES = new Set(
 )
 
 /**
- * What an `untrusted` package serves of its own: `h5p.json`, and the files under `content/` of a
- * type on that list. Its library folders, and anything else it carries, are withheld, so none of
- * its own code can run; the libraries come from the attached bundle instead.
+ * What an `untrusted` package serves of its own: `h5p.json` and listed-type `content/` files. The
+ * rest, library folders included, is withheld so none of its code runs; a bundle has the libraries.
  */
 export function servedWhenUntrusted(name: string): boolean {
   if (name === 'h5p.json') return true
@@ -113,9 +110,8 @@ export class PackageReader {
   readonly entries: Map<string, IndexedEntry>
   manifest: PackageManifest
   /**
-   * Built from the forward index of an archive still downloading. Entries arrive as the download
-   * does — `absorb()` takes them in — and every answer is provisional until the archive is whole
-   * and a reader from its central directory replaces this one.
+   * Built from the forward index of an archive still downloading: `absorb()` takes entries in as
+   * they arrive; answers are provisional until a central-directory reader replaces it.
    */
   readonly partial: boolean
   /** For a partial reader: how far the archive is accounted for, and whether its index is complete. */
@@ -181,9 +177,8 @@ export class PackageReader {
   }
 
   /**
-   * Whether an older minor answers for a newer one now. Never while the archive is arriving: the
-   * package may carry the version asked for in a folder still to come, and a frame booted early on
-   * the older one would keep it.
+   * Whether an older minor answers for a newer one now. Never while the archive arrives: a folder
+   * still to come may carry the version asked for, and a frame booted early on the older keeps it.
    */
   private get downgrades(): boolean {
     return this.downgrade && !this.partial
@@ -208,9 +203,8 @@ export class PackageReader {
     let zipEntries: Entry[]
     try {
       const zip = new ZipReader(new SourceReader(handle))
-      // zip.js would otherwise refuse the whole archive over one unsafe name. Names are validated
-      // here instead, per entry, so a package that happens to carry one hostile path still plays
-      // with that path dropped — and nothing downstream ever sees an unnormalised name.
+      // zip.js would refuse the whole archive over one unsafe name; validating per entry here drops
+      // just that path, and nothing downstream sees an unnormalised name.
       zipEntries = await zip.getEntries({ filenameValidation: 'tolerant' })
     } catch (error) {
       throw new PlayerError('bad-archive', 'Could not read the archive index', { cause: error })
@@ -284,9 +278,8 @@ export class PackageReader {
   }
 
   /**
-   * Takes in the entries a newer snapshot has and this reader does not. Snapshots are cumulative
-   * and in archive order, so only the tail is new; the same first-occurrence rule as the full
-   * index applies, so a later duplicate can never shadow an entry already served.
+   * Takes in the entries a newer snapshot has and this reader does not: snapshots are cumulative
+   * and in archive order, so only the tail is new, and first occurrence wins as in the full index.
    */
   async absorb(snapshot: ForwardIndexSnapshot): Promise<boolean> {
     if (!this.partial) return false
@@ -319,11 +312,8 @@ export class PackageReader {
   }
 
   /**
-   * For a partial reader: whether the runtime could boot from what has arrived — `h5p.json`, and
-   * for every dependency it declares a folder that is present and finished arriving. A folder has
-   * finished once an entry of a later folder has been seen, since exporters write a folder's files
-   * together; only the newest folder may still be growing. An index the scanner had to give up on
-   * never says ready: what it could not see must wait for the central directory.
+   * For a partial reader: whether the runtime could boot now: `h5p.json` and each declared
+   * dependency in a finished folder (exporters write one together). Never if the scanner gave up.
    */
   bootReady(): boolean {
     if (!this.partial) return true
@@ -359,10 +349,8 @@ export class PackageReader {
   }
 
   /**
-   * The folders of this archive that `h5p.json` declares in its `preloadedDependencies`, each the
-   * one the runtime would load for it (`reachableFolder`). A platform's export, and h5p-author's
-   * package, lists there every library the content plays, flattened, and none of those carried
-   * only for an H5P site's upload check. Empty when it declares nothing this archive carries.
+   * The folders `h5p.json` declares (`reachableFolder`): an export lists there every library the
+   * content plays, flattened, and none carried only for an upload check. Empty if none carried.
    */
   private declaredFolders(): Set<string> {
     const names = new Set(this.entries.keys())
@@ -376,15 +364,8 @@ export class PackageReader {
   }
 
   /**
-   * What the package carries of its libraries, for the pack's plan: the plan's `ownLibraries` over
-   * this archive's library folders. With `read`, passed when the caller can afford one — over HTTP
-   * a `library.json` is a ranged request until the warm has cached it — the folders the content
-   * reaches are read: from what it asks for at its top (`contentDependencies`, the plan's roots),
-   * through each one's `preloadedDependencies`, as the runtime goes. Their versions, patch
-   * included, and their dependencies are what the plan refreshes and follows. The rest, which
-   * nothing plays — the editor libraries and older minors a package carries for an H5P site's
-   * upload check (#146) — are taken by their names, so the plan neither refreshes them nor reads
-   * them: the warm leaves them out (`warmSpans`), and each would be a request of its own.
+   * The plan's `ownLibraries` over this archive's folders. With `read`, only those the content
+   * reaches are read; the rest, which nothing plays (#146), go by name, as the warm skips them.
    */
   async ownLibraries(read?: (located: LocatedEntry) => Promise<unknown>): Promise<OwnLibrary[]> {
     const folders = this.ownLibraryFolders()
@@ -444,9 +425,8 @@ export class PackageReader {
   }
 
   /**
-   * For a partial reader: a miss that can be answered without waiting for more of the archive.
-   * True when the entry's top-level folder has already finished arriving, or when the request
-   * is h5p-standalone's versioned probe on a package that keeps that library unversioned.
+   * For a partial reader: a miss answerable without more of the archive, when its top-level folder
+   * has finished arriving, or a versioned name matches a finished unversioned folder.
    */
   provablyAbsent(name: string): boolean {
     if (!this.partial || this.forwardDone) return true
@@ -483,9 +463,8 @@ export class PackageReader {
   }
 
   /**
-   * Works out the one fingerprint several attached archives are named by in the revision — the
-   * parts of the pack a package needs, a dozen or more — from their own (`librariesFingerprint`).
-   * Call after the last `use()`; until then a reader with several attached has no revision.
+   * Works out the one fingerprint that several attached archives (a dozen pack parts or more) share
+   * in the revision. Call after the last `use()`: until then several attached mean no revision.
    */
   async settleRevision(): Promise<void> {
     const fingerprints = this.fallbacks.map((reader) => reader.fingerprint)
@@ -502,11 +481,8 @@ export class PackageReader {
   }
 
   /**
-   * Looks an entry up in this archive, then in each attached one.
-   *
-   * A miss on a library path is retried against a compatible version of the same library, so
-   * content asking for `H5P.Text-1.0/...` is served from `H5P.Text-1.1/...` when that is what
-   * the attached bundle happens to ship.
+   * Looks an entry up in this archive, then in each attached one. A miss on a library path is
+   * retried against a compatible version: `H5P.Text-1.0/` is served from `H5P.Text-1.1/`.
    */
   get(name: string): LocatedEntry | undefined {
     return this.locate(name) ?? this.locateCompatible(name)
@@ -539,14 +515,8 @@ export class PackageReader {
   }
 
   /**
-   * Library folders reachable from here, this archive's own taking precedence.
-   *
-   * Memoised, because this runs on the miss path and misses are not rare: h5p-standalone probes
-   * `<Library>-<major>.<minor>/library.json` on purpose to learn whether a package uses versioned
-   * folders, so every load walks through here several times. Rebuilding a map over every entry
-   * name — two thousand of them in a real package — on each of those is work that never changes
-   * its answer. The entry set is fixed after `open`; only `use()` can change the result, and it
-   * drops the cache.
+   * Library folders reachable from here, this archive's own first. Memoised: it runs on the miss
+   * path, misses are not rare, and rebuilding a map over every entry name is waste. `use()` resets.
    */
   private availableLibraries(): Map<string, LibraryFolder[]> {
     if (this.librariesByName) return this.librariesByName
@@ -574,8 +544,7 @@ export class PackageReader {
   }
 
   /**
-   * The library folders reachable from here that carry an `upgrades.js`. The frame brings content
-   * written for an older minor up to the one served before the runtime starts, and fetches a
+   * The library folders reachable from here that carry an `upgrades.js`. The frame fetches a
    * library's upgrade steps only from a folder named here, so it never asks for a missing one.
    */
   foldersWithUpgrades(): string[] {
@@ -601,14 +570,8 @@ export class PackageReader {
   }
 
   /**
-   * The libraries the declared ones need in turn, by each `library.json`'s own
-   * `preloadedDependencies`, that nothing reachable from here provides. `manifest` is the one the
-   * runtime is served. A platform's export lists the whole tree in `h5p.json`, but an old one can
-   * name a version its own libraries have moved past — an Impressive Presentation from h5p.org
-   * carries Font Awesome 4.3 where six of its libraries ask for 4.5 — and the runtime, walking the
-   * same tree, ended its boot on the 404, read as JSON: "Unexpected end of JSON input". Each
-   * `library.json` is read through `read`, a level of the tree at a time, so the server can
-   * answer from its cache.
+   * The libraries the declared ones need in turn that nothing reachable provides: an old export can
+   * name a version its own libraries moved past (Font Awesome 4.3 for 4.5): the runtime died on it.
    */
   async missingDependencies(
     manifest: PackageManifest,
@@ -619,18 +582,8 @@ export class PackageReader {
   }
 
   /**
-   * The walk `missingDependencies` makes, with what it found on the way: the libraries served at an
-   * older minor than a dependency asks for, which only a reader told to downgrade does, each once,
-   * by name. The `indexed` reply carries them to the element, which reports them.
-   *
-   * The walk starts from the sub-content the parameters name as well, where a source has its
-   * major: an archive attached, or the pack on offer (`offered`). A stripped export's `h5p.json`
-   * names its main library alone, and the merged manifest drops what nothing answers for, so a
-   * question made for a newer minor than the pack's booted without its library and died on its
-   * creation, "Cannot read properties of undefined (reading 'on')", named nowhere (#85). Missing
-   * here, it goes to the next source, and then to the load's older minor. A library no source has
-   * at its major plays as before: dropped from the manifest, and removed by the content check when
-   * untrusted, as an old export's retired question type is.
+   * The walk `missingDependencies` makes, plus the libraries served at an older minor than asked,
+   * once each. It starts from sub-content libraries a source has the major of (#85).
    */
   async checkDependencies(
     manifest: PackageManifest,
@@ -681,23 +634,16 @@ export class PackageReader {
   }
 
   /**
-   * The manifest as the runtime should see it once a library bundle is attached.
-   *
-   * A content-only export does not just drop the library folders, it also strips
-   * `preloadedDependencies` down to the main library — so the runtime would load Interactive
-   * Video and none of the interaction types used inside it, and the first interaction would fail
-   * with "Unable to find constructor". The bundle's own manifest is the list the content type
-   * was published with, so the two are merged: a dependency is kept only if its folder is
-   * actually reachable, and the content's own version wins when both archives have one.
+   * The manifest as the runtime should see it with a bundle attached: a content-only export cuts
+   * the list to the main library, so its interactions would not load. Merged: reachable ones only.
    */
   async mergedManifest(): Promise<PackageManifest> {
     const names = this.entryNames()
     const available = this.availableLibraries()
     const kept = new Map<string, LibraryDependency>()
 
-    // Reachable as written, or through a compatible newer minor — the same rule `get()` serves
-    // library files by, so a 1.20 kept here is answered from the bundle's 1.21 folder; or, for a
-    // load that asked for it, through an older one, so a 1.17 is answered from the pack's 1.16.
+    // Reachable as written, or through a compatible newer minor (the rule `get()` serves files by),
+    // or, for a load that asked for it, an older one: a 1.17 is then answered from the pack's 1.16.
     const consider = (dependency: LibraryDependency) => {
       if (kept.has(dependency.machineName)) return
       if (reachableFolder(dependency, names, available, this.downgrades) === undefined) return
@@ -705,19 +651,16 @@ export class PackageReader {
     }
 
     for (const dependency of this.manifest.preloadedDependencies ?? []) consider(dependency)
-    // A stripped export cuts the list down to the main library, but its parameters still name
-    // every sub-content library they use — a Question Set's questions, an Interactive Video's
-    // interactions. A full export lists those in h5p.json; this puts them back.
+    // A stripped export cuts the list to the main library, but its parameters still name every
+    // sub-content library (a Question Set's questions); a full export lists them in h5p.json.
     for (const dependency of await this.contentLibraries()) consider(dependency)
     // A bundle's own manifest (a hub bundle's lists its content type's usual set; the pack's is empty): kept for a package
     // whose parameters name a library only through another one.
     for (const fallback of this.fallbacks) {
       for (const dependency of fallback.manifest.preloadedDependencies ?? []) consider(dependency)
     }
-    // Addons, as the platforms add them when content is saved (`H5PCore::filterParameters`): a
-    // library the bundle carries whose `library.json` says which content it goes with — for
-    // H5P.MathDisplay, text with LaTeX in it. A content-only export lost it with the rest of the
-    // list, and content made outside a platform never had it.
+    // Addons, as platforms add them on save: a bundle library whose `library.json` names the
+    // content it goes with, H5P.MathDisplay for LaTeX. A content-only export lost it.
     const params = await this.contentParams()
     for (const fallback of this.fallbacks) {
       for (const { machineName, majorVersion, minorVersion, patterns } of await fallback.addons()) {
@@ -750,9 +693,8 @@ export class PackageReader {
   private addonList: Promise<Addon[]> | null = null
 
   /**
-   * The addons this archive carries, the newest version of each, read once: what
-   * `H5PFrameworkInterface::loadAddons` answers on a platform, for the bundle that stands in
-   * for the platform's installed libraries.
+   * The addons this archive carries, newest of each, read once: what a platform's `loadAddons`
+   * answers, for the bundle that stands in for the platform's installed libraries.
    */
   addons(): Promise<Addon[]> {
     this.addonList ??= (async () => {
@@ -779,15 +721,8 @@ export class PackageReader {
   }
 
   /**
-   * Entries that cannot be served cold without a background inflate, in archive order.
-   *
-   * Everything else is reachable on demand: a stored entry is already flat in the archive and
-   * gets sliced, and a small one is cheap to inflate when asked for. Only a large deflated entry
-   * makes the runtime wait on a job, so only these are worth starting early.
-   *
-   * Archive order, not largest first: the point is to have an entry before the learner reaches
-   * it, and the order the packager wrote them in tracks the order the content uses them far
-   * better than size does. The biggest video is not usually the first one on screen.
+   * Entries that need a background inflate to be served cold (a stored or small one is cheap), in
+   * archive order: it tracks the order the content uses them far better than size does.
    */
   prefetchable(): PrefetchEntry[] {
     return [...this.entries.values()]
@@ -796,37 +731,18 @@ export class PackageReader {
   }
 
   /**
-   * The runs of the archive worth pulling whole before the frame boots, in archive order.
-   *
-   * The runtime reads the libraries exhaustively at boot — every `library.json`, script and
-   * stylesheet — and each inline entry costs one or two ranged requests when read on demand. On a
-   * host with half a second of latency that is a minute of round trips for a megabyte of files,
-   * and on one that answers a client's requests one at a time it is two. The archive's layout is
-   * the way out: exporters write a library's files together and the libraries together, so the
-   * entries the boot needs lie in a few contiguous runs, and one request per run lands them all.
-   *
-   * A candidate is a small inline entry that is not media; its bytes end where the next local
-   * header begins, since a zip is contiguous. Candidates closer than `WARM_GAP` share a span, so
-   * a large video between two library folders splits the run and is never pulled. A span with
-   * nothing the boot reads — a cluster of images and no script, style or JSON — is left to
-   * demand, and the total is capped at `WARM_MAX_BYTES`, taking spans in archive order.
-   *
-   * Only the library folders `h5p.json` declares are candidates (`declaredFolders`), beside the
-   * root and `content/`: an export lists there every library its content plays, and nothing
-   * that an H5P site's upload check alone wants, the editor libraries most of all, which are
-   * often more than half of a package's library bytes (#148). A folder left out is served on
-   * demand if anything asks for it, as every file was before the warm. An `h5p.json` that
-   * declares nothing this archive carries leaves every folder in.
-   *
-   * Only for an index read from the central directory: a forward entry has no offset to walk
-   * from, and the archive it came from is local anyway.
+   * The runs of the archive worth pulling whole before the frame boots, in archive order: each
+   * small library file read on demand costs a round trip, a minute for a megabyte at 0.5 s latency.
    */
   warmSpans(): WarmSpan[] {
+    // A forward entry has no offset to walk from, and the archive it came from is local anyway.
     const located = [...this.entries.values()].filter((entry) => entry.zip !== undefined)
     const offsets = located.map((entry) => entry.zip!.offset).sort((a, b) => a - b)
     const nextOffset = new Map<number, number>()
     for (let i = 0; i + 1 < offsets.length; i += 1) nextOffset.set(offsets[i], offsets[i + 1])
 
+    // Candidates: declared folders, the root and `content/`. Libraries kept for an upload check,
+    // mostly editors, are often over half a package's library bytes (#148).
     const declared = this.declaredFolders()
     const booted = (name: string) => {
       const slash = name.indexOf('/')
@@ -848,8 +764,7 @@ export class PackageReader {
     for (const entry of candidates) {
       const zip = entry.zip!
       // The central directory's name and extra lengths are the local header's in practice; the
-      // slack covers a local extra field that is longer, for the last entry of the archive,
-      // which has no successor to bound it.
+      // slack covers a longer local extra field for the last entry, which has no successor.
       const computed =
         zip.offset + LOCAL_HEADER_FIXED_SIZE + zip.rawFilename.length + zip.rawExtraField.length + entry.compressedSize
       const end = nextOffset.get(zip.offset) ?? Math.min(this.handle.size, computed + 4096)
@@ -882,13 +797,8 @@ export class PackageReader {
   }
 
   /**
-   * Inflates an entry into a stream. The stream is handed straight to `cache.put()` or to a
-   * `Response`, so the entry never sits in memory as a whole — beyond the block cache's copy of a
-   * small one's compressed bytes over HTTP (`blocksFor`).
-   *
-   * An entry from the central directory goes through zip.js. A forward entry has no zip.js object
-   * behind it and is inflated directly: its compressed span is known from its local header, and
-   * `DecompressionStream` does the rest — the same codec zip.js would have used.
+   * Inflates an entry into a stream for `cache.put()` or a `Response`, so it is never whole in
+   * memory. A forward entry has no zip.js object behind it, so `DecompressionStream` inflates it.
    */
   inflate(entry: IndexedEntry): ReadableStream<Uint8Array> {
     const zip = entry.zip
@@ -903,10 +813,8 @@ export class PackageReader {
     }
 
     const transform = new TransformStream<Uint8Array, Uint8Array>()
-    // Not awaited: the consumer reads the readable side while zip.js writes the writable side.
-    // zip.js pipes into that writable and aborts it itself when the inflate fails, which errors
-    // the readable the consumer holds — this abort is only the fallback for a rejection that
-    // never reached the stream, and it is refused while zip.js still holds the writer.
+    // Not awaited: the consumer reads while zip.js writes. zip.js aborts the writable itself on a
+    // failed inflate, so this abort is only the fallback for a rejection that skipped the stream.
     void this.blocksFor(entry, zip).then(() => getData.call(zip, transform.writable)).catch((error: unknown) => {
       // A locked writable means zip.js still holds the writer and has already errored the stream
       // on its way out; aborting it again is refused, in Chromium by throwing.
@@ -922,11 +830,8 @@ export class PackageReader {
   }
 
   /**
-   * Pulls a small entry's local header and data into the block cache in one request, before zip.js
-   * reads them in pieces: the header, to learn where the data starts, its extra field when it has
-   * one, then the data. Most small entries fit in the block their header is in anyway; this is for
-   * the one that runs into the next. Over HTTP only, up to `BLOCK_CACHE_MAX_READ`, and never in the
-   * way: a failure is left for zip.js's own reads to meet.
+   * Pulls a small entry's header and data into the block cache in one request before zip.js reads
+   * them in pieces. Over HTTP only, up to `BLOCK_CACHE_MAX_READ`; a failure is left to zip.js.
    */
   private blocksFor(entry: IndexedEntry, zip: FileEntry): Promise<void> {
     if (this.handle.descriptor.type !== 'range-http') return Promise.resolve()
@@ -945,15 +850,8 @@ export class PackageReader {
   }
 
   /**
-   * Byte range of an entry's compressed data inside the archive. The central directory records
-   * where the *local* header starts, and the local header's own name and extra fields are what
-   * stand between it and the bytes, so the header has to be read to find them — unless a forward
-   * entry already knows, having come from that very header.
-   *
-   * Read once per entry and kept as a promise: a media element opens with a burst of range
-   * requests, and every one of them used to pay a round trip for the same thirty bytes — over
-   * HTTP, a second request on top of the one for the data — and every seek after that paid it
-   * again. Now the burst shares one read and a seek pays none.
+   * Byte range of an entry's compressed data: the local header is read to find where it starts,
+   * unless a forward entry knows. A promise is kept, so a media element's burst shares one read.
    */
   dataRange(entry: IndexedEntry): Promise<ByteRange> {
     const known = this.dataRanges.get(entry.name)
@@ -998,9 +896,8 @@ export class PackageReader {
 }
 
 /**
- * Where an entry's compressed bytes are, for a job that extracts it without an index of its own.
- * A central-directory entry is named by its local header; a forward entry by where its data
- * begins, since the scanner has already read the header.
+ * Where an entry's compressed bytes are, for a job that extracts it without an index of its own: a
+ * central-directory entry by its local header, a forward entry by where its data begins.
  */
 export function locationOf(entry: IndexedEntry): EntryLocation {
   return {
@@ -1013,9 +910,8 @@ export function locationOf(entry: IndexedEntry): EntryLocation {
 }
 
 /**
- * Serving strategy for one entry. Size decides first, then compression method: only a large
- * deflated entry is worth the cost of a background extraction. Media has its own, lower bar —
- * see `MEDIA_INLINE_MAX_SIZE` — because a media element only ever wants the head first.
+ * Serving strategy: text is always inline, then size, then method, as only a large deflated entry
+ * is worth a background extraction. Media has a lower bar (`MEDIA_INLINE_MAX_SIZE`).
  */
 export function chooseStrategy(
   name: string,
@@ -1053,7 +949,7 @@ function topFolderOf(name: string): string | null {
   return slash < 0 ? null : name.slice(0, slash)
 }
 
-/** A stream that opens its source on the first pull, so building it costs nothing until it is read. */
+/** `h5p.json` parsed; an unreadable one, or one that is not an object, is a `bad-archive` error. */
 async function readManifest(reader: PackageReader): Promise<PackageManifest> {
   const { entry } = reader.get('h5p.json')!
 
@@ -1067,9 +963,8 @@ async function readManifest(reader: PackageReader): Promise<PackageManifest> {
 }
 
 /**
- * A dependency served at an older minor than it asks for, as `checkDependencies` reports it: only
- * from a versioned folder of the same major, the one a downgrade picks. A folder named without a
- * version answers for any version, as it always has, and is not a downgrade.
+ * A dependency served at an older minor than asked, as `checkDependencies` reports it: only from a
+ * versioned folder of the same major, the one a downgrade picks. An unversioned folder is not one.
  */
 function olderThanAsked(dependency: LibraryDependency, located: LocatedEntry, library: unknown): DowngradedLibrary | null {
   const folder = located.entry.name.slice(0, located.entry.name.indexOf('/'))
@@ -1082,12 +977,8 @@ function olderThanAsked(dependency: LibraryDependency, located: LocatedEntry, li
 }
 
 /**
- * What a package declares but does not carry, or `null` when it carries everything.
- *
- * Exports from h5p.com and h5p.org routinely leave the libraries out: the platform they came from
- * already has them, so bundling them would be waste. Played anywhere else, such an archive is
- * just a `content/` folder — the runtime asks for `<MainLibrary>/library.json`, gets a 404, and
- * fails with nothing to go on.
+ * What a package declares but does not carry, or `null` when it carries all. Exports from h5p.com
+ * and h5p.org leave libraries out, so elsewhere the runtime 404s on its main library.
  */
 export function describeMissingLibraries(
   entryNames: ReadonlySet<string>,

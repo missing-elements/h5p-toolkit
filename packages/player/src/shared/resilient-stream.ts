@@ -3,33 +3,16 @@ import { PlayerError } from './protocol.js'
 import type { ByteRange } from './range.js'
 
 /**
- * A ranged read that survives the link: a request that stops delivering for `READ_STALL_MS`, or
- * fails outright, is opened again from the byte it reached, after a delay that doubles with each
- * consecutive attempt, `READ_RETRIES` times before the read fails for good.
- *
- * Ranges are byte-addressed, which is what makes this cheap: nothing already delivered is asked
- * for twice, and the consumer — an inflate, usually, which cannot be restarted — never notices.
- * The attempt count starts over whenever bytes arrive, so a link that stalls now and then for
- * the length of a long transfer keeps going; only a link that is dead for every attempt in a row
- * fails, and then the caller records the failure rather than waiting on it.
- *
- * `open` is asked for the remaining range and given a signal that aborts a stalled attempt. It
- * throws a `PlayerError` for what cannot get better by asking again — a `404`, a `403` on an
- * expired URL — and anything else for what can: a network failure, a `503`, a reset. Only the
- * latter is retried.
- *
- * A stall is a silent *link*, not a silent request. `progress` is a counter of everything the
- * source has received on any request — the handle's `received` — and while it moves, a request
- * that has delivered nothing is left alone: a host that serves one request at a time answers the
- * segments of a span in turn, and on a slow link the ones waiting their turn can sit for longer
- * than the bound while the first is still flowing. Aborting those would only send them to the
- * back of that host's queue again.
+ * A ranged read that survives the link: a stalled or failed request is reopened from the byte it
+ * reached, so an inflate never notices. `open` throws `PlayerError` for what retrying cannot fix.
  */
 export function resilientStream(
   range: ByteRange,
   open: (range: ByteRange, signal: AbortSignal) => Promise<ReadableStream<Uint8Array>>,
   options: { progress?: () => number } = {}
 ): ReadableStream<Uint8Array> {
+  // A stall is a silent link, not a silent request: while `progress` moves, a request waiting its
+  // turn on a one-at-a-time host is left alone, as aborting it would requeue it at the back.
   const progress = options.progress ?? (() => 0)
   const total = range.end - range.start + 1
   let delivered = 0
@@ -71,6 +54,7 @@ export function resilientStream(
             }
             if (value.length === 0) continue
             delivered += value.length
+            // Only a link dead for every attempt in a row fails: the count restarts on bytes.
             attempt = 0
             sink.enqueue(value)
             return
@@ -103,11 +87,8 @@ export function resilientStream(
 class StallError extends Error {}
 
 /**
- * The promise, unless nothing has settled it and nothing has moved `progress` within
- * `READ_STALL_MS`: then the attempt is aborted and a stall is thrown instead. Progress that moved
- * buys another bound, so a link that is alive is never read as dead, and a dead one is caught
- * within twice the bound. The aborted attempt's own rejection is swallowed — it has been
- * answered.
+ * The promise, unless nothing settles it and nothing moves `progress` within `READ_STALL_MS`: then
+ * the attempt is aborted and a stall thrown. Progress buys another bound, so a live link survives.
  */
 function bounded<T>(promise: Promise<T>, controller: AbortController, progress: () => number): Promise<T> {
   return new Promise<T>((resolve, reject) => {

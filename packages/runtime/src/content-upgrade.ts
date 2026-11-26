@@ -1,23 +1,6 @@
 /**
- * Brings content written for an older minor version of a library up to the minor that is served.
- *
- * The player serves a newer minor of a library when the exact one is absent, which is always the
- * case for a stripped export played against the library pack: the pack keeps one minor per major.
- * A library's `upgrades.js` holds a step for each minor that changed the shape of its parameters,
- * and the platforms run those steps before content written for an earlier minor is shown against
- * a later one, so a library's own code assumes they have run. Without them, Question Set 1.20
- * content loses its background image under 1.21, which reads it from `override.backgroundImage`.
- * This runs the steps in the frame, before the runtime starts, by the rules of H5P's own
- * `h5p-content-upgrade-process.js` from h5p-php-library: the steps after the content's minor up
- * to the served one, in order, each handed the parameters, a callback and `{ metadata }`, the
- * object form `{ contentUpgrade }` accepted beside a bare function, and any failure leaving the
- * content as it was written.
- *
- * Two things differ from that file. Each library is brought to the version served, not to the
- * one its parent's semantics name, because what is served is what runs. And sub-content is found
- * by its shape — an object whose `library` is `"<machineName> <major>.<minor>"` beside a `params`
- * object — rather than by walking each library's semantics, so a parent that did not change still
- * has its children upgraded, and no `semantics.json` is read.
+ * Runs a library's `upgrades.js` steps on content written for an older minor, as platforms do:
+ * Question Set 1.20 content loses its background image under 1.21 without them.
  */
 import { MAX_DEPTH, libraryKey, librariesIn, parseLibrary } from './library-names'
 

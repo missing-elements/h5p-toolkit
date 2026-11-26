@@ -3,9 +3,8 @@ import { findMissingLibraries } from '../../src/shared/library-folders'
 import { describeMissingLibraries, explainMissingLibraries, servedWhenUntrusted } from '../../src/sw/package-reader'
 
 /**
- * An export that carries content but not the libraries it names is the single most common broken
- * `.h5p` in the wild: h5p.com and h5p.org leave them out because the site they came from already
- * has them. Played anywhere else it is a `content/` folder and nothing else.
+ * An export with content but not its libraries is the most common broken `.h5p`: h5p.com and
+ * h5p.org leave them out, as their site has them. Played elsewhere it is `content/` alone.
  */
 const manifest = {
   title: 'Interactive Video',

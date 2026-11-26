@@ -1,17 +1,11 @@
 /**
- * A library named another way than by its machine name. A source written with no skill beside it
- * names a content type as it is spoken of, "interactive-book", "Question Set", "dialogcards", and
- * the build said the pack has no such type, a round for each guess (#174). What can only mean one
- * library is taken to mean it, and the problem says the name to write: the same letters and digits
- * in any case, with or without `H5P.` before them and a version after. A library's title is not
- * tried: the pack's index has none, and reading them would open every part.
+ * A library named other than by machine name: what can only mean one library (same letters and
+ * digits, any case, `H5P.` and version optional) is taken as it (#174). Titles are not tried.
  */
 
 /**
- * The keys a library is named under in place of `library`, or of a source's `type`: `type` and
- * `contentType` for sub-content, as a chat with no skill beside it writes them, and `contentType`
- * and `library` for a source's own. No other: in the sources the tests stored, every name found
- * under another key was a text that reads like one, a card's answer "table", a title "Text".
+ * The keys a library is named under in place of `library` or a source's `type`: `type`,
+ * `contentType` for sub-content; `contentType`, `library` for a source. Others held text, "table".
  */
 export const NAMING_KEYS = ['type', 'contentType', 'library']
 
@@ -19,9 +13,8 @@ export const NAMING_KEYS = ['type', 'contentType', 'library']
 const LONGEST = 64
 
 /**
- * A name as written, and the version after it: `major.minor`, or `major.minor.patch` as a
- * library's own version is written. Found without a regular expression that can backtrack, since
- * what is written is any text.
+ * A name as written and the version after it (`major.minor` or `major.minor.patch`), found with no
+ * backtracking regular expression, since what is written is any text.
  * @param {string} text
  * @returns {{ name: string, version?: number[] }}
  */
@@ -41,10 +34,8 @@ function split(text) {
 const letters = (text) => split(text).name.toLowerCase().replace(/^h5p(?![a-z0-9])[\s._-]*/, '').replace(/[^a-z0-9]/g, '')
 
 /**
- * The machine name that was written, of the names given: the name itself, alone or with a major
- * and minor after it, as sub-content names its library, or the one name of the same letters.
- * `exact` is false for one written loosely, which a version of three parts is too, since what
- * reads a library's name takes two. `major` and `minor` are those written with an exact name.
+ * The machine name written, of the names given: the name itself (alone or with major and minor) or
+ * the one name of the same letters. `exact` is false when written loosely.
  * @param {unknown} written
  * @param {Iterable<string>} names machine names
  * @returns {{ machineName: string, exact: boolean, major?: number, minor?: number } | null}
@@ -61,9 +52,8 @@ export function machineNameOf(written, names) {
 }
 
 /**
- * The names nearest to what was written, for a problem to offer: those its letters are part of,
- * "book", and those its letters end with, "fill-in-the-blanks". Not one they begin with: the
- * "image" of "image choice" is no lead to it. At most five.
+ * The names nearest to what was written, for a problem to offer: those its letters are part of or
+ * end with, at most five; not ones it begins with, as "image" is no lead to "image choice".
  * @param {unknown} written
  * @param {Iterable<string>} names machine names
  * @returns {string[]}
@@ -79,8 +69,7 @@ export function nearestNames(written, names) {
 
 /**
  * The key under which an object names a library where `library` would: of `NAMING_KEYS`, the one
- * whose text names a library of those given. None where two do. `library` is the text to write,
- * with the major and minor that were written.
+ * whose text names a library of those given; none where two do. `library` is the text to write.
  * @param {Record<string, unknown>} given
  * @param {Iterable<string>} names machine names
  * @returns {{ key: string, machineName: string, major?: number, library: string } | null}
@@ -99,11 +88,8 @@ export function namingKey(given, names) {
 }
 
 /**
- * The content type a source is written in, as a build reads it (#174, #176): of the machine names
- * given, the one its `type` names, as it is or loosely, "interactive-book"; where it has no `type`,
- * the one name under `contentType` or `library`. Null where none of them can be meant, and for a
- * quiz in the published format, which is read by rules of its own. A page that hands a chat the
- * type's notes with a source's problems asks this, so that it hands over the type the build took.
+ * The content type a source is written in, as a build reads it (#174, #176): its `type`, as is or
+ * loosely, else the one name under `contentType` or `library`; null where none fits, or for a quiz.
  * @param {unknown} source
  * @param {Iterable<string>} names machine names
  * @returns {string | null}

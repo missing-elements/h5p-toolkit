@@ -1,7 +1,6 @@
 /**
- * The hosted player page's own logic. Everything here is the host's job: the element reports what
- * happened and this decides what to show. That split is the point of the demo — the element has
- * no URL field, no file picker, no progress bar and no "open in another browser" banner.
+ * The hosted player page's own logic. That split is the point of the demo: the element reports what
+ * happened and this decides what to show (no URL field, picker, progress bar or banner).
  */
 
 import { foreignHost, logInto, messageIn, packageUrl, trustPrompt } from './page-common.js'
@@ -31,10 +30,8 @@ const show = messageIn(message)
 const trust = trustPrompt(confirmBox, document.querySelector('#confirm-open'))
 
 /**
- * What a host page can usefully say about each failure. Only the codes whose own message is
- * technical get a canned one; `bad-archive`, `runtime` and `quota` already arrive as a sentence
- * written for a person — the library a package is missing, the size a package needed against
- * what the browser gives the site — so they are shown as-is.
+ * What a host page can usefully say about each failure. Only codes whose own message is technical
+ * get a canned one; `bad-archive`, `runtime` and `quota` already arrive as a sentence for a person.
  */
 const EXPLANATIONS = {
   'no-cors':
@@ -47,10 +44,8 @@ const EXPLANATIONS = {
 }
 
 /**
- * The clock: from the moment a load is asked for until the player is ready or has failed. Each
- * state on the way is logged with the time it was reached, which is what tells a slow host from
- * a slow package: a long `probing` is the host answering slowly, a long `indexing` is the
- * libraries coming down.
+ * The clock, from the load being asked for until the player is ready or failed. Each state is
+ * logged with its time: a long `probing` is a slow host, a long `indexing` a slow package.
  */
 let loadStarted = null
 let ticking = null
@@ -163,9 +158,8 @@ player.addEventListener('error', (event) => {
   const { code, message: detail, missingLibraries } = event.detail
   lastError = { code, message: detail, mainLibrary: missingLibraries?.mainLibrary, late: code === 'runtime' && player.state === 'ready' }
   bar.hidden = true
-  // Played untrusted, the package turned out to need its own copy of a library. From another
-  // site, the visitor decides, naming the host; this site's own or a picked file was played
-  // untrusted because the visitor chose it, and the switch is the way back.
+  // Played untrusted, the package needs its own copy of a library. From another site the visitor
+  // decides, naming the host; otherwise the switch is the way back.
   if (missingLibraries?.carried && player.untrusted) {
     write(`refused  its own code: ${missingLibraries.folders.join(', ')}`)
     const host = currentLink && foreignHost(currentLink)
@@ -191,9 +185,8 @@ player.addEventListener('error', (event) => {
   show(late ? `The content reported an error and kept running: ${detail}` : (EXPLANATIONS[code] ?? detail), late ? 'hint' : 'error')
   write(`error  ${code}: ${detail}`)
 
-  // Missing with the pack offered: neither the package nor this site's pack has it — a newer
-  // minor than the pack, or a content type it does not serve. The element's own text is written
-  // for the developer ("set the libraries attribute").
+  // Missing with the pack offered: neither the package nor this site's pack has it (a newer major,
+  // a missing type, a newer minor with Older if needed off). The element's text is for developers.
   if (missingLibraries) {
     show(
       `This package needs ${missingLibraries.folders.join(', ')}, which neither it nor this site's library pack has: ` +
@@ -204,38 +197,33 @@ player.addEventListener('error', (event) => {
 })
 
 /**
- * The library pack, `@missing-elements/h5p-libraries`, the one the installable app carries: one
- * archive per library, each emitted by Vite as an asset of this site. `libraries="pack"` takes
- * from it the libraries a package lacks, and the newer versions of those it carries; only the
- * archives a package needs are fetched, and nothing for one as new as the pack.
+ * The library pack, as Vite emits it, one archive per library: `libraries="pack"` takes from it the
+ * libraries a package lacks and newer versions of those it carries, fetching only what is needed.
  */
 player.pack = pack
 player.setAttribute('libraries', 'pack')
 
 /**
- * Replays the last load. Kept as a closure rather than a URL because a package picked from disk
- * has no URL to re-set — and picking one is exactly the case where the retry is wanted.
+ * Replays the last load. A closure, not a URL: a package picked from disk has no URL to re-set, and
+ * that is where the retry is wanted.
  */
 let reload = null
 
 /**
- * Where the embed snippets point: this site's own `/embed` and `/resizer.js`, the page a host
- * serves from a player domain of its own, never a third-party service: a snippet offered here
- * gets pasted into live pages, and those should send learners nowhere but the host's own domain.
+ * Where the embed snippets point: this site's own `/embed` and `/resizer.js`, never a third party,
+ * as a snippet offered here is pasted into live pages and should send learners nowhere else.
  */
 const EMBED_ORIGIN = location.origin
 
 /**
- * What the H5P embed button offers: the Embed setup, this site's page around the package, with H5P's own
- * `:w` and `:h` standing for the size the dialog lets the visitor pick. Set per load, since it
- * names the package; a picked file has no URL to embed, and the button stays off.
+ * What the H5P embed button offers: this site's page around the package, with H5P's `:w` and `:h`
+ * for the size the visitor picks. Set per load; a picked file has no URL, so the button stays off.
  */
 const embedCodeFor = (url) =>
   `<iframe src="${EMBED_ORIGIN}/embed?src=${encodeURIComponent(new URL(url, location.href).href)}" width=":w" height=":h" allow="fullscreen; microphone; camera" style="border: 0"></iframe>`
 
-// The sizing script the embed dialog offers under "advanced": the page speaks H5P's resizer
-// protocol upward, and `/resizer.js` is the page-side half, so the embedding page sends nothing
-// to h5p.org, whose own `h5p-resizer.js` speaks the same protocol and would do too.
+// The sizing script the embed dialog offers under "advanced": `/resizer.js` is the page-side half
+// of H5P's resizer protocol, so the embedding page sends nothing to h5p.org.
 player.setAttribute('resize-code', `<script src="${EMBED_ORIGIN}/resizer.js"></script>`)
 
 /** The link being played, for the question a refusal of its own code asks. */
@@ -252,12 +240,8 @@ const startReport = (what) => {
 }
 
 /**
- * The element's two modes, as the switch in the form sets them: Trusted plays a package with its
- * own libraries, Untrusted as data, none of its own code running, its libraries from this site's
- * bundle, which it cannot play without, and its content checked against their semantics. The
- * switch is the visitor's and holds for whatever plays next. Three things set it for them, so
- * that it always shows the mode playing: a `?src=` link from another site and the content-only
- * sample, which play untrusted, and the click that lets a refused link run its own code.
+ * Trusted runs a package's own libraries, Untrusted plays it as data with this site's. The switch
+ * holds for the next load; foreign links and the content-only sample set it too.
  */
 const NOTES = {
   trusted: "The package's own scripts run on this site. What it lacks comes from this site's library pack, only the libraries it needs.",
@@ -368,9 +352,8 @@ downgradeToggle.addEventListener('change', () => {
   reload?.()
 })
 
-// A sample marked `data-untrusted` plays as data against this site's bundle: a content-only
-// export, as h5p.com and h5p.org make them, the way a site plays a package it did not make. The
-// others play in whichever mode the switch is in.
+// A sample marked `data-untrusted` plays as data against this site's bundle: a content-only export,
+// as h5p.com and h5p.org make them. The others play in whichever mode the switch is in.
 for (const button of document.querySelectorAll('.samples button')) {
   button.addEventListener('click', () => {
     urlInput.value = button.dataset.src
@@ -380,13 +363,8 @@ for (const button of document.querySelectorAll('.samples button')) {
 }
 
 /**
- * "My file does not play": this repository's bug report form on GitHub, filled in from what the
- * page knows of the load: the package's address or file name, the switches, its content type, the
- * player's error and the event log. The visitor reads it there and sends it, or not: nothing
- * leaves the page on its own, and the package goes only if they attach it. Every address loses
- * its query and fragment, in the log too, since a signed URL carries its credentials there and an
- * issue is public. GitHub fills a form's fields from the query by their `id`; it refuses `labels`
- * from a visitor who may not set them, and the form adds `bug` itself.
+ * "My file does not play": GitHub's bug report form, filled in from the load. Addresses lose their
+ * query and fragment, as a signed URL carries credentials and an issue is public.
  */
 const REPORT_FORM = 'https://github.com/missing-elements/h5p-toolkit/issues/new'
 /** GitHub answers a longer address with a 414, so the log is cut from its middle to fit. */

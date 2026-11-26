@@ -59,8 +59,27 @@ against its libraries' semantics. That one is a port: of `H5PContentValidator` i
 from [h5p/h5p-php-library](https://github.com/h5p/h5p-php-library) at commit
 `cb64a1f3884408487c3178e31fc140f5d45ca165`, **GPL-3.0**, and of the HTML filter that class copied
 from Drupal 7's `includes/common.inc` (`filter_xss` and its helpers, based on kses by Ulf
-Harnhammar), Copyright Drupal contributors, **GPL-2.0-or-later**, which the GPL-3.0 accepts. Where
-it departs from the original, the file's leading comment says how and why.
+Harnhammar), Copyright Drupal contributors, **GPL-2.0-or-later**, which the GPL-3.0 accepts. It
+was ported on 2026-08-11. Where it departs from the original, it is stricter, or it has to be:
+
+- A sub-content library is accepted when a field names the same machine name and major version,
+  not only the exact string: the player serves the newest minor it can reach and upgrades the
+  content to it, where upstream upgrades sub-content to the version its parent's semantics name.
+- A boolean that is not a boolean is removed; upstream checks and keeps it.
+- A number written as a string becomes a number, and so does one clamped to a bound the semantics
+  wrote as a string; upstream keeps the string in both cases.
+- A multi-select is a list after an invalid option is removed; upstream unsets the index and
+  leaves a hole, which JSON writes as an object.
+- A field's `optional` is not written into the semantics; upstream marks the fields of an optional
+  group optional on the shared object, which then holds for every later use of it.
+- A `subContentId` in a sub-content group is held to the shape `validateLibrary` holds one to;
+  upstream keeps whatever is there.
+- A value of the wrong shape, such as a string where a group, a list or a file belongs, is
+  removed; upstream fails on several of them with a PHP error, which fails the save.
+- A malformed attribute is dropped up to the next whitespace; upstream's pattern for that has an
+  empty alternative, which can match nothing at all.
+- The step check uses whole steps of at least one, as PHP's integer `%` does; a fractional step is
+  not checked.
 
 ## The translations in `dist/l10n.js` — GPL-3.0-or-later
 

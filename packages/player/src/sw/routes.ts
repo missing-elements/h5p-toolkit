@@ -1,8 +1,6 @@
 /**
- * URL shape of the virtual routes. Our own registration uses the scope `<swDir>h5p/`, so routes
- * sit directly under it; `mountH5P` puts them at `<hostScope>h5p/`. Both spell the same thing —
- * `…/h5p/virtual/…`, `…/h5p/frame/…` and `…/h5p/boot/…` — so everything downstream works off one
- * base.
+ * URL shape of the virtual routes: under `<swDir>h5p/` for our own registration, under
+ * `<hostScope>h5p/` for `mountH5P`. Both give `…/h5p/virtual/`, `frame/` and `boot/` off one base.
  */
 
 import { LOAD_KEY_BYTES, PKG_ID_LENGTH } from '../shared/pkg-id.js'

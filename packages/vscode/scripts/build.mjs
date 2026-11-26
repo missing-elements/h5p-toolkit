@@ -6,10 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
 /**
- * Builds the extension: `dist/extension.cjs`, one CommonJS file with the verifier's preview server
- * in it, and `assets/` — the player's files, the runtime and the library pack's parts, from the
- * installed packages as the embed builder takes them, so that the versions are this checkout's.
- * `vsce package --no-dependencies` then ships those two folders and no node_modules.
+ * Builds the extension: `dist/extension.cjs`, one CommonJS file with the verifier's preview server,
+ * and `assets/` from the installed packages, so the versions are this checkout's; vsce ships those.
  */
 
 const root = fileURLToPath(new URL('..', import.meta.url))

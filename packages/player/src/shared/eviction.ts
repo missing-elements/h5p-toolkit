@@ -3,12 +3,8 @@ import * as db from './idb.js'
 import { busyPackages } from './locks.js'
 
 /**
- * Which package a quota squeeze may drop: the coldest by `lastPlayed` that is neither the one
- * being written nor under a lock anywhere on the origin.
- *
- * Both the Service Worker and the Jobs worker install this, because both write the chunk store
- * and either can be the one that hits the wall — the Jobs worker most often, since the large
- * writes are its. Before it did, it evicted whichever cache the browser happened to list first.
+ * Which package a quota squeeze may drop: the coldest by `lastPlayed` that is neither the one being
+ * written nor under a lock on the origin. Both workers install it: either can hit the wall.
  */
 export async function coldestIdlePackage(
   exceptPkgId: string,

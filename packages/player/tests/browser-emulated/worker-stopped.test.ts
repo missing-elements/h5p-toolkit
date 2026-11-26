@@ -5,12 +5,8 @@ import '../../src/h5p-offline-player'
 import { clearPackageCaches, play } from '../browser/utils'
 
 /**
- * A load after the browser stopped the Service Worker (#136). Chromium stops an idle worker after
- * about thirty seconds, and the block cache under small reads lives in its memory, so the next load
- * read the archive's index again: the tail and the head, one after the other, before the worker
- * answered anything. The blocks the index was read from are kept with the package when the host
- * gives a validator. CDP stops the worker here, as DevTools' Stop does; `/counted/` writes down
- * every request the host takes, and gives an `ETag` with `&etag=1`.
+ * A load after the browser stopped the Service Worker (#136): its block cache is gone, so the index
+ * was read again, tail then head. Kept with the package now, when the host gives an `ETag`.
  */
 
 const rangesOf = async (log: string): Promise<string[]> => (await fetch(`/counted/__log?log=${log}`)).json()

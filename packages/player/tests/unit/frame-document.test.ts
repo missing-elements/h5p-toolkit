@@ -69,10 +69,8 @@ describe('buildContentSecurityPolicy', () => {
   it('writes runtime origins without a scheme, so they track the page scheme', () => {
     const csp = buildContentSecurityPolicy(options)
 
-    // The WebFont snippet builds its URL from `document.location.protocol`. A scheme-less
-    // host-source is matched against the page's own scheme, so an https frame still accepts
-    // only https while `http://localhost` in development accepts the http URL it asks for.
-    // Pinning these to `https:` is what made the loader fail on localhost.
+    // The WebFont snippet builds its URL from `document.location.protocol`, so the host-source is
+    // scheme-less: pinning it to `https:` made the loader fail on localhost.
     expect(csp).not.toContain('https://ajax.googleapis.com')
     expect(csp).not.toContain('https://cdn.jsdelivr.net')
     expect(csp).toMatch(/script-src[^;]*\bcdn\.jsdelivr\.net\b/)
@@ -95,9 +93,8 @@ describe('buildContentSecurityPolicy', () => {
   })
 
   it('allows eval, which template engines shipped inside packages depend on', () => {
-    // EmbeddedJS compiles its templates with `eval`, and the content types built on it render
-    // nothing without this. It gives an attacker no reach the archive's own scripts lack: those
-    // are served from this origin and already run under `'self'`.
+    // EmbeddedJS compiles templates with `eval` and its content types render nothing without this;
+    // it gives an attacker no reach the archive's own scripts lack.
     expect(buildContentSecurityPolicy(options)).toMatch(/script-src[^;]*'unsafe-eval'/)
   })
 
@@ -204,9 +201,8 @@ describe('buildFrameDocument', () => {
   })
 
   it('marks the document element the way H5P core styles expect', () => {
-    // Seven rules in the core stylesheet are keyed on `html.h5p-iframe` — the base font, the
-    // content's 16px/1.5 type, full width, the fullscreen heights. Div embedding puts that
-    // class on a div, where none of them can match, so this document carries it instead.
+    // Seven core-stylesheet rules are keyed on `html.h5p-iframe`; div embedding puts that class on
+    // a div where none match, so this document carries it.
     expect(html).toContain('<html lang="en" class="h5p-iframe">')
   })
 
@@ -222,16 +218,14 @@ describe('buildFrameDocument', () => {
   })
 
   it('pins a YouTube iframe over its box, which H5P.Video up to 1.6.66 fails to do itself', () => {
-    // Its handler sets the style through a minified private field of the YouTube API object,
-    // `player.g`, which YouTube renamed; the line throws and the iframe lands below its 16:9 box,
-    // clipped away by the wrapper — a black picture with sound.
+    // Its handler sets the style through a minified private field of the YouTube API object
+    // (`player.g`), which YouTube renamed: it throws and the iframe lands below its 16:9 box.
     expect(html).toMatch(/\.h5p-video\.h5p-youtube iframe \{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; \}/)
   })
 
   it('names the boot script beside the runtime, under the nonce, its configuration as a JSON block beside it', () => {
-    // The script is a file of the runtime package, not a string inlined here: it runs in the
-    // H5P document and calls the core's API, so it ships with the core under the core's licence,
-    // and this worker only names it.
+    // The boot script is a runtime-package file, not an inlined string: it runs in the H5P document
+    // and calls the core's API, so it ships under the core's licence; this worker only names it.
     expect(html).toContain('<script nonce="deadbeef" src="https://site.example/frame-assets/frame-boot.js"></script>')
     expect(html).not.toMatch(/<script nonce="deadbeef">/)
     expect(html).toContain('<script type="application/json" id="h5p-boot-config">')
@@ -253,9 +247,8 @@ describe('buildFrameDocument', () => {
   })
 
   it('writes the document a runtime up to 0.2 expects: its loader first, and the upgrade list', () => {
-    // A record such an element wrote names h5p-standalone's `main.bundle.js`, whose boot script
-    // walks the libraries in the frame and takes the folders that carry an `upgrades.js` from here;
-    // with no list, from a worker older than it, it asks and takes a 404 as none.
+    // A record such an element wrote names the old `main.bundle.js`, whose boot script takes the
+    // `upgrades.js` folders from here; with no list, from an older worker, it asks.
     const html = buildFrameDocument({ ...legacy, upgrades: ['H5P.QuestionSet-1.21', 'H5P.Summary-1.10'] })
     expect(html).toContain('<script nonce="deadbeef" src="https://site.example/frame-assets/main.bundle.js" charset="UTF-8"></script>')
     expect(html.indexOf('main.bundle.js')).toBeLessThan(html.indexOf('frame-boot.js'))
@@ -360,9 +353,8 @@ describe('createNonce', () => {
 })
 
 describe('the boot script', () => {
-  // Its source is in the runtime package (`packages/runtime/src/frame-boot.ts`). That package's
-  // tests cover what the script imports; the script itself runs as it loads, so the invariants of
-  // the boot are pinned here, on the source text.
+  // The script's source is `packages/runtime/src/frame-boot.ts`; it runs as it loads, so the boot's
+  // invariants are pinned here on the source text.
   const source = readFileSync(resolve(import.meta.dirname, '../../../runtime/src/frame-boot.ts'), 'utf8')
 
   it('posts to its own origin, never to whatever page happens to frame the document', () => {
@@ -389,9 +381,8 @@ describe('the boot script', () => {
   })
 
   it('reports a runtime script or stylesheet that fails to load, in the capture phase', () => {
-    // A failed resource fires 'error' on its own element and never bubbles, and the runtime's
-    // loader waits on 'load' alone: without a capturing listener a library the server could not
-    // deliver leaves the boot hanging with nothing reported anywhere.
+    // A failed resource fires 'error' on its own element, not bubbling, and the loader waits on
+    // 'load' alone: without a capturing listener an undeliverable library hangs the boot silently.
     expect(source).toMatch(/addEventListener\(["']error["'],\s*function\s*\([^)]*\)\s*\{[\s\S]*?\},\s*true\)/)
     expect(source).toContain('Could not load ')
     // Only the tags the runtime injected itself, which it marks data-h5p: a content image that

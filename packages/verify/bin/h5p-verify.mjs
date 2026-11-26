@@ -99,11 +99,8 @@ if (args.values.preview) {
     console.error(error instanceof VerifyError ? error.message : error)
     process.exit(2)
   }
-  // Listened to before anything is printed, so that a Ctrl+C as soon as the address shows finds the
-  // listener, and for as long as the process runs, not once: through npx one Ctrl+C arrives twice,
-  // from the terminal to the whole process group and from npm passing it on, and a second signal
-  // with no listener left took Node's default and killed the process before its last line (#79).
-  // Ending the preview again does nothing.
+  // Kept for the whole run: through npx one Ctrl+C arrives twice, and a second signal with no
+  // listener took Node's default and killed the process before its last line (#79).
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => preview.close())
   const address = `${preview.url}/`
   console.log(`Previewing ${basename(file)} at ${address}`)
@@ -139,9 +136,8 @@ try {
     settle: seconds(args.values.settle, 3_000)
   })
   const text = args.values.json ? JSON.stringify(report, null, 2) : args.values.quiet ? summarize(report).split('\n')[0] : summarize(report)
-  // The process ends once the report is written: `process.exit` drops what is still waiting, and
-  // Node writes to a pipe asynchronously on macOS, so a program reading the report through one got
-  // its first 8 kB (#117). A reader that has gone away ends it too.
+  // Exit after the write finishes: `process.exit` drops what is pending, and Node writes to a pipe
+  // asynchronously on macOS, so a program reading the report got its first 8 kB (#117).
   const code = report.verdict === 'pass' ? 0 : 1
   process.stdout.once('error', () => process.exit(code))
   process.stdout.write(`${text}\n`, () => process.exit(code))

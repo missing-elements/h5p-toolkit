@@ -1,8 +1,7 @@
 name: Translations
 
 # Takes the H5P core's strings from Moodle's language packs again every week and opens a pull
-# request when a translation changed. The generator writes nothing when none did, its date
-# included, so an unchanged week leaves the tree clean.
+# request when one changed. The generator writes nothing when none did, its date too.
 
 on:
   schedule:

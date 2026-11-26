@@ -9,10 +9,8 @@ import { z } from 'zod'
 import { mp4 } from '../../author/tests/helpers/mp4'
 
 /**
- * The server as an app runs it: the command the package ships, started over standard input and
- * output, given one folder, asked through the SDK's own client. The build's rules are the author
- * package's and tested there; these hold the server to calling them, to its folders, and to its
- * answers. Each test builds what it needs, under a title of its own.
+ * The server as an app runs it: the package's command over standard input and output, given one
+ * folder. The build's rules are the author's; these hold it to calling them and its folders.
  */
 
 const COMMAND = resolve(import.meta.dirname, '../bin/h5p-mcp.mjs')

@@ -4,34 +4,8 @@ import { HttpReader, TextWriter, ZipReader, configure } from '@zip.js/zip.js'
 import { coreStrings, packTag, translationProblem } from './l10n-rules.mjs'
 
 /**
- * Writes `l10n/`: the H5P core's interface strings — "Fullscreen", "Rights of use", the licence
- * names, the "this content has changed" dialog — in every language Moodle's translators have put
- * them into, one JSON file per language, which `build.mjs` gathers into `dist/l10n.js`. Run every
- * Monday by `.github/workflows/l10n.yml`, which opens a pull request when a translation changed,
- * or by hand (`pnpm l10n`); the result is committed, like the library pack, so that a build does
- * not depend on Moodle's servers.
- *
- * Why Moodle: the core's strings are not translated anywhere H5P publishes; every platform
- * translates them itself, through its own string system. Moodle's are the most complete, written
- * by its translators in AMOS, and GPL-3.0-or-later like this package. Moodle names each string by
- * an id of its own, and `core_h5p\framework::t()` maps the core's English message to that id;
- * that map is read from a pinned commit, the strings from the current language packs, read by
- * range so only `h5p.php` and `langconfig.php` come over the wire. Lumi's H5P-Nodejs-library has
- * the same strings under the core's keys, but machine-translated, which its own notes say no
- * native speaker has reviewed.
- *
- * Every pack Moodle lists is read, so a language whose translators reach the line is written
- * without anyone adding it. A translation that breaks a `:placeholder` or carries markup is left
- * out, and the core shows its English string there, as Moodle shows its English for a string a
- * pack lacks. A language with fewer than two thirds of the strings is not written, and neither is
- * a variant pack (`packTag`). A pack whose strings are all its parent's adds nothing: a region of
- * the parent's language is left to the frame's lookup, which takes `fr-CA` to `fr` anyway, and
- * another language becomes an alias of the parent's — Moodle shows Nynorsk, Greenlandic and
- * Lower Sorbian learners the Norwegian, Danish and German strings, and so does the frame.
- *
- * A run that loses several languages at once has met a change in Moodle's packs or map, or in
- * the core's strings, rather than translators' work, and stops before deleting their files;
- * `pnpm l10n --allow-loss` writes it anyway, once someone has looked.
+ * Writes `l10n/`: the core's strings per language from Moodle's packs, the most complete (H5P
+ * publishes none), for `build.mjs`. Committed, so a build does not depend on Moodle's servers.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
@@ -47,10 +21,8 @@ const packUrl = (code) => `${PACKS_URL}${code}.zip`
 const MIN_SHARE = 2 / 3
 
 /**
- * Tags that name a language the packs carry under another tag, which no pack's parent says: the
- * old codes for Hebrew and Indonesian, Chinese by script and by region, Serbian with no script,
- * whose official one is Cyrillic, and Valencian with its region, which the lookup would cut back
- * to Catalan. Each is kept while its target is written.
+ * Tags for a language the packs carry under another tag that no parent names: old Hebrew and
+ * Indonesian codes, Chinese by script or region, Serbian with no script, Valencian.
  */
 const EQUIVALENT = {
   iw: 'he',
@@ -186,11 +158,8 @@ function packStrings(code, seen = new Set()) {
   return { ...(parent ? packStrings(parent, seen) : {}), ...packs[code].strings }
 }
 
-// Moodle's English adds the abbreviation to a licence's name — "Attribution (CC BY)" where the
-// core says "Attribution" — and its translators followed. The core puts the version after the
-// name, so a closing bracket is taken off again where Moodle's English has one and the core's
-// not: whatever is in it, since one pack names the wrong licence there, and in either width of
-// bracket, since the Chinese and Japanese packs write their own.
+// Moodle's English adds "(CC BY)" to a licence name and its translators followed; the core's
+// version goes after the name, so the bracket is cut, in either width and whatever it holds.
 const moodleEnglish = packStrings('en')
 const suffixOf = {}
 /** A bracketed abbreviation Moodle's English added to a licence name, "Attribution (CC BY)". */

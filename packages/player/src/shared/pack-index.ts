@@ -3,10 +3,8 @@
 import type { PackLibrary } from './protocol.js'
 
 /**
- * The index of the library pack this release pins, `LIBRARY_PACK_VERSION`: each library's
- * version and dependencies, and its part's size and SHA-256. The Service Worker plans from it for
- * `libraries="pack"`, and the parts are fetched from `LIBRARY_PACK_BASE`. The libraries the pack
- * carries for an H5P site's upload check only (`installOnly`) are left out: the plan never takes one.
+ * The index of the pack this release pins (`LIBRARY_PACK_VERSION`), for the Service Worker's
+ * `libraries="pack"` plan. The `installOnly` libraries are left out: the plan never takes one.
  */
 export const PACK_INDEX: readonly PackLibrary[] = [
   {"folder":"FontAwesome-4.5","machineName":"FontAwesome","majorVersion":4,"minorVersion":5,"patchVersion":4,"size":512591,"sha256":"c053c49db02886d6d5219300af7c73960d3280c320ba714a22cf3ecdfc91b0ff"},

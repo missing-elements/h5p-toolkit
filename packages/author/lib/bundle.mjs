@@ -3,18 +3,8 @@ import { libraryOptions } from './generator.mjs'
 import { installClosure } from './install.mjs'
 
 /**
- * A content type's bundle: the parts of the pack a build of that type can read, whatever its source
- * holds, for a build where the pack cannot be installed and one file per type can be fetched, as in
- * ChatGPT's sandbox (#166). It is the build's own rules applied to the most a source of the type can
- * name: the content type and every library its library fields offer or give as their default, those
- * libraries' in turn; what they play with, as the player plans it (`planPack`); and what an H5P
- * site's upload check wants with them (`installClosure`). Both rules only ever add for more roots,
- * so whatever one source names is within the bundle.
- *
- * An addon is not in it. A build adds one where a source's text matches its pattern, H5P.MathDisplay
- * (2.8 MB) where the text holds math, which would more than double most bundles. A bundle carries
- * the pack's whole index, so a build from it plans as it would from the pack, and either writes the
- * same package or stops at the part it lacks, by name.
+ * A content type's bundle: the parts a build of that type can read, for where the pack cannot be
+ * installed (#166). The most a source can name, but no addon: H5P.MathDisplay is 2.8 MB.
  */
 
 /**

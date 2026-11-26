@@ -8,10 +8,8 @@ import { type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
 /**
- * The installable app, `/app/`, as an app: home until a file is opened, the player until it is
- * closed, Back in the bar or the browser's own to close it, and the keyboard reaching all of it.
- * Through the dev server and a real browser. What only an installed window does — `display-mode`,
- * the title bar — Chromium cannot emulate, and is checked by hand.
+ * The installable app, `/app/`, in a real browser: home, the player, Back and the keyboard. An
+ * installed window's title bar and `display-mode` cannot be emulated by Chromium: checked by hand.
  */
 
 let vite: ViteDevServer
@@ -69,11 +67,8 @@ const nextReady = (page: Page) =>
   page.evaluate(() => new Promise<void>((done) => document.querySelector('h5p-player')!.addEventListener('ready', () => done(), { once: true })))
 
 /**
- * The app in a fresh browser profile. Chromium's own picker, `showOpenFilePicker`, is taken away
- * unless a test brings its own: Playwright cannot answer it, and without it the app takes the path
- * Safari and Firefox take, the page's file input. `onDisk` opens it in a profile on disk, as a
- * browser window is (closed with `closePage`), and `installed` answers `display-mode` as an
- * installed window would; see `profileOnDisk`.
+ * The app in a fresh profile. `showOpenFilePicker` is removed unless `keepPicker`: Playwright
+ * cannot answer it, so the app takes the file input, as in Safari and Firefox. See `profileOnDisk`.
  */
 async function openApp(path = '/app/', { keepPicker = false, onDisk = false, installed = false } = {}) {
   const page = onDisk ? await profileOnDisk({ installed }) : await browser.newPage({ viewport: VIEWPORT })
@@ -93,12 +88,8 @@ async function openApp(path = '/app/', { keepPicker = false, onDisk = false, ins
 const profiles = new Map<Page, { context: BrowserContext; dir: string }>()
 
 /**
- * A page in a browser profile on disk, as a browser window is: WebKit, as Safari in a private
- * window, refuses a `File` in IndexedDB in the private profile Playwright gives a page, so the app
- * keeps no copy there. Closed with `closePage`. With `installed`, the app is as installed as far
- * as its script can tell: `display-mode` answered as matching, which Chromium will not emulate —
- * on disk because storing a file handle in the private profile takes Chromium down, the reason the
- * app keeps handles only when installed, which a private profile never is.
+ * A page in a profile on disk, as a window is: WebKit refuses a `File` in IndexedDB in Playwright's
+ * private profile, and a file handle there takes Chromium down. `installed` answers `display-mode`.
  */
 async function profileOnDisk({ installed = false } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'h5p-app-profile-'))
@@ -191,10 +182,8 @@ it('opens a file from the keyboard, shows it under its own title, and closes it 
   let state = await seen(page)
   expect(state).toMatchObject({ screen: 'home', startOver: false, back: false })
 
-  // Listening from before the first key, not from beside Enter. Playwright switches Chromium's
-  // picker interception on when the first listener is added, and Enter opens the picker on
-  // keydown, the very next event the page gets: in Chromium on Linux the picker then went unseen
-  // in seven runs of ten, on CI too (2026-10-12).
+  // Listen before the first key: Playwright switches picker interception on at the first listener,
+  // and Enter opens the picker on the next event, so a later one missed it in 7 of 10 Linux runs.
   const choosing = page.waitForEvent('filechooser')
 
   // "Choose a file" is a button, so Tab reaches it and Enter opens the picker.
@@ -241,10 +230,8 @@ it('keeps a link in the address, and takes the browser’s Back and Forward as c
   await playerIs(page, 'ready')
   expect((await seen(page)).screen).toBe('player')
 
-  // Start over opens it again in place, without another step. The player still says `ready` while
-  // the app clears the saved state, before it opens the file again, so the wait is for the next
-  // `ready`: going on before it, the reopen's first request started under the reload below, which
-  // WebKit refuses and logs as a page error ("due to access control checks", CI 2026-10-15).
+  // Start over reopens in place, adding no step. Wait for the next `ready`: the player still says
+  // it while the app clears state, and going on put a request under the reload (a WebKit error).
   const steps = await page.evaluate(() => history.length)
   await Promise.all([nextReady(page), page.click('#start-over')])
   expect(await page.evaluate(() => history.length)).toBe(steps)
@@ -263,8 +250,7 @@ it('keeps a link in the address, and takes the browser’s Back and Forward as c
 
 /**
  * What Interactive Book does as it turns a page: it writes the chapter into the address of the page
- * around its frame, which adds a step to that page's history. The app once took any step it had
- * not made for Back, and closed the book at its first page.
+ * around its frame, adding a history step. The app once took any step it had not made for Back.
  */
 const turnPage = (page: Page, chapter: string) =>
   page

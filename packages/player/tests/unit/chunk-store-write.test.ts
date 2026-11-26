@@ -10,9 +10,8 @@ import {
 } from '../../src/shared/chunk-store'
 
 /**
- * The Cache API reduced to what the store touches: named caches with `put`, `match`, `keys` and
- * `delete`, and the first put optionally out of quota. `events` records every deletion in the
- * order it happened, which is what the eviction test is about.
+ * The Cache API reduced to what the store touches, with the first put optionally out of quota.
+ * `events` records each deletion in order, which the eviction test is about.
  */
 function fakeCaches(failFirstPut: boolean) {
   const stores = new Map<string, Map<string, Uint8Array<ArrayBuffer>>>()

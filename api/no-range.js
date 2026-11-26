@@ -1,13 +1,8 @@
 import { Readable } from 'node:stream'
 
 /**
- * A host that ignores `Range`, for the hosted demo. Vercel's own static files honour Range,
- * which is the easy path; the common case in the wild — a plain file host that answers `200`
- * with the whole body — is what this stands in for. It reads the fixture back from the
- * deployment's static files and returns it in one piece: no `Accept-Ranges`, and the request's
- * `Range` header ignored. `vercel.json` rewrites `/no-range/<name>` here; dev and preview have
- * the same route in `vite.plugins.ts`. It serves the demo content only: the test fixtures do not
- * ship with the site.
+ * A host that ignores `Range`, for the hosted demo, as Vercel's static files honour it: it answers
+ * `200` with the whole body. Demo content only; dev has it in the player's `vite.plugins.ts`.
  */
 
 export const config = { supportsResponseStreaming: true }
@@ -28,9 +23,8 @@ export default async function handler(request, response) {
   const origin = deploymentOrigin(request)
   /** @type {Record<string, string>} */
   const headers = {}
-  // A preview deployment behind Vercel's deployment protection answers an anonymous fetch with
-  // its login page; the bypass secret, when the project has one, gets the file instead. Only
-  // ever to Vercel's own deployment hosts, whatever the origin turned out to be.
+  // A protected preview answers an anonymous fetch with its login page, so the bypass secret goes
+  // along, only to Vercel's own hosts, whatever the origin turned out to be.
   const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
   if (secret && new URL(origin).hostname.endsWith('.vercel.app')) {
     headers['x-vercel-protection-bypass'] = secret
@@ -55,9 +49,8 @@ export default async function handler(request, response) {
 }
 
 /**
- * Where this deployment's static files are, from Vercel's environment rather than from the
- * request: the production domain for production, the deployment's own URL for a preview. The
- * request's `Host` is the fallback for `vercel dev`, which sets neither and runs on localhost.
+ * Where this deployment's static files are, from Vercel's environment, not the request: the
+ * production domain, or a preview's own URL. `Host` is the fallback for `vercel dev`.
  *
  * @param {import('node:http').IncomingMessage} request
  */

@@ -10,13 +10,8 @@ import { build } from 'esbuild'
 const rootDir = resolve(import.meta.dirname, '..', '..')
 
 /**
- * Takes the one `import()` out of zip.js. It loads a codec module when `configure` names one,
- * which ours never does, and a Service Worker may not call `import()` in any case. Left in, it
- * is what makes a consumer's Vite dev server rewrite the served worker: Vite runs every `.js`
- * it serves through its import analysis, sees a dynamic import with a computed specifier and
- * prepends `import { injectQuery } from "/@vite/client"` — a syntax error in a classic worker,
- * so the registration failed there and nowhere else. With no `import(` in the file Vite adds
- * nothing but a newline.
+ * Takes the one `import()` out of zip.js, which ours never uses. Left in, a consumer's Vite dev
+ * server prepends `import { injectQuery }` to the worker: a syntax error in a classic one.
  */
 const noCodecImport = {
   name: 'no-codec-import',
@@ -34,14 +29,8 @@ const noCodecImport = {
 }
 
 /**
- * zip.js's licence, as a `/*! … *\/` header on both workers. `legalComments: 'none'` strips the
- * notices scattered through the bundle, and NOTICE.md alone did not reach a consumer's build: a
- * bundler emits `h5p-sw.js` as a hashed asset and nothing from the package root goes with it, so
- * a user's build of 0.1.5 shipped zip.js with no notice at all. Its clause 2 asks for the notice,
- * the conditions and the disclaimer to accompany a binary, so the whole text goes in, read from
- * the installed package so that it follows the version actually bundled. A bundler keeps a `/*!`
- * comment in an asset it emits as is; a host bundling `h5p-sw-mount.js` into its own worker keeps
- * it too under esbuild's and Terser's defaults, which preserve `/*!` comments.
+ * zip.js's licence as a `/*! … *\/` header on both workers: its clause 2 asks for the text with a
+ * binary, and a bundler emits `h5p-sw.js` alone (0.1.5 shipped none); read from the install.
  */
 async function zipJsNotice() {
   const zipJsDir = resolve(rootDir, 'node_modules', '@zip.js', 'zip.js')
@@ -52,9 +41,8 @@ async function zipJsNotice() {
 }
 
 /**
- * The package's own notice, on every file it ships: MIT asks for its copyright and permission
- * notice to accompany copies, and a bundler emits each file on its own with nothing from the
- * package root beside it. One line, naming the licence and where its text is.
+ * The package's own notice on every file it ships: MIT wants it with copies, and a bundler emits
+ * each file alone. One line naming the licence and where its text is.
  */
 export async function playerNotice() {
   const { version } = JSON.parse(await readFile(resolve(rootDir, 'package.json'), 'utf8'))
@@ -85,9 +73,8 @@ export async function buildMountModule(outfile) {
 }
 
 /**
- * `h5p-jobs.js`: the Jobs worker the element carries as a string, as a file of its own for a page
- * whose policy refuses a `blob:` worker. It bundles nothing but our own code — no zip.js, which is
- * the Service Worker's — so it carries the package's notice alone.
+ * `h5p-jobs.js`: the Jobs worker the element carries as a string, as a file for a page whose
+ * policy refuses a `blob:` worker. No zip.js here, so it carries the package's notice alone.
  */
 export async function buildJobsWorker(outfile) {
   const { banner, plugins, ...options } = await shared()
@@ -95,10 +82,8 @@ export async function buildJobsWorker(outfile) {
 }
 
 /**
- * `h5p-plan.js`: the player's library rules (`src/plan.ts`) as an ES module, for the packages that
- * write what it plays, in Node or a page. Not minified, so that a stack trace in a caller names the
- * function; it is a few kilobytes. It must stay free of zip.js, which a careless import of
- * `package-reader.ts` would bring along with its side effects, so the build fails on one.
+ * `h5p-plan.js`: the player's library rules (`src/plan.ts`) as an ES module for the packages that
+ * write what it plays. Unminified, so a stack trace names the function; zip.js must not come in.
  */
 export async function buildPlanModule(outfile) {
   const { banner, plugins, minify, ...options } = await shared()
@@ -109,9 +94,8 @@ export async function buildPlanModule(outfile) {
 }
 
 /**
- * Resolves `@missing-elements/h5p-offline-player/sw` to the mount's source, the way the demo's
- * Vite config resolves the element's name, so a worker in this repository imports the handlers
- * by the name a host uses and is still built from source.
+ * Resolves `@missing-elements/h5p-offline-player/sw` to the mount's source, as the demo's Vite
+ * config does, so a worker here imports by a host's name and is still built from source.
  */
 export const mountFromSource = {
   name: 'mount-from-source',
@@ -121,10 +105,8 @@ export const mountFromSource = {
 }
 
 /**
- * A host's own Service Worker with the handlers mounted into it — the demo's installable app is
- * one — returned as text, for the demo build to write and its dev server to serve. Same
- * settings, notice and plugins as ours; `define` carries what the host's code needs filled in,
- * and `dev` leaves it readable and turns the player's dev paths on.
+ * A host's own Service Worker with the handlers mounted in (the demo app's), returned as text.
+ * `define` fills in what its code needs; `dev` leaves it readable and turns the dev paths on.
  */
 export async function bundleHostWorker(entry, { define = {}, dev = false } = {}) {
   const options = await shared()

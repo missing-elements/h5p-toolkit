@@ -1,13 +1,5 @@
-// The site's light/dark switch. A classic script, not a module, linked in <head> ahead of the
-// stylesheet: it has to put a pinned theme on <html> before anything is painted, or a visitor who
-// pinned the opposite of their system setting sees every page flash the wrong way as it loads.
-// The CSP allows no inline script, so it is a file, linked with `vite-ignore` and copied by the
-// build as it is. Without it — blocked, or not yet run — the stylesheet follows the system
-// setting on its own, which is also what it does with no pin.
-//
-// Two states, not three: following the system, or pinned to the other theme. A press pins the
-// theme the visitor is not seeing; a press that would pin the system's own theme clears the pin
-// instead, so the page follows the system again and a pin never outlives its point.
+// The light/dark switch: a classic script in <head> ahead of the stylesheet, so a pinned theme is
+// on <html> before the first paint. A file, as the CSP allows no inline script.
 ;(() => {
   const KEY = 'theme'
   const root = document.documentElement
@@ -42,6 +34,8 @@
 
     button.addEventListener('click', () => {
       const next = shown() === 'dark' ? 'light' : 'dark'
+      // A press that would pin the system's own theme clears the pin: a pin never outlives its
+      // point.
       const pin = next === (system.matches ? 'dark' : 'light') ? null : next
       show(pin)
       try {

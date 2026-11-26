@@ -10,29 +10,8 @@ import { missingForInstall } from '../../../packages/author/lib/install.mjs'
 import { download, hubBundle as cachedBundle } from './lib/hub.mjs'
 
 /**
- * Builds the packages the hosted demo plays, from `demo/content/src/<name>/` into
- * `demo/content/<name>.h5p`. Each source is our own `content.json` plus a `manifest.json`
- * naming the content type; the libraries come from the H5P hub's bundle for that content type,
- * as `libraries="hub"` fetched them at runtime up to player 0.5, and the result is a self-contained
- * package run through the normalizer, so it is also an example of what the normalizer produces.
- * A manifest with `"stripped": true` is written the way h5p.com and h5p.org export: `h5p.json`
- * naming the main library alone, `content/`, and no library folders — the package the player
- * page plays `untrusted` against the site's pack.
- *
- * Every other package also carries what an H5P site's upload check wants of its libraries (#146):
- * H5P core refuses a package unless each library it carries has its preloaded, dynamic and editor
- * dependencies with it at the exact major.minor, so a Moodle with no library installed refused
- * the demo's quiz, video and glossary for their editor libraries. `h5p.json` lists only what
- * plays, as the platforms' exports write it, and the player never reads the rest; they follow the
- * libraries that play, and the normalizer writes them after the media (`last`), so a host that
- * ignores `Range` boots before they arrive.
- *
- * The outputs are committed. This is a maintainer's tool with two network dependencies — the
- * hub, and whatever media a manifest points at — and a deploy should not have either. Hub
- * bundles are cached under the OS temp directory; `--refresh` fetches them again.
- *
- *   node scripts/build-demo-content.mjs            # every source
- *   node scripts/build-demo-content.mjs quiz       # one
+ * Builds the demo's packages from `demo/content/src/<name>/` into `demo/content/<name>.h5p`, with
+ * the hub's libraries; `"stripped": true` is a content-only export. Committed: no hub at deploy.
  */
 
 configure({ useWebWorkers: false })
@@ -82,17 +61,15 @@ async function buildPackage(name) {
   const bundle = new ZipReader(new BlobReader(await openAsBlob(bundlePath)))
   const entries = (await bundle.getEntries({ filenameValidation: 'tolerant' })).filter((entry) => !entry.directory)
 
-  // Every library the content actually needs: the main library's dependency tree, plus the
-  // tree of every sub-content library the params name. What else goes into the package is what
-  // an H5P site's upload check wants of these, below; nothing else from the bundle does.
+  // The libraries the content needs: the main library's dependency tree and that of each
+  // sub-content library the params name. Besides the upload check's (below), nothing else goes in.
   const libraryJsons = new Map()
   for (const entry of entries) {
     const match = /^([^/]+)\/library\.json$/.exec(entry.filename)
     if (match) libraryJsons.set(match[1], JSON.parse(new TextDecoder().decode(await entry.getData(new Uint8ArrayWriter()))))
   }
-  // A bundle can carry two minors of one library (the QuestionSet bundle has H5P.Question 1.4 and
-  // 1.5); keep the newest, which every dependant naming an older minor of the same major accepts.
-  // Taking whichever came last in the zip shipped 1.4 to libraries that require 1.5.
+  // A bundle can carry two minors of a library (QuestionSet's has H5P.Question 1.4 and 1.5): keep
+  // the newest, since the zip's last one shipped 1.4 to libraries that require 1.5.
   const version = (library) => [library.majorVersion, library.minorVersion, library.patchVersion ?? 0]
   const newer = (a, b) => {
     const [x, y] = [version(a), version(b)]
@@ -118,10 +95,8 @@ async function buildPackage(name) {
   const folderOf = (library) => `${library.machineName}-${Number(library.majorVersion)}.${Number(library.minorVersion)}`
   const folders = new Set([...needed.values()].map(folderOf))
 
-  // What an H5P site's upload check wants of them (#146): every dependency a carried library
-  // names, preloaded, dynamic or editor, at its exact major.minor, and what those name in turn.
-  // The bundle carries its content type's whole closure, so each is in it, an older minor of a
-  // library included (the QuestionSet bundle's H5P.Question 1.4 beside the 1.5 that plays).
+  // The upload check (#146) wants every dependency a carried library names, editor ones too, at its
+  // exact major.minor, and theirs in turn: the bundle holds that closure, older minors included.
   /** @type {Set<string>} */
   const install = new Set()
   if (!manifest.stripped) {
@@ -174,7 +149,8 @@ async function buildPackage(name) {
     await writer.add(`content/${path}`, new Uint8ArrayReader(new Uint8Array(await fetched(url))))
   }
 
-  // The libraries that play, then the ones an H5P site's upload check wants with them.
+  // The libraries that play, then the upload check's, which the normalizer writes last (`last`) so
+  // a host that ignores `Range` boots before they arrive.
   let libraryBytes = 0
   let installBytes = 0
   for (const wanted of [folders, install]) {

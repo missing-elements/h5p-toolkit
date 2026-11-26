@@ -3,14 +3,8 @@ import { createApp } from '@missing-elements/h5p-mcp/app'
 import mcp from '@missing-elements/h5p-mcp/package.json' with { type: 'json' }
 
 /**
- * The app server (`h5p-mcp-app`, design/mcp.md) as a Cloudflare Worker: the same handler, in a
- * runtime with no package folders. What the server reads as it runs rides in the Worker and
- * shows in its file system under `/bundle` (`wrangler.jsonc`, `scripts/stage.mjs`): the library
- * pack's parts, the author package's type files and brief, and the card.
- *
- * It receives a chat's tool calls, an activity's source among them, and never a file. The server
- * stores and logs nothing of a call, this file adds nothing, and the Worker's own logs are off
- * in its config.
+ * The app server (`h5p-mcp-app`, design/mcp.md) as a Worker: its files ride in as modules under
+ * `/bundle`. It receives a chat's tool calls and never a file, and stores or logs nothing of one.
  */
 
 /** Where a Worker's modules are files. */

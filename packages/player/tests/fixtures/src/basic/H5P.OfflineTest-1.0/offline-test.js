@@ -1,9 +1,6 @@
 /**
- * The smallest content type that still exercises the parts the player cares about: it is loaded
- * from the archive by the virtual file server, its CSS has to arrive as `text/css` to apply, it
- * emits a real xAPI statement through H5P's own dispatcher, and it has a state to save and
- * resume — how many times Complete was pressed — the way a real content type does it:
- * `getCurrentState()` for the runtime to save, `extras.previousState` to start from.
+ * The smallest content type that still exercises the player: archive-served files and CSS, a real
+ * xAPI statement, and state to save and resume (`getCurrentState()`, `extras.previousState`).
  */
 var H5P = H5P || {};
 

@@ -3,13 +3,8 @@ import { resolve } from 'node:path'
 import { chromium } from 'playwright'
 
 /**
- * Renders the installable app's icons into `app/icons/` from the site's logo, `demo/favicon.svg`,
- * which the tab and the bar's mark show too: the logo at 192 and 512 on a transparent ground; a
- * maskable 512, opaque, whose logo sits inside the safe zone, the circle in the centre 80%, since a
- * launcher may crop it to one; and a 180 for iOS, which ignores the manifest's icons for the home
- * screen and draws a screenshot of the page without one. Rasterized in Chromium for the same reason
- * as the social card — no image tooling in the repository. The output is committed; run this when
- * the logo changes.
+ * Renders the app's icons into `app/icons/` from `demo/favicon.svg`: 192, 512, maskable, iOS 180.
+ * Rasterized in Chromium, as the repository has no image tooling. Run when the logo changes.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')

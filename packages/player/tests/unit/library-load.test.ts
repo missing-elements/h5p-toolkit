@@ -3,10 +3,8 @@ import { filesIn, libraryLoad, loadOrder, toposort, walkLibraries, type LibraryL
 import type { LibraryDependency } from '../../src/shared/content-libraries'
 
 /**
- * The order the frame loads libraries in has to be h5p-standalone's, which every content type has
- * been played in here. So h5p-standalone's own algorithm is kept below as the oracle: its
- * `loadDependencies` and `sortDependencies` from `src/h5p-standalone.ts` at v3.8.2, with the
- * `toposort` 2.0.2 it bundles (Marcel Klehr, MIT), each as it was written but for types.
+ * The load order is h5p-standalone's, kept as the oracle: `loadDependencies`, `sortDependencies`
+ * (v3.8.2) and `toposort` 2.0.2 (Marcel Klehr, MIT), as written but for types.
  */
 function referenceToposort(edges: Array<Array<string | undefined>>): Array<string | undefined> {
   const nodes = Array.from(new Set(edges.flatMap((edge) => [edge[0], edge[1]])))

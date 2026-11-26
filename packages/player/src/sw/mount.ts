@@ -53,13 +53,8 @@ import { waitForWatermark } from './watermark-wait.js'
 import { quotaMessage } from '../shared/storage.js'
 
 /**
- * The Service Worker half of the player: a virtual file server over a zip that is never
- * extracted to disk, plus the frame document it synthesizes for the runtime to live in.
- *
- * It is deliberately stateless. Browsers terminate a worker between events, so every handler
- * rebuilds what it needs from the `packages` table and the chunk store, and anything that cannot
- * finish inside one event — downloading an archive, inflating a large entry — is handed to the
- * page-side Jobs worker instead.
+ * The Service Worker half of the player: a virtual file server over a zip, plus the frame document.
+ * Stateless, as browsers stop a worker between events; long work goes to the Jobs worker.
  */
 
 export interface MountOptions {
@@ -107,10 +102,8 @@ export function mountH5P(worker: ServiceWorkerGlobalScope, options: MountOptions
 }
 
 /**
- * The response with its body passed through a stream that tells when it has ended, and the event
- * held open until then, for at most `STREAM_KEEPALIVE_MS`: Firefox stops a worker thirty seconds
- * after its last event even while a body it is sending is still streaming. Called before
- * `respondWith`'s promise settles, while the event may still be extended.
+ * Holds the event open until the response body has ended, for at most `STREAM_KEEPALIVE_MS`:
+ * Firefox stops a worker thirty seconds after its last event even while a body is still streaming.
  */
 function keptAlive(event: FetchEvent, response: Response): Response {
   if (!response.body) return response
@@ -144,10 +137,8 @@ function keptAlive(event: FetchEvent, response: Response): Response {
 }
 
 /**
- * How many loads' settings a package's row keeps. Each load registers its own under a new key,
- * and a frame whose key has gone gets a 404, so the bound is set well above the number of players
- * one browser has open on one package at once; each is a couple of kilobytes, mostly the frame
- * assets' URLs, and eviction reads every row.
+ * How many loads' settings a package's row keeps. A frame whose key has gone gets a 404, so it is
+ * set well above the players one browser opens on a package; each is a few KB that eviction reads.
  */
 const KEPT_LOADS = 8
 
@@ -158,9 +149,8 @@ class VirtualServer {
    */
   private readers = new Map<string, Promise<PackageReader>>()
   /**
-   * Readers of packages that are played, which an `index` holds to carrying their libraries: not
-   * a bundle or a part registered only to supply some. Checked there rather than as the archive
-   * is opened, since an `index` that offers the pack plans what it lacks first.
+   * Readers of packages that are played, which an `index` holds to carrying their libraries, unlike
+   * bundles; checked there, not when opened, as an `index` offering the pack plans first.
    */
   private playable = new WeakSet<PackageReader>()
   /** Picked files, re-sent by the page after a restart because a `File` cannot be persisted. */
@@ -171,9 +161,8 @@ class VirtualServer {
   /** Inline entries being inflated into the cache right now, so a burst for one file inflates it once. */
   private inflating = new Map<string, Promise<void>>()
   /**
-   * Until when the store is taken to be full. Set when a cache write is refused for lack of space
-   * and nothing was left to evict; while it stands, inline entries are served straight from the
-   * archive without another attempt to cache them.
+   * Until when the store counts as full: set when a cache write is refused and nothing was left to
+   * evict. Meanwhile inline entries are served from the archive uncached.
    */
   private storageFullUntil = 0
   /**
@@ -198,14 +187,8 @@ class VirtualServer {
   }
 
   /**
-   * Keeps the blocks this reader's index was read from with the package (#136). The block cache
-   * dies with the worker, and Chromium stops an idle one after about thirty seconds, so a reload
-   * read the tail, `h5p.json` and `content.json` again before the first answer. Only for an
-   * archive over HTTP whose host gave a validator: without one, an archive republished at the same
-   * URL keeps its package id, and old blocks would send zip.js to the old offsets. The blocks are
-   * whatever this reader's small reads went through before its frame booted, the index and what
-   * the load read for the plan and the check; the player names no file. Written again only when a
-   * load read a block beyond those kept. A copy that cannot be written is no copy.
+   * Keeps the index's blocks with the package (#136), as the block cache dies with an idle worker.
+   * Only with a host validator: a republished archive keeps its id, and old blocks would mislead.
    */
   private async keepIndexBlocks(reader: PackageReader): Promise<void> {
     const { handle } = reader
@@ -223,10 +206,8 @@ class VirtualServer {
   }
 
   /**
-   * Puts back the blocks an earlier worker kept for this archive, when the validator and the size
-   * they were read under still match the ones this load was given: zip.js then reads the index
-   * from memory, as a reader built again after `attach-libraries` does. A copy that is missing or
-   * cannot be read means a read from the network, as before; it is never the authority.
+   * Puts back the blocks an earlier worker kept, when the validator and size still match, so zip.js
+   * reads the index from memory. A missing or unreadable copy means the network, as before.
    */
   private async seedIndexBlocks(pkgId: string, handle: SourceHandle): Promise<void> {
     const { descriptor } = handle
@@ -344,17 +325,8 @@ class VirtualServer {
   }
 
   /**
-   * Writes the package's row, and the load's settings under its key when the element named one.
-   * Merged in one transaction rather than replaced: the other loads' settings stay, and so do the
-   * title and metadata, which are the archive's and which a reader already open for another load
-   * will not write again.
-   *
-   * On an origin with no room left for even that, a row already there for the same package is
-   * kept and serves: it names the same source — the id is a hash of it — and a package that
-   * played before can play again from an archive nothing needs to store. No key can be written
-   * then, so the load gets the row's own settings, the ones a route without a key is served
-   * by, and only when they are what it asked for: an untrusted load is never handed a trusted
-   * row. Returns whether the settings went under the key.
+   * Writes the row and the load's settings under its key, merged so other loads' settings stay.
+   * With no room, an existing row serves if its settings match: untrusted never gets a trusted row.
    */
   private async registerPackage(record: PackageRecord, view: string | undefined): Promise<boolean> {
     this.readers.delete(loadSegment({ pkgId: record.pkgId }))
@@ -416,11 +388,8 @@ class VirtualServer {
 
     await bookkeeping(db.touchPackage(load.pkgId))
 
-    // For a runtime up to 0.2, whose boot script takes the list from the document: from the
-    // reader the element's `index` left open, never a new one, since a picked file's reader asks
-    // the page for the file through the frame, and the frame is what is being served. With no
-    // reader the list is left out, and the frame asks for each script and takes a 404 as none. A
-    // later runtime asks the `boot` route, whose answer carries it.
+    // For a runtime up to 0.2, whose boot script takes the list from the document. Only an open
+    // reader is used, never a new one: a picked file's reader asks the page through the frame.
     const upgrades = settings.frameAssets.mainJs
       ? await this.readers.get(loadSegment(load))?.then(
           (reader) => reader.foldersWithUpgrades(),
@@ -456,17 +425,8 @@ class VirtualServer {
   }
 
   /**
-   * What the frame loads (`LibraryLoad`): every library the content needs, its scripts and
-   * stylesheets dependencies first, as `sw/library-load.ts` works them out from the manifest the
-   * runtime is served — the merged one when archives are attached. The boot script of a runtime
-   * after 0.2 asks for it as it starts. Asked by the frame rather than written into its document,
-   * because only a request from the frame can open a reader the worker lost on a restart: for a
-   * picked file the page is asked for the file through the frame, which, while its own document is
-   * being served, does not exist yet.
-   *
-   * A library is looked up the way `get()` serves its files — the folder its version names, the
-   * bare machine name, a compatible newer minor — and on an archive still arriving it is waited
-   * for as any entry the frame asks for is. One that nothing answers for is named in the refusal.
+   * What the frame loads (`LibraryLoad`). Asked by the frame, not written into its document: only a
+   * frame request can reopen a reader lost on restart, as a picked file needs the page.
    */
   private async serveBoot(load: LoadRef): Promise<Response> {
     // `let`: a wait on a partial reader hands back the reader to go on with, which is a new one
@@ -525,13 +485,11 @@ class VirtualServer {
       located = outcome.located
     }
 
-    // A 404 here is load-bearing: h5p-standalone probes for `library.json` under both the
-    // versioned and unversioned folder names and picks the shape that answers.
+    // Nothing answers for the name, and a partial archive could not still deliver it: a plain 404.
     if (!located) return new Response(null, { status: 404 })
 
-    // An untrusted package's content is checked against its libraries' semantics by the boot
-    // script before the runtime reads it, and only a boot script that does so asks with the
-    // header. One older than the check would play the content as written, so it gets none.
+    // The boot script checks an untrusted package's content against its libraries' semantics and
+    // asks with the header; an older one would play it unchecked, so it gets a 403.
     if (reader.untrusted && name === 'content/content.json' && event.request.headers.get(CONTENT_CHECK_HEADER) !== 'semantics') {
       return text(
         'This package is played untrusted, and the runtime does not check its content against its ' +
@@ -541,9 +499,8 @@ class VirtualServer {
     }
 
     const response = await this.serveLocated(event, reader, name, located)
-    // For an untrusted package the browser runs nothing whose type is not a script's: with
-    // `script-src` naming the package's own path, a `content/` file of any listed type would
-    // otherwise run as a script if injected markup named it, since a browser sniffs by default.
+    // Untrusted: `nosniff`, as `script-src` names the package's own path and a browser would sniff
+    // a `content/` file of a listed type into a script if injected markup named it.
     return reader.untrusted ? withNoSniff(response) : response
   }
 
@@ -554,9 +511,8 @@ class VirtualServer {
       return json(await reader.mergedManifest())
     }
 
-    // An empty entry is answered from its size, whole, whatever range was asked for, as a server
-    // may: there is nothing to read, and the cache gives an empty response back with no body at
-    // all, which the inline path took for an entry it could not read and answered with a 500.
+    // An empty entry is answered whole whatever range was asked, as a server may: the cache returns
+    // an empty response with no body, which the inline path took for an unreadable entry (a 500).
     if (located.entry.size === 0) return entryResponse(located.entry, 'none', null)
 
     const rangeHeader = event.request.headers.get('range')
@@ -574,14 +530,8 @@ class VirtualServer {
   }
 
   /**
-   * Small entries and anything the runtime parses: inflate once into the cache, then serve.
-   *
-   * The cache is a convenience here, not a need. When the browser refuses the write for lack of
-   * space — after eviction has found nothing more to drop — the entry is served from the archive
-   * directly, and the store is left alone for `FAILURE_BACKOFF_MS` so a burst of requests does
-   * not repeat the failed copy for each of them. A package on a host that honours `Range`, or
-   * picked from disk, therefore plays with no storage at all; what it loses is only the speed of
-   * a second play.
+   * Inflate once into the cache, then serve. The cache is a convenience: when the write is refused
+   * for lack of space the entry is served from the archive and the store left alone for a while.
    */
   private async serveInline(
     { reader, entry }: LocatedEntry,
@@ -610,13 +560,8 @@ class VirtualServer {
   }
 
   /**
-   * Inflates an inline entry into the cache, sharing the work with any request already doing it.
-   *
-   * The runtime asks for a library's files in a burst, and the same file more than once when
-   * two of them reference it; every one of those used to miss the cache together, inflate
-   * separately and race each other on the same `cache.put`. The map is per worker instance and
-   * dies with it, which costs nothing but the dedupe. A failure rejects every waiter alike and
-   * clears the slot, so the next request tries again rather than inheriting a dead promise.
+   * Inflates an inline entry into the cache, sharing the work with a request already doing it: a
+   * burst for one file would otherwise inflate separately and race on `cache.put`. Failure clears.
    */
   private cacheInline(store: ChunkStore, reader: PackageReader, entry: IndexedEntry): Promise<void> {
     const key = `${reader.pkgId}\u0000${entry.name}`
@@ -631,9 +576,8 @@ class VirtualServer {
   }
 
   /**
-   * An inline entry straight from the archive, with nothing written anywhere. A stored entry is
-   * sliced out of the source like a large one would be; a deflated one is inflated for this
-   * response alone and cut to the range as it flows.
+   * An inline entry straight from the archive, with nothing written. A stored entry is sliced out
+   * of the source; a deflated one is inflated for this response alone and cut to range as it flows.
    */
   private async serveUncached(
     reader: PackageReader,
@@ -669,9 +613,8 @@ class VirtualServer {
   }
 
   /**
-   * Large and deflated: the Jobs worker inflates it into chunks and publishes a watermark. What
-   * is already there is served immediately as a shorter `206` — a legal answer that the media
-   * element follows up on, which is what makes a cold video start playing before it is extracted.
+   * Large and deflated: the Jobs worker inflates it into chunks and publishes a watermark. What is
+   * there is served at once as a shorter `206`, which a media element follows up.
    */
   private async serveChunked(
     event: FetchEvent,
@@ -690,10 +633,8 @@ class VirtualServer {
 
     let meta: ChunkMeta | null | undefined = await store.getMeta(entry.name)
 
-    // The last attempt failed. A fresh failure is the answer — waiting out a stall to rediscover
-    // it helps nobody, and a media element takes a 507 as the error it is. An old one is retested:
-    // the space it lacked may be there now. Cleared before asking, or the wait below would read
-    // the stale record as the new attempt's result.
+    // The last attempt failed. A fresh failure is the answer, as waiting out a stall to rediscover
+    // it helps nobody; an old one is retested, as space may be there now. Cleared before asking.
     if (meta?.error) {
       if (Date.now() - meta.error.at < FAILURE_BACKOFF_MS) return failedEntry(meta.error)
       await store.setMeta(entry.name, { size: entry.size, available: 0, complete: false })
@@ -713,19 +654,16 @@ class VirtualServer {
     if (range === 'unsatisfiable') return unsatisfiable(entry.size)
 
     if (range === 'none') {
-      // A media element's first request carries no `Range` — Chrome only starts using them once
-      // it knows the resource supports them. The real length is known from the zip index, so the
-      // response is honest about its size and the body follows the watermark down.
+      // A media element's first request carries no `Range` (Chrome uses them once the resource is
+      // known to support them), so the answer is a full-length 200 following the watermark.
       return new Response(store.readRange(entry.name, { start: 0, end: entry.size - 1 }, follow), {
         status: 200,
         headers: entryHeaders(entry, { length: entry.size })
       })
     }
 
-    // What already exists is answered as a shorter `206`, which is what lets a cold video start
-    // before it is extracted. A range that begins past the watermark is answered in full and the
-    // body waits: an mp4 whose `moov` index sits at the end — and plenty do — is unplayable until
-    // that tail arrives, so refusing it would mean refusing the file.
+    // What exists is answered as a shorter `206`. A range past the watermark is answered in full
+    // and the body waits: an mp4 with its `moov` at the end is unplayable until that tail arrives.
     const served: ByteRange =
       range.start < meta.available
         ? { start: range.start, end: Math.min(range.end, meta.available - 1) }
@@ -741,15 +679,8 @@ class VirtualServer {
   }
 
   /**
-   * Waits, on a partial reader, for an entry that may not have arrived yet.
-   *
-   * Woken by each publish of the forward index and each move of the archive's watermark, polling
-   * as the fallback, until the entry appears, the reader can prove it absent, or the archive is
-   * whole and the real index answers. The stall bound watches the archive watermark, not the
-   * index: the index stands still for the whole of a large entry while the bytes keep coming, and
-   * a healthy download of a 200 MB video must not read as a dead one. Only a download that stops
-   * moving gives up, and it gives up with a retry rather than a wrong 404 — h5p-standalone treats
-   * a 404 as a fact about the package.
+   * Waits on a partial reader for an entry that may not have arrived. The stall bound watches the
+   * archive watermark, not the index, which stands still through a large entry.
    */
   private async awaitEntry(
     load: LoadRef,
@@ -797,17 +728,15 @@ class VirtualServer {
   /* ---------------------------------------------------------------- job requests */
 
   /**
-   * Asks the page to run a job. The worker cannot do it: a browser kills a worker event after a
-   * few minutes and a killed inflate cannot resume, so the request goes to the frame that made
-   * the request, which relays it to its element.
+   * Asks the page to run a job: a browser kills a worker event after a few minutes and a killed
+   * inflate cannot resume. The request goes to the frame that made it, which relays it on.
    */
   private async requestJob(event: FetchEvent, pkgId: string, entry: IndexedEntry): Promise<void> {
     const key = `${pkgId}\u0000${entry.name}`
     if (this.requestedJobs.has(key)) return
     this.requestedJobs.add(key)
-    // Cleared on a short timer rather than on completion: this worker may be killed in between,
-    // and the page that owns the job may go away with its tab, so a request that is never
-    // answered has to become askable again quickly.
+    // Cleared on a timer, not on completion: this worker may be killed meanwhile, and the page that
+    // owns the job may go with its tab, so an unanswered request must be askable again soon.
     setTimeout(() => this.requestedJobs.delete(key), JOB_REQUEST_DEDUPE_MS)
 
     // The entry's location rides along: the Jobs worker has no index of its own to look it up in.
@@ -833,10 +762,8 @@ class VirtualServer {
   }
 
   /**
-   * The newest library bundle downloaded whole from `url`, if one is still in the chunk store.
-   * Whole, not merely registered: a download cut short, or a bundle evicted since, has a row and
-   * not the bytes. More than one row can name the same URL, because the id also hashes the
-   * host's validator, so a bundle that changed was downloaded again under a new one.
+   * The newest bundle downloaded whole from `url` and still in the chunk store: a cut-short or
+   * evicted one has a row, not the bytes. Rows can share a URL, as the id hashes the validator.
    */
   private async downloadedBundle(url: string): Promise<string | null> {
     const rows = (await db.allPackages())
@@ -917,15 +844,8 @@ class VirtualServer {
   }
 
   /**
-   * What the library pack has to supply before the package can play, or `null` when nothing:
-   * the parts it needs, and the package's own folders that newer versions among them replace
-   * (`planPack`). The pack's own index for the version this release pins, or the one of a copy
-   * the element hands over.
-   *
-   * A partial reader plans once what the plan needs has arrived: for an untrusted package, the
-   * manifest and the content; otherwise what the boot needs, the folders `h5p.json` declares, so
-   * that the parts are attached before the frame boots early. A package without its libraries
-   * waits for the whole archive, as it did, since what it lacks cannot be told before the end.
+   * What the pack has to supply before the package can play (`planPack`), or `null`. A partial
+   * reader plans once what the plan needs has arrived; one lacking libraries waits for the end.
    */
   private async planFromPack(reader: PackageReader, offer: PackOffer, deep: boolean): Promise<PackPlan | null> {
     if (reader.partial && !(reader.untrusted ? reader.get('h5p.json') && reader.contentArrived : reader.bootReady())) return null
@@ -947,10 +867,8 @@ class VirtualServer {
   }
 
   /**
-   * What the frame document shows of the manifest — the title, and the metadata behind the
-   * copyright dialog and the statements' object name — kept on the record, because the frame
-   * route reads the record and never opens a reader. A partial reader's manifest counts too,
-   * once `h5p.json` has arrived, so a host without `Range` gets it on the first boot.
+   * Keeps the manifest's title and metadata on the record: the frame route reads the record and
+   * never opens a reader. A partial reader's counts once `h5p.json` has arrived.
    */
   private async rememberManifest(record: PackageRecord, reader: PackageReader): Promise<void> {
     const patch: Partial<PackageRecord> = {}
@@ -978,9 +896,8 @@ class VirtualServer {
     if (!snapshot) return reader
     const manifest = reader.manifest
     await reader.absorb(snapshot)
-    // `h5p.json` has just arrived. The reader was opened before it, at the first progress report,
-    // so its title, metadata and language reach the record here or not until the download is
-    // whole — after the frame has booted early without them, in the element's language (#57).
+    // `h5p.json` has just arrived: its title, metadata and language reach the record here, or not
+    // until the download is whole, after an early boot without them (#57).
     if (reader.manifest !== manifest) {
       const record = await db.getPackage(load.pkgId)
       if (record) await this.rememberManifest(record, reader)
@@ -989,12 +906,8 @@ class VirtualServer {
   }
 
   /**
-   * Whether a download still under way can boot the frame: `bootReady`, and no library the
-   * declared ones need in turn absent so far, nor a sub-content library a source has the major of
-   * (`offered`, the pack's). One that is absent is waited for — it may still arrive — and if it
-   * never does, the deep check after the download attaches a bundle that has it, or the load's
-   * older minor, or refuses the package by name. Booted before then, the runtime asked for its
-   * `library.json` while the bundle was not attached yet and ended on the 404, read as JSON.
+   * Whether a download under way can boot the frame: `bootReady`, and nothing needed absent so far
+   * (`offered` is the pack's). Booted before a bundle attaches, the runtime ends on a 404.
    */
   private async bootsEarly(reader: PackageReader, offered: ReadonlyArray<PackLibrary>): Promise<boolean> {
     if (!reader.bootReady()) return false
@@ -1026,9 +939,8 @@ class VirtualServer {
       promise,
       resolve,
       timer: setTimeout(() => {
-        // Forgotten as well as rejected. Left in the map, this settled promise would be the
-        // answer to every later call for the package, and the page would never be asked again —
-        // even once it has the file to give.
+        // Forgotten as well as rejected: left in the map, this settled promise would answer every
+        // later call and the page would never be asked again, even once it has the file.
         if (this.pendingFiles.get(pkgId) === request) this.pendingFiles.delete(pkgId)
         reject(new PlayerError('bad-archive', 'The picked file is no longer available'))
       }, FILE_HANDOVER_TIMEOUT_MS)
@@ -1052,8 +964,7 @@ function settingsOf(record: PackageRecord, view: string | undefined): Omit<LoadS
 
 /**
  * A load's settings, or a row's, with what an `attach-libraries` brings: a bundle replaces the one
- * before, and parts of the pack and the folders they replace are added to those already there. A
- * downgrade, once asked for, stays for the load.
+ * before; parts and the folders they replace add to those there. A downgrade stays once asked.
  */
 function attached<T extends { libraryPkgId?: string; parts?: string[]; superseded?: string[]; downgrade?: boolean }>(
   settings: T,
@@ -1150,9 +1061,8 @@ function failedEntry(failure: EntryFailure): Response {
 }
 
 /**
- * A write to the `packages` table that only keeps the books — `lastPlayed`, `status` — and must
- * not take a request down with it. An origin filled to the last byte refuses these tiny writes
- * along with the large ones, and neither is needed to serve the package.
+ * A write that only keeps the books (`lastPlayed`, `status`) and must not take a request down: an
+ * origin filled to the last byte refuses these tiny writes along with the large ones.
  */
 async function bookkeeping(write: Promise<unknown>): Promise<void> {
   try {

@@ -1,11 +1,8 @@
 import type { PackDependency, PackLibrary } from './protocol.js'
 
 /**
- * The entries of a library pack's index that are well formed. The index of a copy the host names
- * is read from the network, and what the element and the worker do with it — register parts,
- * fetch them, withhold a package's own folders — must not be steered by a malformed one. A kept
- * entry's folder is its library's own name, its hash is hex, and its part's URL is http(s).
- * Imports nothing at run time, since the element carries it.
+ * The well-formed entries of a library pack's index. A copy's index comes off the network, so a
+ * malformed one must not steer the element or worker. No run-time imports: the element carries it.
  */
 export function packLibrariesIn(value: unknown): Array<PackLibrary & { url: string }> {
   if (!Array.isArray(value)) return []

@@ -15,9 +15,8 @@ const MIME: Record<string, string> = {
 export type Host = { origin: string; close: () => Promise<void> }
 
 /**
- * A static host for `root`, as GitHub Pages serves a written site: the type and nothing else,
- * CORS open so a package on it can be read from another origin. `extra` answers a path with a page
- * of the test's own.
+ * A static host for `root`, as GitHub Pages serves a written site: the type, CORS open so another
+ * origin can read it, and no cache. `extra` answers a path with a page of the test's own.
  */
 export async function host(root: string, hostname: string, extra?: (path: string) => string | null): Promise<Host> {
   const server: Server = createServer(async (request, response) => {

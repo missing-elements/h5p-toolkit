@@ -5,69 +5,22 @@ import { isInterfaceText } from './schema.mjs'
 import { allowedTags, blockTag, escapeText, markupText, plainText, stripTags, takesMarkup, unwrapText } from './text.mjs'
 
 /**
- * Content for a content type, made from its own `semantics.json` as H5P's editor saves a form:
- * what is written where it says something, and everywhere else every default the semantics give.
- * A field that holds another content type takes the library the written value names, filled in
- * the same way. So a source states only what the defaults cannot know, and a list in it is as long
- * as it is written.
- *
- * Three ways to run it. Authoring, the default, checks every written value against its field, as
- * the editor's form would: a field the semantics do not name, a select's unknown option, a list too
- * short or too long, a tag a markup field does not take, a required field with neither a written
- * value nor a default — each a problem named by its path. The content-type sweep runs it
- * `lenient`, taking what is written as it is and filling a required field from `fill`, so that
- * every content type in the pack plays (apps/demo/scripts/sweep-content-types.mjs). And `saved`, as
- * `checkContent` runs it (check.mjs), checks content in the form H5P stores it rather than the form
- * a source writes it: files and sub-content metadata as saved, held to what the platforms keep of
- * them; each sub-content's `subContentId` kept, since the core names a part's statements by it; a
- * markup field's text not wrapped again; and an optional group that holds nothing an author has to
- * write taken as one the editor saved closed. A field the semantics do not name is kept and noted,
- * not a problem, where the content names another minor of its library than the semantics are of:
- * the player upgrades content written for an older minor, which may be what moves it, and plays
- * content written for a newer one without it.
- *
- * Authoring, a problem says what to write, and what was written in another place than its field's
- * is checked in the same round (#172). A source written without its type's file gets a type's
- * levels wrong before anything else, and each such mistake hid all that was written inside it
- * until the next build: sub-content in the place of the group that holds it in one of its fields,
- * a field a level above the group that has it, and the parameters of the one library a field takes
- * without the sub-content around them. Each is reported once, where it was written, and then
- * generated where it belongs, its own problems named by where the source has them; `moved` says
- * what went where, for whoever checks the content afterwards. A list an item of which was refused
- * is named too, in `shortened`: it holds fewer items than were written, at other indices, so that
- * what a later check says of it is not of the list in the source.
- *
- * The editor is h5p-editor-php-library's form at commit 3bec2594356cf1be4e6401f7e7e557650720aa9b
- * (2026-10-08), and H5PEditor.ShowWhen 1.0.9 at 93678737300e084cb9390a691d3e1ad4e793fbaa for
- * `showWhen`. Each rule taken from them names the script it follows, here and in text.mjs,
- * translate.mjs, schema.mjs and media.mjs; design/author.md, *The editor is pinned, and not
- * watched*, says how to move them to a newer editor. Where this departs from that editor:
- *
- * - An optional list nobody wrote stays empty. The editor starts every new list with `defaultNum`,
- *   `min` or one item, optional or not, for an author to fill or remove.
- * - A `showWhen` rule on a field that is not a select, a library or a boolean is compared as text,
- *   where ShowWhen leaves the rule out; the pack has none. A value a source writes for a field
- *   that `nullWhenHidden` hides is kept, where the editor clears it.
- *
- * Pure but for the ids: the pack is handed in as a map of folders, each with its `library.json`
- * and `semantics.json`. Media are not read here: a written file is checked for its shape and
- * collected in `media`, for the caller to copy and describe.
+ * Content for a content type from its `semantics.json`, as H5P's editor saves a form: what is
+ * written, else defaults. Editor pinned (design/author.md); `lenient` and `saved` are other modes.
  */
 
 /** The nesting depth at which a library field stops choosing content of its own. */
 const MAX_DEPTH = 4
 
 /**
- * The shape H5P keeps a sub-content id in (H5PContentValidator's `validateLibrary`, at the commit
- * the runtime's content check names); one in any other is removed, and the part's statements then
- * name it as the content itself.
+ * The shape H5P keeps a sub-content id in (H5PContentValidator's `validateLibrary`); one in any
+ * other is removed, and the part's statements then name it as the content itself.
  */
 const SUB_CONTENT_ID = /^\{?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\}?$/
 
 /**
  * What the platforms keep of a saved file beside `path`, `mime` and `copyright`, by its field's
- * type (H5PContentValidator's `_validateFilelike` and its callers); a field's `extraAttributes` add
- * to it.
+ * type (H5PContentValidator's `_validateFilelike`); a field's `extraAttributes` add to it.
  * @type {Record<string, string[]>}
  */
 const FILE_KEYS = { file: [], image: ['width', 'height', 'originalImage'], video: ['width', 'height', 'codecs', 'quality', 'bitrate'], audio: [] }
@@ -88,6 +41,8 @@ const SUB_CONTENT = ['library', 'params', 'metadata', 'subContentId']
  * }} GeneratorOptions
  */
 
+// Follows h5p-editor-php-library at 3bec2594356cf1be4e6401f7e7e557650720aa9b (2026-10-08) and
+// ShowWhen 1.0.9 at 93678737300e084cb9390a691d3e1ad4e793fbaa (design/author.md, *is pinned*).
 export class ContentGenerator {
   /**
    * The library whose parameters are being made, while the content names another minor of it than
@@ -149,10 +104,7 @@ export class ContentGenerator {
 
   /**
    * Whether the editor shows a field, by its `showWhen` rules as H5PEditor.ShowWhen reads them:
-   * one of them holds, or every one where the rules say `and`, on the value written for the field
-   * a rule names, or its default. Each `../` in that name climbs a level, as h5peditor.js's
-   * `findField` climbs from a widget to its parent (see `#level`). A field the editor hides is not
-   * asked for.
+   * any one holds, or all if `and`, on the written value or default; `../` climbs a level.
    * @param {any} field
    */
   #visible(field) {
@@ -201,10 +153,8 @@ export class ContentGenerator {
   }
 
   /**
-   * What a callback generates a level down, for `showWhen`: the fields a rule can name there, and
-   * what was written for them. The editor makes a level of every widget that holds others: the
-   * form, each group, a group of one field among them, each list and each sub-content. A list's
-   * level names no field, so a rule in a list's item reaches what holds the list with `../../`.
+   * What a callback generates a level down, for `showWhen`: the fields a rule can name, and what
+   * was written for them. A list's level names none: a rule in its item reaches out with `../../`.
    * @template T
    * @param {any[]} fields
    * @param {Record<string, unknown>} given
@@ -271,17 +221,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Saved parameters written as a source writes them: the generation walked back (#236). Of each
-   * field, what this generator would write there with nothing written is left out. That is worked
-   * out at the field's own level, with the saved values beside it taken as written, so that a
-   * `showWhen` reads them as it reads a source; and with the libraries loaded in the content's
-   * language, so that an interface text equal to its translation drops out as any default does. A
-   * group, a list and sub-content are written as what differs within them; sub-content as its
-   * library's machine name, its parameters and its title, unless that is its content type's, which a
-   * build gives a part with none; a file as its path, and its copyright where it gives one. Every
-   * other value is written as it is stored: text, numbers, positions, a layout's ids. A part's id and
-   * the rest of its metadata are left out, since a build gives each part a new id and every part the
-   * source's licence and authors. The files are kept, as saved, in `stored`.
+   * Saved parameters as a source writes them, the generation walked back (#236): what a build would
+   * write by default is left out, a part's id and metadata too. Files are kept in `stored`.
    * @param {PackEntry} entry the content type's, as loaded for the content
    * @param {unknown} saved its parameters, as `checkContent` returned them
    * @returns {Record<string, any>}
@@ -325,10 +266,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Whether a saved list is one H5P's editor started for an author who never filled it: optional,
-   * and every item what an item is with nothing written, as the text track an Interactive Video's
-   * editor starts with, which has no file. `checkContent` asks nothing of such an item; a build
-   * asks it for what it lacks, so a source leaves the list out.
+   * Whether a saved list is one the editor started and nobody filled: optional, every item empty,
+   * as an Interactive Video's text track. A check passes it; a source leaves it out.
    * @param {any} field
    * @param {unknown} value
    * @param {string[]} stack
@@ -341,10 +280,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Whether saved sub-content is the content a field gives as its default, as the editor started it
-   * for an author who never opened it: Interactive Video's summary task, whose parameters, written
-   * as a source writes them, are nothing but empty items. `checkContent` asks nothing of it, a build
-   * leaves it as the editor does where nothing is written, and a source leaves it out.
+   * Whether saved sub-content is the field's default as the editor started it, never opened:
+   * Interactive Video's summary task. A check passes it; a source leaves it out.
    * @param {any} field
    * @param {unknown} value
    * @param {string[]} stack
@@ -408,10 +345,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Saved sub-content as a source writes it: its library by machine name, with its version only
-   * where the field takes more than one major of it; its parameters as what differs from their
-   * defaults; and its title, unless that is its content type's, which a build gives a part with
-   * none.
+   * Saved sub-content as a source writes it: its library by name, with a version only where the
+   * field takes several majors; what differs from the defaults; its title, unless it is its type's.
    * @param {any} field
    * @param {unknown} value
    * @param {string[]} stack
@@ -452,9 +387,8 @@ export class ContentGenerator {
   }
 
   /**
-   * The id of a part: saved, the one it has, unless H5P would not keep it or another part took it
-   * first; else a new one, as the editor gives new sub-content one (h5peditor-library.js,
-   * `loadLibrary`, and h5peditor-group.js, `initSubContent`).
+   * The id of a part: the saved one unless H5P would not keep it or another part took it, else
+   * a new one as the editor does (h5peditor-library.js, h5peditor-group.js).
    * @param {unknown} saved
    * @param {string} path the part's
    */
@@ -520,21 +454,8 @@ export class ContentGenerator {
   }
 
   /**
-   * What was written for a level, with what was written in another place than its field's put
-   * there, so that it is checked in the same round as what holds it. Each is reported once, where
-   * it was written, with what to write, and what is wrong inside it is named by where it was
-   * written too. Two mistakes, the ones a source written without its type's file makes first:
-   *
-   * - Sub-content in the place of the group that holds it: `{ "library", "params" }` where an item
-   *   of a Column's `content` is `{ "content": { "library", "params" } }`, and a slide's element
-   *   `{ "action": … }`. It was three problems an item, none of which said what to write. The
-   *   problem names the item and shows it whole, since "it goes in the field content" was read as
-   *   the list of that name, which the item is in already.
-   * - A field a level or more above the group that has it: `params.slides` for Course
-   *   Presentation's `params.presentation.slides`, `params.enableRetry` for a question's
-   *   `params.behaviour.enableRetry`. Only where one group within the level has a field of that
-   *   name that takes such a value, and nothing is written there. An interface text is no such
-   *   field: a question's text sent to a label of the same name would build, and read wrong.
+   * What was written for a level, with what was written in the wrong place put where it belongs, to
+   * be checked in one round (#172): sub-content in its group's place, and a field a level too high.
    * @param {any[]} fields
    * @param {Record<string, any>} given
    * @param {string} path
@@ -624,9 +545,8 @@ export class ContentGenerator {
     switch (field.type) {
       case 'group': {
         const children = field.fields ?? []
-        // A group of one field is saved as that field's value, as the editor (h5peditor-group.js)
-        // and the content check have it, unless the group is sub-content. It is still a level for
-        // `showWhen`, the parent of its one field.
+        // A group of one field is saved as that field's value (h5peditor-group.js), unless it is
+        // sub-content. It is still a level for `showWhen`.
         const flattened = children.length === 1 && !field.isSubContent
         if (written === undefined && field.default !== undefined) return structuredClone(field.default)
         if (flattened) {
@@ -639,14 +559,11 @@ export class ContentGenerator {
           this.report(path, `expected an object with the fields ${names(children)}`)
           return undefined
         }
-        // A group the editor draws with a widget of its own — a duration, a position on an image,
-        // a slide — takes numbers as that widget sets them, decimals included, and starts its
-        // lists empty.
+        // A group the editor draws with its own widget (a duration, a slide) takes numbers as that
+        // widget sets them, decimals included, and starts its lists empty.
         if (field.widget && field.widget !== 'showWhen' && field.widget !== 'none') this.#draw(children)
-        // Saved even when optional and untouched, as the editor saves every group in its form
-        // (h5peditor-group.js): content types read into one without looking (Personality Quiz's
-        // `image.file`). Saved, a group that holds nothing an author has to write is one of those,
-        // whoever wrote it, and nothing is asked of it either.
+        // Saved even if optional and untouched, as the editor does (h5peditor-group.js): types read
+        // into one unchecked (Personality Quiz's `image.file`). Saved, an empty one is not asked.
         const closed = optional && (written === undefined || (this.saved && !holds(field, written)))
         const kept = isObject(field.default) ? Object.keys(field.default) : []
         if (field.isSubContent) kept.push('subContentId')
@@ -685,9 +602,8 @@ export class ContentGenerator {
           ? optional ? 0 : field.min ?? 0
           : Math.min(Math.max(optional ? 0 : (field.min ?? 0), field.defaultNum ?? (optional ? 0 : 1)), field.max ?? Infinity)
         if (!this.lenient && count > 0) {
-          // A required list nobody wrote is what the editor offers a new author
-          // (h5peditor-list.js): as many items as it asks for, each with its defaults. Where an
-          // item needs something only an author can give, the list itself is what is missing.
+          // A required list nobody wrote is what the editor offers a new author (h5peditor-list):
+          // its items with defaults; where one needs an author's input, the list itself is missing.
           const before = this.problems.length
           const items = this.#items(item, count, stack, lenient, path)
           if (this.problems.length > before) {
@@ -703,9 +619,8 @@ export class ContentGenerator {
       case 'library':
         if (isObject(written) && typeof written.library === 'string') return this.writtenLibrary(written, stack, path, field, this.#flat.get(written))
         if (written !== undefined && !this.lenient) {
-          // Sub-content that names its library under another key than `library`, `contentType` or
-          // `type`, as a source written with no skill beside it does (#174): the one of them that
-          // names a library the field takes, at the major written where the field takes it.
+          // Sub-content naming its library under another key, as chats with no skill do (#174):
+          // the one that names a library the field takes, at the major written where it takes it.
           const named = !this.saved && isObject(written) ? namingKey(omit(written, SUB_CONTENT), optionNames(field)) : null
           const taken = named ? takenAs([field], named) : null
           const entry = this.saved || !isObject(written) ? null : taken ? this.find(taken.machineName, taken.major) : this.#only(field)
@@ -714,10 +629,8 @@ export class ContentGenerator {
             // Its parameters are checked where the library's fields are at hand.
             return entry?.semantics ? this.writtenLibrary({ ...omit(written, [taken.key]), library: taken.library }, stack, path, field) : undefined
           }
-          // The parameters of sub-content without the sub-content around them: of the one library
-          // the field takes, as a book's chapters written `{ "content": [ … ] }` (#172), or of the
-          // one named beside them, `{ "type": "H5P.MultiChoice", "question": … }` (#174). Said so,
-          // and checked as its parameters in the same round, named by where they are written.
+          // Parameters without their sub-content around them, of the field's one library (#172) or
+          // beside its name (#174): said so, and checked in the same round.
           let params = taken ? omit(written, [taken.key]) : written
           const own = entry ? Object.keys(params).filter((key) => (entry.semantics ?? []).some((/** @type {any} */ each) => each.name === key)) : []
           if (entry && own.length) {
@@ -735,10 +648,8 @@ export class ContentGenerator {
           this.report(path, `expected sub-content, ${subContentOf(field, taken ? taken.machineName : written)}`)
           return undefined
         }
-        // A default names the content the editor starts with (h5peditor.js puts it in the
-        // parameters, h5peditor-library.js loads it): Interactive Video's summary task. Left as the
-        // editor leaves it for an author who never opens it: what it would ask for is not asked
-        // here either, and stays unwritten.
+        // A default is the content the editor starts with (Interactive Video's summary task), left
+        // as it does for an author who never opens it: what it would ask for stays unwritten.
         if (written === undefined && isObject(field.default) && typeof field.default.library === 'string') {
           if (this.lenient) return this.writtenLibrary(field.default, stack, path, null)
           return this.#quietly(() => this.writtenLibrary(structuredClone(field.default), stack, path, null))
@@ -845,9 +756,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Sub-content: the first option the pack has and that is not already a parent here, made from
-   * its own semantics. None at all is left out, which the content check would do anyway. The
-   * sweep's fill, for a field it has to fill to make a content type play.
+   * Sub-content: the first option the pack has that is not already a parent here, made from its own
+   * semantics; none is left out. The sweep's fill, to make a content type play.
    * @param {any} field
    * @param {string[]} stack
    * @param {string} [path]
@@ -877,9 +787,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Written sub-content: the library it names, its parameters filled in from that library's
-   * semantics. Lenient, a library the pack does not have is kept as written, for the check to
-   * remove or the runtime to refuse; authoring, it is a problem, as is one the field does not take.
+   * Written sub-content: the library it names, its parameters filled from that library's semantics.
+   * One the pack lacks, or the field does not take, is a problem; lenient, it is kept as written.
    * @param {any} written
    * @param {string[]} stack
    * @param {string} path
@@ -925,9 +834,8 @@ export class ContentGenerator {
       const keys = ['library', 'params', 'subContentId', 'metadata', ...extraAttributes(field)]
       for (const key of Object.keys(written)) if (!keys.includes(key)) this.report(`${path}.${key}`, `is not part of sub-content; H5P keeps ${keys.join(', ')}`)
       if (written.metadata !== undefined) checkMetadata(written.metadata, `${path}.metadata`, (at, message) => this.report(at, message))
-      // Content a field gives as its default, Interactive Video's summary task, is as the editor
-      // started it until an author opens it, which saved content does not tell: what it holds is
-      // checked, and nothing asked of it.
+      // A field's default content (Interactive Video's summary task) may be as the editor started
+      // it, which saved content does not tell: what it holds is checked, nothing is asked of it.
       const started = isObject(field?.default) && typeof field.default.library === 'string' && field.default.library.trim().split(/\s+/)[0] === machineName
       const minor = match[3] === undefined ? undefined : Number(match[3])
       return this.subContent(entry, written.params, written.metadata, stack, path, { id: written.subContentId, minor, closed: started })
@@ -953,9 +861,8 @@ export class ContentGenerator {
    * @param {any} metadata its written metadata
    * @param {string[]} stack
    * @param {string} path
-   * @param {{ id?: unknown, minor?: number, closed?: boolean, at?: string }} [saved] saved
-   *   sub-content's id, the minor of its library it names, and whether nothing is asked of it;
-   *   `at`, where its parameters are written, where that is not in its `params`
+   * @param {{ id?: unknown, minor?: number, closed?: boolean, at?: string }} [saved] the saved id,
+   *   the library's minor, `closed` (nothing asked of it) and `at`, where the parameters are
    */
   subContent(entry, written, metadata, stack, path, { id, minor, closed = false, at = `${path}.params` } = {}) {
     const params = this.#of(entry, minor, () => this.fields(entry.semantics ?? [], written, [...stack, entry.library.machineName], closed, at))
@@ -1003,12 +910,8 @@ export class ContentGenerator {
   }
 
   /**
-   * A number as h5peditor-number.js checks it: within its range; with at most `decimals`
-   * decimals, or none where the field has no `decimals` and no widget of its own draws it; and a
-   * multiple of `step`, counted from 0 as its `value % step` counts. Where it departs from the
-   * editor: a multiple of a fractional step is taken within a rounding error, where the editor's
-   * `%` refuses it (`0.3 % 0.1` is `0.0999…`); no library in the pack has a fractional step, and
-   * the content check checks none (packages/runtime/src/content-check.ts).
+   * A number as h5peditor-number.js checks it: in range, to `decimals` decimals (none if unset and
+   * no own widget), a multiple of `step` within rounding error, which the editor's `%` refuses.
    * @param {any} field
    * @param {unknown} written
    * @param {string} path
@@ -1027,9 +930,8 @@ export class ContentGenerator {
     const step = Number(field.step)
     if (field.step !== undefined && step > 0) {
       const steps = written / step
-      // The value, the step and their quotient are each rounded once, so the quotient is off by
-      // at most about 1.5 Number.EPSILON of itself; the bound is four. A share as loose as 1e-9
-      // let 50000000.05 pass in steps of 0.1, half a step off.
+      // Value, step and quotient each round once, so the quotient is off by about 1.5 EPSILON;
+      // the bound is four. A loose 1e-9 let 50000000.05 pass in steps of 0.1, half a step off.
       if (Math.abs(steps - Math.round(steps)) > 4 * Number.EPSILON * Math.max(1, Math.abs(steps))) this.report(path, `takes steps of ${field.step}`)
     }
     return written
@@ -1054,11 +956,8 @@ export class ContentGenerator {
   }
 
   /**
-   * A written file: `{ "path": … }`, a file beside the source or a web address, with `copyright`
-   * when known. A video or an audio field takes a list of them, one per format, or one alone.
-   * Checked for its shape here; the caller copies it and fills in its type and size. Saved, a file
-   * is as H5P stores it, its path in the package or a web address, and holds what the platforms
-   * keep of one.
+   * A written file: `{ "path": … }`, beside the source or a web address, with `copyright`; a video
+   * or audio field takes a list, one per format. Saved, it is as H5P stores it.
    * @param {any} field
    * @param {unknown} written
    * @param {string} path
@@ -1137,9 +1036,8 @@ function optionNames(field) {
 }
 
 /**
- * The library a name under another key than `library` stands for (#174), of those the fields
- * take: at the major written, where one of them takes it, else at the first they take; `library`,
- * the text to write for it, has the version only where it was written and is taken.
+ * The library a name under another key than `library` stands for (#174), of those the fields take:
+ * at the major written where one takes it, else the first. `library` has a version only if written.
  * @param {any[]} fields library fields
  * @param {{ key: string, machineName: string, major?: number, library: string }} named
  * @returns {{ key: string, machineName: string, major: number | undefined, library: string }}
@@ -1152,10 +1050,8 @@ function takenAs(fields, named) {
 }
 
 /**
- * Sub-content as a field takes it, for a problem to show: with the library named where the field
- * takes one alone, or where what was written names one it takes; else with every library it
- * takes, since the first of several read as the one to write, and a scenario's texts came back as
- * branching questions.
+ * Sub-content as a field takes it, for a problem to show: with the library named if there is one or
+ * the written name is taken, else all it takes: the first of several was read as the one to write.
  * @param {any} field
  * @param {unknown} [written]
  */
@@ -1168,10 +1064,8 @@ function subContentOf(field, written) {
 }
 
 /**
- * The field of a group that sub-content written in the group's place belongs in: the one library
- * field that takes its library, or the group's only library field. None where `library` is a field
- * of the group that holds no sub-content, where that field is written too, or where more than one
- * could be meant.
+ * The library field that sub-content written in a group's place belongs in: the one taking its
+ * library, or the only one; none if the group has its own `library` field, or it is unclear.
  * @param {any[]} fields
  * @param {Record<string, any>} given
  */
@@ -1186,11 +1080,8 @@ function holderOf(fields, given) {
 }
 
 /**
- * The ways from a level's fields to a field of this name in a group within it, one an author
- * writes and that takes a value of the kind written: for each, the groups' names, outermost
- * first. So a list written as `slides` is Course Presentation's `presentation.slides` and not its
- * interface text `l10n.slides`. A group of one field is no level of a source, being written as
- * that field's value.
+ * The group names, outermost first, from a level to a field of this name taking the kind written:
+ * `slides` is `presentation.slides`, not `l10n.slides`. A one-field group is no level of a source.
  * @param {any[]} fields
  * @param {string} name
  * @param {unknown} value
@@ -1218,9 +1109,8 @@ function homesOf(fields, name, value, chain = [], found = []) {
 function takes(field, value) {
   if (field.type === 'group' && (field.fields ?? []).length === 1 && !field.isSubContent) return takes(field.fields[0], value)
   if (Array.isArray(value)) return ['list', 'video', 'audio'].includes(field.type) || (field.type === 'select' && Boolean(field.multiple))
-  // A group is the home of an object that writes a field of it. Its name alone is a coincidence:
-  // Game Map's `behaviour.map`, its labels and fog, is not where a `map` written for the picture goes.
-  // Nor is an interface text such a field: a source never writes one, so `{ l10n }` alone proves nothing.
+  // A group is the home of an object that writes a field of it, not one sharing its name alone:
+  // Game Map's `behaviour.map` is no home for a picture's `map`. Nor is an interface text a field.
   if (isObject(value) && field.type === 'group') return Object.keys(value).some((key) => (field.fields ?? []).some((/** @type {any} */ each) => each.name === key && !isInterfaceText(each)))
   if (isObject(value)) return ['library', 'image', 'file', 'video', 'audio'].includes(field.type)
   if (typeof value === 'string') return field.type === 'text' || (field.type === 'select' && !field.multiple)
@@ -1228,9 +1118,8 @@ function takes(field, value) {
 }
 
 /**
- * What is written for a level, with a value put in a group within it, each group within the one
- * named before; or null where something is written there already, or one of the groups is written
- * as something else than an object.
+ * What is written for a level with a value put in a group within it; null if something is written
+ * there already, or a group on the way is written as something else than an object.
  * @param {Record<string, any>} given
  * @param {string[]} chain
  * @param {string} key
@@ -1251,11 +1140,8 @@ function extraAttributes(field) {
 }
 
 /**
- * Whether a saved value holds something an author has to write: a value for a required field
- * without a default, in it or in a group or list in it. What the editor saves for an author who
- * never touched it holds nothing of the kind: an optional group left closed, with its defaults
- * alone, and an empty text or list among them, as Interactive Video's editor saves an adaptivity
- * nobody set; the item it starts an optional list with, as its text tracks.
+ * Whether a saved value holds something an author must write: a required field's value, no default.
+ * What the editor saves untouched holds none: an optional group left closed, an empty text or list.
  * @param {any} field
  * @param {unknown} value
  * @returns {boolean}
@@ -1280,9 +1166,8 @@ function vacant(value) {
 }
 
 /**
- * Whether two values are the same content: equal, but for what a build gives each part anew, its
- * id and its metadata. A key whose value is `undefined` is no key, and nor is one whose value is
- * empty text, which H5P's editor saves for a field nobody filled.
+ * Whether two values are the same content: equal but for the id and metadata a build gives anew,
+ * where an `undefined` or empty-text key counts as none, as the editor saves a field nobody filled.
  * @param {unknown} a
  * @param {unknown} b
  * @returns {boolean}

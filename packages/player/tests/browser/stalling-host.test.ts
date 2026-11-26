@@ -5,12 +5,8 @@ import type { PlayerErrorDetail } from '../../src/h5p-offline-player'
 import { FIXTURES, clearPackageCaches, frameFetch, play, virtualUrl, waitForEvent } from './utils'
 
 /**
- * An extraction that loses its link in the middle. What must hold: the virtual server keeps
- * serving the response that follows it — the job is alive, only the host is not answering — and
- * the Jobs worker picks the transfer up where it stopped once the host is back. Before this, a
- * link silent for thirty seconds ended the media element's response with an error, and a media
- * element never asks again after one of those: the video sat with its play icon on until the
- * page was reloaded, by which time the extraction had long finished.
+ * An extraction that loses its link mid-way: the virtual server keeps serving the response, and
+ * the Jobs worker resumes. A 30 s silence once errored the media element for good.
  */
 
 const MEDIA = 'content/media/big.bin'
@@ -23,11 +19,8 @@ const outage = (ms: number, mode: 'silent' | 'reset') =>
   fetch(`/stalling/__outage?ms=${ms}&mode=${mode}&host=${HOST}`, { cache: 'no-store' })
 
 /**
- * A request for the entry's last bytes: past the watermark, so its body follows the extraction.
- * Returned pending: Chromium hands the page the headers at once, Firefox only with the first
- * bytes of the body, which for the tail is once the extraction has reached it — so the outage has
- * to start while the response is still pending, or in Firefox it would start after the transfer
- * was over.
+ * The entry's last bytes, past the watermark, so the body follows the extraction. Returned
+ * pending: Firefox sends headers with the first body bytes, so the outage must start before.
  */
 async function tailOf(player: Awaited<ReturnType<typeof play>>, errors: string[]): Promise<() => Promise<ArrayBuffer>> {
   player.addEventListener('error', ((event: CustomEvent<PlayerErrorDetail>) => {

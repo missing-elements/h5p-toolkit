@@ -1,10 +1,7 @@
 name: CI
 
-# Every pull request and push to main tests, in Chromium, the packages it changes and those that
-# depend on them, the heaviest each in a job of its own so they run side by side. The weekly run,
-# and a run by hand before a release, test everything: every package, the player's slow browser
-# files, Firefox and WebKit, and the VS Code extension in a real editor. A change to the docs alone
-# starts no run.
+# A pull request or a push tests, in Chromium, the packages it changes and those that depend on
+# them, a lane per job. The weekly run and a run by hand test everything, in Firefox and WebKit too.
 
 on:
   push:
@@ -37,12 +34,8 @@ env:
   H5P_TEST_SKIP_SLOW: ${{ (github.event_name != 'schedule' && github.event_name != 'workflow_dispatch') && '1' || '' }}
 
 jobs:
-  # What the run tests, as lanes: the player, the verifier, the skills and the embed package, most
-  # of the time, each in a job of its own, and the rest in one more. A pull request or a push picks
-  # the packages it changes and those that depend on them, as pnpm's `...[<commit>]` reads the
-  # change. A file outside packages/, apps/ and skills/ that is not docs (the lockfile, a workflow,
-  # the root's package.json) picks every package: what it reaches cannot be read off its path. The
-  # weekly run and a run by hand pick every package.
+  # The heavy packages get a lane each, the rest share one. A change picks its packages and their
+  # dependents; a file outside packages/, apps/, skills/ and docs picks all: its reach is unknown.
   scope:
     runs-on: ubuntu-latest
     outputs:
@@ -115,6 +108,8 @@ jobs:
       # build`, it found the player's dist/ there, and passed while the deploy of #123 failed.
       - if: needs.scope.outputs.demo == 'true'
         run: pnpm build:demo
+      # No comment past two lines: design/build.md.
+      - run: pnpm comments
       # Every package that has a type check, whatever the change: each one's check writes the
       # types the packages after it read.
       - run: pnpm typecheck
@@ -138,20 +133,15 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Without --with-deps: the runner image ships Chrome and Firefox, so the libraries they link
-      # against are there, and what apt would add (fonts, Xvfb, FFmpeg's codecs) a headless suite that
-      # decodes no video does not use. Some runners reach Ubuntu's mirror at 40 kB/s, where that took
-      # up to 20 minutes (#73).
+      # No --with-deps: the runner image ships Chrome, so Chromium's libraries are there, and a
+      # headless suite uses none of apt's extras. Some mirrors ran at 40 kB/s, 20 minutes (#73).
       - run: pnpm --filter @missing-elements/h5p-offline-player exec playwright install chromium
       - run: pnpm $SELECT --workspace-concurrency=1 test
         env:
           SELECT: ${{ matrix.lane.select }}
 
-  # The player's browser suite and the installable app's tests in the other two engines, weekly and
-  # by hand. One engine per job: the dev server's switches are shared, and two engines would flip
-  # them under each other. Firefox stops a worker that has no event for thirty seconds and checks
-  # the scripts the worker makes up by the worker's URL; WebKit drops the cache writes of a worker
-  # terminated just after them — each found here first.
+  # The player's browser suite and the app's tests in Firefox and WebKit, weekly and by hand. One
+  # engine per job: they share the dev server's switches and would flip them under each other.
   engines:
     name: browser suite (${{ matrix.browser }})
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -175,10 +165,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # WebKit's packages are 117 MB from Ubuntu's mirror, which some runners reach at 40 kB/s (#77).
-      # apt keeps what it fetches in its archive folder, cached here, so a run fetches only what
-      # Ubuntu has updated since. The folder is made writable for the restore, which runs as the
-      # runner's user; a new key each week keeps the cache from going stale.
+      # WebKit's packages are 117 MB from a mirror some runners reach at 40 kB/s (#77), so apt's
+      # archive is cached by week; it is made writable as the restore runs as the runner's user.
       - if: matrix.deps
         id: apt
         run: |
@@ -208,9 +196,8 @@ jobs:
         run: sudo apt-get autoclean
       - run: pnpm test:engine
 
-  # The VS Code extension in a real VS Code, on a display Xvfb gives it, and the .vsix the owner
-  # publishes, built from what the tests ran against: weekly, by hand, and when packages/vscode
-  # changes. Its unit tests run with the other packages'.
+  # The extension in a real VS Code under Xvfb, and the .vsix the owner publishes, built from what
+  # the tests ran against. Its unit tests run with the other packages'.
   vscode:
     name: VS Code extension
     needs: scope

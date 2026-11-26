@@ -1,15 +1,6 @@
 /**
- * The installable app's page. The element is the same one every other page uses; what is
- * different is whose worker it finds. `sw.js` in this directory mounts the player's handlers, so
- * once it controls this page the element finds the routes it serves under `/app/h5p/` — the
- * `_ping` check in `findMountedRoutes` — and registers nothing of its own. That is what makes it
- * work offline, and it is why nothing is played until the page is controlled: an element that
- * looked before then would register its own worker at `/h5p/`, which plays online and not off.
- *
- * It is laid out as an app rather than a page: a bar, and under it one of two screens — home, to
- * open a file, with the files opened before listed under it, and the player, from opening one
- * until it is closed. Opening is a step in the window's history, so Back, in the bar, the
- * browser's or Android's, closes the file rather than leaving the app.
+ * The installable app's page. `sw.js` mounts the player's handlers, so nothing plays until the page
+ * is controlled, or the element would register its own worker at `/h5p/`, not offline.
  */
 
 import { foreignHost, messageIn, packageUrl, trustPrompt } from '../demo/page-common.js'
@@ -79,9 +70,8 @@ paintTitleBar()
 let screen = 'home'
 
 /**
- * Shows one of the screens, with the bar's left end to match: the app's name at home, the file's
- * name and a way back in the player. Focus left on the screen that goes moves to the one that
- * comes, so a keyboard is not stranded on a hidden button.
+ * Shows one screen, with the bar's left end to match (the app's name, or the file's name and a way
+ * back). Focus on the screen that goes moves to the one that comes, so a keyboard is not stranded.
  */
 function setScreen(next) {
   if (next === screen) return
@@ -113,19 +103,15 @@ const HOME_WAIT_MS = 1000
 const CLAIM_WAIT_MS = 3000
 
 /**
- * How many steps the current one lies above home while a file is open: 1 for the file's own, and
- * one more for each step its content has added since. Content can add steps: the frame shares
- * this page's origin, and Interactive Book writes its chapter into this page's address
- * (`top.location.hash`) at every move, which is a step in the window's history with no state of
- * its own. Each step carries its depth, so Back in the bar goes home past all of them at once.
+ * Steps above home while a file is open: 1 for the file's own, plus one per step its content adds
+ * (Book chapters, `top.location.hash`). Each carries it, so Back goes home at once.
  */
 let depth = 0
 const playerStep = (steps) => ({ screen: 'player', depth: steps })
 
 /**
- * Opening a file is a step forward in the window's history — for a link, with its `?src=`, so a
- * reload opens it again. Another file opened while one is open replaces that step instead of
- * adding one, so Back in the bar still leads home in one.
+ * Opening a file is a step forward in the window's history, with `?src=` for a link so a reload
+ * reopens it. Another file opened meanwhile replaces that step, so Back still leads home in one.
  */
 function enterPlayer(url) {
   if (history.state?.screen === 'player') {
@@ -160,9 +146,8 @@ backButton.addEventListener('click', () => {
     closePlayer()
     return
   }
-  // Home's popstate closes the file. Unless home is no longer in the history, which keeps fifty
-  // steps in Chrome, so that a long read can push it out: then nothing comes back, and the file
-  // is closed here, with this step made home.
+  // Home's popstate closes the file, unless home is out of the history (Chrome keeps fifty steps):
+  // then nothing comes back, so the file is closed here and this step made home.
   history.go(-steps)
   clearTimeout(homeward)
   homeward = setTimeout(() => {
@@ -176,9 +161,8 @@ addEventListener('popstate', (event) => {
   clearTimeout(homeward)
   homeward = null
   const { state } = event
-  // A step the content added, which comes with no state and a new fragment: it belongs to the open
-  // file, one past the step before it. Marked so, Back walks the content's steps before it closes
-  // the file — an Interactive Book turns back its chapters — and a reload knows it as the file's.
+  // A step the content added (no state, a new fragment) belongs to the open file. Marked so, Back
+  // walks the content's steps (a Book's chapters) first, and a reload knows it.
   if (state === null && location.hash) {
     if (screen === 'player') history.replaceState(playerStep(++depth), '')
     else history.replaceState(HOME, '')
@@ -240,10 +224,8 @@ addEventListener('online', describeOffline)
 addEventListener('offline', describeOffline)
 
 /**
- * Resolves once this page is controlled by the app's worker, or with `false` when it will not
- * be: no Service Worker support, a failed registration, or a hard reload — which bypasses the
- * worker for that one load even though it is installed. The element then registers its own,
- * which plays while online.
+ * Resolves once the app's worker controls this page, or `false` when it will not (no support,
+ * failed registration, a hard reload). The element then registers its own.
  */
 async function controlled() {
   if (!('serviceWorker' in navigator)) return false
@@ -282,6 +264,7 @@ const workerChecked = controlled().then(
     if (isControlled) {
       setOffline('ready', 'Works offline')
       describeOffline()
+      // Only once controlled: a first visit's claim fires `controllerchange` too.
       offerNewVersion()
     } else setOffline('online-only', 'Online only — reload to enable offline use')
     return isControlled
@@ -294,12 +277,8 @@ const workerChecked = controlled().then(
 )
 
 /**
- * A new app worker took over this page. Loading the page checked for one, and `mountH5P` skips
- * waiting, so a deploy reaches an open page about a second after it loads: the new worker deletes
- * the old precache as it activates, while this page still runs the old shell, whose hashed files
- * are then gone for good offline. Offered rather than done, since a reload in the middle of a
- * lesson is the learner's call; with `resume` the content comes back where it was. Listened for
- * only once the page is controlled, because the first visit's claim fires the same event.
+ * A new worker took over and deleted the old precache, so this page's hashed files are gone
+ * offline. Offered, not done: a reload mid-lesson is the learner's call.
  */
 function offerNewVersion() {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -311,12 +290,8 @@ function offerNewVersion() {
 /* ---------------------------------------------------------------- opening a file */
 
 /**
- * Where a package missing its own libraries gets them, and newer versions of those it carries:
- * the pack the app carries — every content type's runtime libraries from the H5P hub,
- * `@missing-elements/h5p-libraries`, one archive per library, emitted by Vite under `assets/` and
- * precached with the app — so a stripped export plays offline. The player copies into its own
- * cache only the archives a package uses. Nothing else is asked: a newer pack arrives with the
- * next version of the app.
+ * Where a package missing its libraries gets them, and newer versions of those it carries: the
+ * app's own pack, precached, so a stripped export plays offline.
  */
 const PACK = 'pack'
 player.pack = pack
@@ -326,15 +301,13 @@ let reopen = null
 /** The URL last opened, so a launch that repeats it does not load it twice. */
 let lastUrl = null
 /**
- * The open in progress, put on the list of recent files once its content stands, so that what
- * the list offers is what played: `{ kind: 'file', file, handle, replaces }` or `{ kind: 'link',
- * url }`. `handle` may still be a promise, from a drop.
+ * The open in progress, listed in recent files once its content stands, so the list is what played:
+ * `{ kind: 'file', file, handle, replaces }` or `{ kind: 'link', url }`; `handle` may be a promise.
  */
 let current = null
 /**
- * Which open is the latest. The first visit's worker takes a moment to install, and an open that
- * was waiting for it gives way to a later open, or to a close: without this, a file closed with
- * Back during that moment opened into the home screen once the worker was ready.
+ * Which open is the latest: an open waiting for the first visit's worker gives way to a later open
+ * or a close, so a file closed with Back meanwhile does not open into home.
  */
 let opens = 0
 
@@ -352,10 +325,8 @@ function opening(name, again, url) {
 }
 
 /**
- * A file, from the picker, a drop, the file manager or the list of recent files. `handle` is
- * how to find it again, where the browser gives one; `title` the package's, when the list knows
- * it; `replaces` the list's entry it was opened from, which a file changed on disk since takes
- * the place of.
+ * A file from the picker, a drop, the file manager or the recent list. `handle` finds it again,
+ * `title` is the package's, `replaces` the list entry it came from, which a changed file replaces.
  */
 async function open(file, { libraries = PACK, handle = null, title = null, replaces = null } = {}) {
   const token = ++opens
@@ -382,10 +353,8 @@ function linkName(url) {
 }
 
 /**
- * A package at a URL: `/app/?src=…`, the link a teacher sends. With the app installed, Chrome
- * opens such a link in the app's window — its "supported links" — and when that window is
- * already open, hands it the URL through `launchQueue` instead of loading the page again. One on
- * another site plays untrusted unless the learner said otherwise: see `foreignHost`.
+ * A package at a URL: `/app/?src=…`, the link a teacher sends. One on another site plays untrusted
+ * unless the learner said otherwise (`foreignHost`).
  */
 async function openUrl(src, { libraries = PACK, title = null, trusted = !foreignHost(src) } = {}) {
   const url = packageUrl(src)
@@ -432,9 +401,8 @@ function isOpen(src) {
 }
 
 /**
- * The picker, from whichever button asked: they are buttons, so a keyboard reaches them. Chrome
- * and Edge on the desktop have a picker that hands back a handle as well as the file, which the
- * list of recent files keeps to open the file again from disk; elsewhere the page's own input.
+ * The picker, from whichever button asked. Chrome and Edge on the desktop also return a handle,
+ * kept in the recent list to reopen the file from disk; elsewhere the page's input.
  */
 async function choose() {
   if (!('showOpenFilePicker' in window)) {
@@ -467,22 +435,15 @@ fileInput.addEventListener('change', () => {
   fileInput.value = ''
 })
 
-// The page's own address first: `/app/?src=…` opened in a tab, or the link that launched the
-// app. Home goes first in the history and the package a step ahead of it, so Back from the
-// package stays in the app; a reload at that step, or at one its content added, keeps it, since
-// its state survives the reload, and the package opens into it again. Any other start is home,
-// marked as such: a launch with a file opens at the manifest's action, `/app/`, and a picked file
-// does not survive a reload.
+// The page's own address first (`/app/?src=…`): home goes first in the history, the package a step
+// ahead, so Back stays in the app and a reload keeps that step. Any other start is home.
 const initial = srcOf(location.href)
 if (initial && history.state?.screen === 'player') depth = history.state.depth ?? 1
 else history.replaceState(HOME, '', location.pathname)
 if (initial) void openUrl(initial)
 
-// How an installed app is handed what it was launched with. A `.h5p` opened from the file
-// manager arrives as a file handle (the manifest's `file_handlers`); a link to `/app/?src=…`
-// clicked while the window is open arrives as the target URL (`launch_handler` keeps the one
-// window). The launch that opened this page comes through here too, with this page's address
-// as its target, which `openUrl` already has.
+// An installed app is launched with a file handle for a `.h5p` from the file manager
+// (`file_handlers`), or a target URL for a link clicked in the open window (`launch_handler`).
 if ('launchQueue' in window) {
   window.launchQueue.setConsumer(async (params) => {
     const [handle] = params.files ?? []
@@ -522,9 +483,8 @@ document.addEventListener('drop', (event) => {
     show('That is not a .h5p file.', 'error')
     return
   }
-  // Chrome and Edge hand over a handle for a dropped file too. It has to be asked for while the
-  // drop is being handled, and it arrives after; the list of recent files waits for it. One the
-  // browser cannot give is no handle, and the file is listed without one, as elsewhere.
+  // Chrome and Edge hand over a handle for a dropped file too: asked for during the drop, it
+  // arrives after, and the recent list waits for it. One the browser cannot give is no handle.
   const handle = item.getAsFileSystemHandle?.().catch(() => null) ?? null
   void open(item.getAsFile(), { handle })
 })
@@ -532,12 +492,8 @@ document.addEventListener('drop', (event) => {
 /* ---------------------------------------------------------------- recent files */
 
 /**
- * Puts what just came up on the list, or moves it to the top: see `recent.js`. A file's handle is
- * kept only in the installed window. Storing a handle in IndexedDB took the whole browser down in
- * a private profile — a context made by the DevTools protocol, the kind Playwright opens, in
- * Chromium 153, with a handle to a file dropped from disk and to one in the origin's own file
- * system alike (2026-10-12) — and an installed app never runs in a private profile, where a tab
- * may be incognito or a guest's. A tab keeps a copy instead, as Safari and Firefox do.
+ * Lists what just came up (`recent.js`). A handle is kept only in the installed window: storing one
+ * in a private profile took Chromium 153 down (2026-10-12). A tab keeps a copy.
  */
 async function rememberCurrent() {
   const opened = current
@@ -627,8 +583,7 @@ async function showRecent() {
 
 /**
  * Reads a file from a handle kept for it: `'refused'` when the learner did not allow it, `null`
- * when the file is no longer where the handle points. Chrome asks once a session, and its prompt
- * offers to allow it on every visit.
+ * when it is no longer where the handle points. Chrome asks once a session.
  */
 async function fileFrom(handle) {
   const read = { mode: 'read' }
@@ -665,10 +620,8 @@ async function openRecent(entry) {
     void open(copy, options)
     return
   }
-  // Moved or deleted on disk, its copy cleared by the browser or never more than a reference to
-  // the file, or no room for one: the learner still has the file, and the picker opens for it.
-  // The entry goes, since it cannot open anything; choosing the file puts it back, with a copy
-  // made afresh, where one kept already would not have been written again.
+  // Moved or deleted, its copy cleared or never made: the learner still has the file, so the picker
+  // opens. The entry goes, as it opens nothing; choosing the file re-adds it with a fresh copy.
   show(`${entry.name} could not be opened from the list. Choose it again.`, 'hint')
   void choose()
   await forget(entry.id)
@@ -737,8 +690,8 @@ player.addEventListener('error', (event) => {
     return
   }
 
-  // Missing even with the pack attached: the package needs a newer minor than the pack has, or a
-  // content type added since. Only a newer version of the app, with a newer pack, can supply it.
+  // Missing even with the pack attached and the older-minor fallback tried: the pack has no version
+  // of the library in its major. Only a newer version of the app, with a newer pack, can supply it.
   if (missingLibraries) {
     const from = player.getAttribute('libraries')
     show(
@@ -808,10 +761,8 @@ installButton.addEventListener('click', install)
 $('#menu-install').addEventListener('click', fromMenu(install))
 
 /**
- * Asks for storage the browser will not evict under pressure: the shell, whatever the chunk store
- * has extracted, and the copies the list of recent files keeps. Chrome grants it to an installed
- * app without a prompt. Asked once
- * installed, not on every visit to the page, because a site in a tab has not earned it.
+ * Asks for storage the browser will not evict (shell, chunk store, the recent list's copies).
+ * Chrome grants it to an installed app unprompted; a tab has not earned it.
  */
 // Refused, or not asked for by this browser, reads as not persisted; there is nothing to do about it here.
 const persist = () => navigator.storage?.persist?.().catch(() => false)

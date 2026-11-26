@@ -2,12 +2,8 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 
 /**
- * Renders `icon.png`, the extension's icon on the Marketplace, on Open VSX and in VS Code, from the
- * project's logo, the demo site's `demo/favicon.svg`: one file for the site, the app and the
- * extension, so that none of them drifts. 256 px square on a transparent ground: the Marketplace
- * takes 128 at the least and 256 to draw it sharp on a high-density screen. Rasterized in Chromium,
- * as the demo's icons are, since the repository has no image tooling. The output is committed; run
- * this when the logo changes.
+ * Renders `icon.png` from the demo's `demo/favicon.svg`, so no logo drifts: 256 px square, as the
+ * Marketplace takes 128 at least. Rasterized in Chromium, as the repo has no image tooling.
  */
 
 const SIZE = 256

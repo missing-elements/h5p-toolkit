@@ -11,9 +11,8 @@ import { devServiceWorkerPlugin, jobsWorkerPlugin, noRangeFixturesPlugin } from 
  */
 
 /**
- * The browser files that wait out real time: a host silent past the stall bound, a worker
- * update's deadlines, 20 MB archives. `H5P_TEST_SKIP_SLOW` leaves them out, as CI does but for
- * its weekly run and a run by hand.
+ * The browser files that wait out real time: a stalled host, a worker update's deadlines, 20 MB
+ * archives. `H5P_TEST_SKIP_SLOW` leaves them out, as CI does but for its weekly run.
  */
 const SLOW = ['tests/browser/stalling-host.test.ts', 'tests/browser/worker-update.test.ts', 'tests/browser/large-media.test.ts']
 
@@ -55,9 +54,8 @@ export default defineConfig({
         }
       },
       {
-        // A browser of its own, one file at a time: these tests emulate a browser condition
-        // through CDP — a storage cap, a slow link — and the emulation is per browser profile,
-        // so it would otherwise land on whatever other test file happened to be running.
+        // One file at a time in its own browser: a CDP emulation (storage cap, slow link) is per
+        // browser profile, so it would land on whatever other file is running.
         extends: true,
         test: {
           name: 'browser-emulated',
@@ -73,13 +71,8 @@ export default defineConfig({
 type Engine = 'chromium' | 'firefox' | 'webkit'
 
 /**
- * The engine the suite runs in: Chromium, or the one `H5P_TEST_BROWSER` names, which CI sets to
- * each of the three in turn. The paths this exercises, Service Worker registration on a nested
- * scope and Range responses synthesized by a worker, are where engines differ most. One engine
- * per run, not a list: the dev server's switches — a host's outage, the worker version it serves —
- * are shared, and two engines running one file at once flip them under each other. Firefox and
- * WebKit need `playwright install firefox webkit` first. The emulated project stays on Chromium:
- * it drives the browser through CDP, which only Chromium speaks.
+ * The engine the suite runs in: Chromium or `H5P_TEST_BROWSER`'s, one per run as the dev server's
+ * switches are shared and two engines would flip them. The emulated project stays on Chromium: CDP.
  */
 function engine(): Engine {
   const name = process.env.H5P_TEST_BROWSER?.trim() || 'chromium'

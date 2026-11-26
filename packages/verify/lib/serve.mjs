@@ -7,10 +7,8 @@ import { dirname, extname, join, normalize, resolve } from 'node:path'
 /** @import { IncomingMessage, ServerResponse } from 'node:http' */
 
 /**
- * What the check and the preview share: the package on disk, the library sources, and the server
- * on localhost for the player, the runtime and the pack. None of it loads Playwright, which only
- * the check needs, so that the preview starts without it and a host that bundles the preview
- * server — the VS Code extension, packages/vscode — carries none of it.
+ * What the check and the preview share: the package, the library sources, and the localhost server.
+ * It loads no Playwright, so the preview starts without it and the VS Code extension bundles none.
  */
 
 const require = createRequire(import.meta.url)
@@ -59,10 +57,8 @@ export async function packageFile(file) {
 const PACK_ROUTE = '/__pack/'
 
 /**
- * `libraries` as the element reads it, with each bundle on disk given a route on the verifier's
- * own server, and a folder on disk — a copy of the pack's `parts/` — served as the pack, which
- * `packBase` then names: `pack` and URLs pass as they are. A path that names nothing is an error
- * before anything starts.
+ * `libraries` as the element reads it: a bundle on disk gets a route, a folder (a copy of the
+ * pack's `parts/`) is served as the pack `packBase` names; `pack` and URLs pass as they are.
  * @internal
  * @param {string | undefined} value
  */
@@ -90,9 +86,8 @@ export function librarySources(value) {
 }
 
 /**
- * The player's `dist/` and the runtime's, from the installed packages; the workspace needs both
- * built first. The runtime is a package of its own (`@missing-elements/h5p-runtime`, GPL) and is
- * served at `/frame-assets/`, which is where the element looks beside its own script.
+ * The player's `dist/` and the runtime's, from the installed packages (the workspace needs both
+ * built). The runtime is served at `/frame-assets/`, where the element looks beside its script.
  * @internal
  */
 export async function playerDist() {
@@ -109,9 +104,8 @@ export async function playerDist() {
 }
 
 /**
- * A server on localhost for the player, the runtime and any library bundle named on disk. `own`
- * answers first, for the paths its caller adds — the check's page; a preview's page, package and
- * presence — and says whether it did.
+ * A server on localhost for the player, the runtime and any library bundle on disk. `own` answers
+ * first, for the paths its caller adds, and says whether it did.
  * @internal
  * @param {{ dist: string, runtime: string }} roots
  * @param {{ files: Map<string, string>, packDir: string | null }} sources bundles on disk by route, and a
@@ -119,9 +113,8 @@ export async function playerDist() {
  * @param {(path: string, request: IncomingMessage, response: ServerResponse) => boolean | Promise<boolean>} own
  * @param {number | number[]} [port] the port to take, or the ports to try in order; any free one when
  *   they are taken, or with 0
- * @param {string} [host] the name the address goes by. `localhost`, since a site may refuse a page
- *   opened at an IP address: YouTube's player answers "This video is unavailable" in one (#283).
- *   The server listens on 127.0.0.1 whatever the name
+ * @param {string} [host] the name the address goes by: `localhost`, as YouTube's player answers
+ *   "This video is unavailable" at an IP address (#283); it still listens on 127.0.0.1
  * @returns {Promise<{ url: string, close: () => void }>}
  */
 export function serve({ dist, runtime }, { files: bundles, packDir }, own, port = 0, host = 'localhost') {

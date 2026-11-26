@@ -10,30 +10,16 @@ import { addScormEntries, buildStamp, readPackage, scormEntries, scormOptions, s
 import { EmbedError, PLAYER_FILES } from './shared.mjs'
 
 /**
- * Writes a SCORM package that plays one `.h5p` in an LMS and reports its result there: the
- * launch page and its bridge to the LMS's API, the player, the H5P runtime and the package, in
- * one zip a teacher uploads as a SCORM activity. The LMS serves the files from its own origin,
- * under a path of the package's own, so the player's Service Worker registers there, scoped to
- * that path, and nothing is fetched from anywhere else.
- *
- * The package plays trusted, as every SCORM package runs its own code on the LMS's origin, with the
- * libraries it carries. What it does not carry, as an export from h5p.com or h5p.org carries none,
- * comes from the library pack, written into the zip: only the parts it needs. One that needs a
- * library neither has is refused here rather than in front of a learner. Checked against Moodle 4.5
- * on 2026-10-28: the worker registered under `pluginfile.php`, the package was read by ranges, and
- * the score reached the gradebook.
- *
- * What the zip is and how it is written is `scorm-core.mjs`'s, shared with the page's builder;
- * this is the Node side: the files from the installed packages, and the zip to a path.
+ * Writes a SCORM zip that plays one `.h5p` in an LMS, from the LMS's own origin: so the package
+ * plays trusted, as any SCORM package runs its own code there. Node's side of `scorm-core.mjs`.
  */
 
 const SCORM = fileURLToPath(new URL('../scorm', import.meta.url))
 const SITE = fileURLToPath(new URL('../site', import.meta.url))
 
 /**
- * The library pack's index, its `parts/index.json`, as the plan takes it: each library's record,
- * which the zip's index repeats as `record`, with the part's file as `url`. A record the index got
- * wrong is left out.
+ * The library pack's index, `parts/index.json`, as the plan takes it: each record, which the zip's
+ * index repeats as `record`, with the part's file as `url`. A malformed record is left out.
  * @param {unknown} index
  * @param {string} packDir the folder holding the index and the parts
  * @returns {import('./scorm-core.mjs').PackPart[]}
@@ -87,17 +73,14 @@ async function filesUnder(dir) {
  * @property {number | null} passMark the pass mark it holds a score to, out of 100 and kept to the
  *   hundredth; `null` for the content's own result
  * @property {boolean} completionScore whether content that finishes without a score counts as 100
- * @property {string} build the first 16 hex digits of the package's SHA-256, or, with libraries
- *   from the pack, of one over its and theirs: a learner's saved place is kept against it, and
- *   handed back only to the same package playing with the same libraries
+ * @property {string} build the first 16 hex digits of the package's SHA-256, or of one over it and
+ *   the pack parts': a learner's saved place is kept against it
  * @property {number} size the zip's size in bytes
  */
 
 /**
- * Writes a SCORM zip that plays `h5p` in an LMS, with the parts of the library pack it needs and
- * does not carry: SCORM 1.2, graded by the content's own result, unless the options say
- * otherwise. Refuses a package that needs a library neither it nor the pack has, an option it does
- * not know, and a file already at `out` unless `force`.
+ * Writes a SCORM zip that plays `h5p` in an LMS, with the pack parts it needs and does not carry.
+ * Refuses a library neither has, an unknown option, and a file already at `out` unless `force`.
  *
  * @param {object} options
  * @param {string} options.h5p the package to wrap

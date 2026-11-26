@@ -1,10 +1,6 @@
 /**
- * The package's own description of itself, from `h5p.json`, in the shape H5P's runtime reads:
- * the copyright dialog is built from these fields (`H5P.buildMetadataCopyrights`), and the
- * title names the activity in every statement's `object.definition`. h5p-standalone takes the
- * metadata as an option and, given none, invents `{ title, license: 'U' }` — "Undisclosed" —
- * for every package, whatever its manifest says; so the worker reads it off the manifest and
- * the frame hands it over.
+ * The package's description of itself from `h5p.json`, as the runtime reads it: the copyright
+ * dialog (`H5P.buildMetadataCopyrights`) and each statement's `object.definition` title use it.
  */
 export interface ContentMetadata {
   title?: string
@@ -23,20 +19,16 @@ export interface ContentMetadata {
 const TEXT_FIELDS = ['title', 'license', 'licenseVersion', 'licenseExtras', 'source', 'yearFrom', 'yearTo', 'authorComments', 'defaultLanguage'] as const
 
 /**
- * The licences H5P's copyright dialog has a name for (`H5P.copyrightLicenses` in the core). It
- * reads its table by the manifest's value with no check, so a package carrying any other
- * string — a CLI-built one saying `MIT`, a hand-written manifest — would die at boot on the
- * lookup. Such a licence is left out, which the runtime reads as "none given": the title and
- * the authors still go through.
+ * The licences H5P's copyright dialog has a name for (`H5P.copyrightLicenses` in the core), which
+ * reads its table unchecked: any other string, such as `MIT`, would die at boot, so it is left out.
  */
 const KNOWN_LICENSES = new Set([
   'U', 'CC BY', 'CC BY-SA', 'CC BY-ND', 'CC BY-NC', 'CC BY-NC-SA', 'CC BY-NC-ND', 'CC0 1.0', 'GNU GPL', 'PD', 'CC PDM', 'C'
 ])
 
 /**
- * The metadata fields of a manifest, each kept only when it has the type the runtime expects —
- * the manifest is untrusted, and so is a record read back from IndexedDB, which is why the frame
- * document runs it through here again. `undefined` for a manifest that says nothing of the kind.
+ * The metadata fields of a manifest, each kept only with the type the runtime expects: a manifest
+ * and a record read back from IndexedDB are untrusted, so the frame document runs it again.
  */
 export function contentMetadata(manifest: unknown): ContentMetadata | undefined {
   if (!manifest || typeof manifest !== 'object') return undefined

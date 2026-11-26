@@ -1,15 +1,6 @@
 /**
- * @missing-elements/h5p-author: a playable .h5p of any content type in the H5P hub's library pack,
- * from a short JSON source. The source writes only what the defaults cannot know; everything else
- * comes from the libraries' own semantics and translations, and the libraries from the pack this
- * package pins, checked against its index. A tool beside the build takes the libraries as the build
- * loads them (`openPack`, `loadLibraries`, and `packageLibraries` for a package's own), its rules
- * for text (`markupText`, `plainText`, `allowedTags`), and the check it runs last on what it writes,
- * for saved content (`checkContent`). `readPackage` reads a package back into its source, to change
- * it and build it again. `describeMedia` says what a picture, a video or a recording is before a
- * source names it: a video's length, a picture's size. A content type's bundle (`writeBundle`) carries the parts a
- * build of it reads, for a build where the pack cannot be installed. This is the entry for Node:
- * `./core` is what of it needs no Node, and `./browser` builds in a page.
+ * @missing-elements/h5p-author: a playable .h5p of any content type in the library pack, from a
+ * short JSON source. The Node entry: `./core` needs no Node, and `./browser` builds in a page.
  */
 
 import { contentTypes } from './bundle.mjs'
@@ -33,9 +24,8 @@ export { buildPackage, describeMedia, inside, openPack, publicFetch, readPackage
 /**
  * A content type's fields as a source writes them, from the pack: one line each.
  * @param {string} machineName such as `H5P.Blanks`
- * @param {{ libraries?: string, markdown?: boolean, all?: boolean }} [options]
- *   `libraries`, a parts folder in place of the pinned pack; `markdown`, the section a type file
- *   carries, between its markers; `all`, the interface texts too
+ * @param {{ libraries?: string, markdown?: boolean, all?: boolean }} [options] `libraries`, a parts
+ *   folder in place of the pinned pack; `markdown`, a type file's section; `all`, interface texts
  * @returns {Promise<string>}
  */
 export async function schemaOf(machineName, options = {}) {

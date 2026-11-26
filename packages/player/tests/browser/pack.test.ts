@@ -9,13 +9,8 @@ import { partPkgId } from '../../src/shared/pkg-id'
 import { FIXTURES, clearPackageCaches, createPlayer, frameWindow, messageOf, play, settle, waitForSettled } from './utils'
 
 /**
- * The library pack, split into one archive per library: `libraries="pack"` downloads the parts a
- * package needs and no others, and plays the pack's newer version of a library a package carries.
- *
- * `/fixtures/pack/` is a pack of three, written by `splitPack` as the real one is: the fixture
- * content type at 1.2 with its upgrade steps, which append each version they pass to the
- * message, its sub-content type at 1.1, and a library nothing here needs. `pack-base` names it;
- * jsDelivr's copy, which the element otherwise uses, is not reached from the suite.
+ * The library pack, one archive per library: `libraries="pack"` fetches only the parts a package
+ * needs and plays its newer ones. `pack-base` names `/fixtures/pack/`; jsDelivr is not reached.
  */
 
 const PACK = '/fixtures/pack/'
@@ -73,9 +68,8 @@ describe('the library pack, split into parts', () => {
   })
 
   it("plays the pack's folders, named with versions, beside the package's own named without", async () => {
-    // The content type comes from the pack at 1.2; the extra library, which the pack has at the
-    // package's own version, from the package's folder named without one. h5p-standalone named
-    // every folder one way, by its first dependency, and ended its boot on the extra library's 404.
+    // The content type is the pack's 1.2, the extra library the package's own bare folder: one
+    // naming rule for both ended boot on the extra library's 404 (#37).
     const player = await play(fresh(FIXTURES.unversionedPack, 'mixed'), withPack())
 
     expect(messageOf(player)).toBe(`${BASIC_MESSAGE} [1.1] [1.2]`)
@@ -115,9 +109,8 @@ describe('the library pack, split into parts', () => {
   })
 
   it('plays sub-content made for a newer minor than the pack has, named only in the parameters, on its older one', async () => {
-    // The content type is the pack's own version, so nothing `h5p.json` names is missing. Until the
-    // walk started from the parameters, the child's library was left out of what the frame loads,
-    // and the content died creating it.
+    // Nothing `h5p.json` names is missing. Until the walk started from the parameters, the child's
+    // library was left out of what the frame loads, and the content died creating it.
     const player = await play(fresh(FIXTURES.newerChild, 'child'), withPack())
 
     expect(messageOf(player)).toBe('Written for 1.2')
@@ -180,9 +173,8 @@ describe('the library pack, split into parts', () => {
   })
 
   it('checks a part kept whole but never checked, and downloads it again when it does not match', async () => {
-    // What a Jobs worker stopped between a part's last write and its check leaves behind: the
-    // part complete, under its hash's id, holding other bytes — here another part's. Taken as
-    // checked for being whole, it was attached as the library (#58).
+    // What a Jobs worker stopped between a part's last write and its check leaves: a complete part
+    // under its hash's id holding another part's bytes. Taken as checked, it was attached (#58).
     const index = (await (await fetch(`${PACK}index.json`)).json()) as { libraries: Array<{ folder: string; sha256: string }> }
     const part = index.libraries.find(({ folder }) => folder === 'H5P.OfflineTest-1.2')!
     const other = index.libraries.find(({ folder }) => folder !== part.folder)!
@@ -237,13 +229,8 @@ describe('the library pack, split into parts', () => {
   })
 
   it('attaches the parts while a download from a host without Range is under way', async () => {
-    // Paced, the archive's library folder arrives seconds before its media: the parts are
-    // planned and attached then, and the frame boots with them before the download ends. The
-    // pack's 1.2 needs nothing the package's own 1.0 did, so the extra library stays out.
-    // The server sends 64 kB at a time and the download first publishes its index at 256 kB, so the
-    // frame may boot from the fourth slice and has until the fifth, one slice's interval, to plan,
-    // fetch and attach the parts: half a second at 128 kB/s, which a slow runner did not make
-    // (#75), and two at 32 kB/s.
+    // Paced, the library folder arrives before its media: the parts attach and the frame boots
+    // before the download ends, in one slice's interval: 2 s at 32 kB/s (0.5 s was missed, #75).
     const states: string[] = []
     const { player, result } = await settle(fresh(`${FIXTURES.needsDependencyNoRange}?throttle=32768`, 'paced'), withPack(), (each) =>
       each.addEventListener('statechange', (event) => states.push((event as CustomEvent<{ state: string }>).detail.state))

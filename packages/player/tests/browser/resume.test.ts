@@ -6,10 +6,8 @@ import { readUserData, writeUserData } from '../../src/user-data-store'
 import { FIXTURES, clearPackageCaches, createPlayer, frameDocument, frameWindow, play, waitFor, waitForEvent, waitForSettled } from './utils'
 
 /**
- * Save and resume: the runtime asks the content for its state and the element keeps it — on this
- * device, or with the host — so the next load of the same package starts where the learner left
- * off. The fixture content counts presses of Complete and saves the count; H5P core saves three
- * seconds after a `completed` statement, which is what the tests wait on.
+ * Save and resume: the runtime asks the content for its state and the element keeps it, here or
+ * with the host, so the next load resumes. The fixture counts presses of Complete.
  */
 
 /** How long after a `completed` statement H5P core saves the content's state. */
@@ -62,9 +60,8 @@ describe('resume', () => {
   })
 
   it('gives the content the same id on every load of a package, a number as a site gives one', async () => {
-    // Interactive Book keeps its place under the content's id and takes it back only when the id
-    // matches, and Cornell Notes reads the copy it keeps by the id only for a number (#127). Until
-    // then the id was random on every load.
+    // Interactive Book takes its place back only under the same content id, and Cornell Notes reads
+    // its copy by id only for a number (#127); the id was random on every load until then.
     const contentId = (player: H5PPlayerElement) => {
       const view = frameWindow(player) as unknown as { H5P: { instances: Array<{ contentId: unknown }> }; H5PIntegration: { contents: Record<string, unknown> } }
       return { instance: view.H5P.instances[0].contentId, key: Object.keys(view.H5PIntegration.contents)[0] }
@@ -209,9 +206,8 @@ describe('resume', () => {
   })
 
   it('finishes the load under the mode it started with, when the host switches resume off midway', async () => {
-    // 20 MB at 2 MB/s: the frame boots from the forward index within the first second, a save
-    // made three seconds later lands before the central directory, and the index answers at
-    // about ten. A query of its own, so the package is cold whatever ran before.
+    // 20 MB at 2 MB/s: the frame boots from the forward index in the first second, a save 3 s later
+    // lands before the central directory (about 10 s). Own query, so the package is cold.
     await clearPackageCaches()
     const player = createPlayer({ resume: '' })
     const settled = waitForSettled(player, 60_000)

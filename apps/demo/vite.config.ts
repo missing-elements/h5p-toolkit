@@ -13,16 +13,8 @@ import { PAGES } from './scripts/lib/pages.mjs'
 import { partialsPlugin } from './scripts/lib/partials.mjs'
 
 /**
- * The demo app: the dev server for the whole repository, and the hosted demo — the player page
- * and the examples under `demo/`, built as a static site into `dist-demo/`. The element is
- * emitted unhashed at `/h5p-player.js`, and `scripts/build-demo.mjs` puts `h5p-sw.js` and
- * `frame-assets/` beside it, so the site root has exactly the layout of the package's `dist/` —
- * the element finds its worker and its assets with no attribute set, the same way it does in a
- * consuming app that serves `dist/` statically.
- *
- * The element is compiled from the player's source, not taken from its `dist/`: the pages import
- * `@missing-elements/h5p-offline-player` and the alias below points the name at the source, with
- * the player's own plugins supplying the Jobs worker and, in dev, the Service Worker.
+ * The demo app: the repository's dev server and the hosted demo (`dist-demo/`), laid out as the
+ * package's `dist/` so the element finds its worker with no attribute. It is built from source.
  */
 
 const rootDir = import.meta.dirname
@@ -42,10 +34,8 @@ const siteHeaders = Object.fromEntries(
 )
 
 /**
- * Replaces `%SITE_URL%` in the pages. Canonical links and social-card URLs have to be absolute,
- * and the origin is only known where the site is built — Vercel's production URL, or localhost.
- * It runs before Vite's own `%ENV%` pass, which would otherwise warn about a name it does not
- * know.
+ * Replaces `%SITE_URL%` in the pages: canonical links and social-card URLs must be absolute, and
+ * the origin is only known at build. Runs before Vite's `%ENV%` pass, which would warn about it.
  */
 function siteUrlPlugin(siteUrl: string): Plugin {
   const origin = siteUrl.replace(/\/$/, '')
@@ -59,10 +49,8 @@ function siteUrlPlugin(siteUrl: string): Plugin {
 }
 
 /**
- * Serves the installable app's worker, `app/sw.js`, in dev: bundled on each request with the
- * player's handlers built from source, and an empty precache, so dev always goes to the server.
- * The build writes the real one — see `scripts/build-demo.mjs`. Registered as a middleware ahead
- * of Vite's own, which would otherwise serve the file as an ES module, imports unresolved.
+ * Serves the app's worker `app/sw.js` in dev, bundled per request with an empty precache, so dev
+ * always goes to the server. Ahead of Vite's own middleware, which would serve it as an ES module.
  */
 function appWorkerPlugin(): Plugin {
   const entry = resolve(rootDir, 'app', 'sw.js')
@@ -89,10 +77,7 @@ function appWorkerPlugin(): Plugin {
 
 /**
  * Serves the player's built element and Jobs worker at the site root in dev, for the SCORM page,
- * which puts them into the zip it builds and so needs the files a host deploys, not the modules
- * the pages run from source. They are the player's `dist/`, which `pnpm build` writes; before
- * that the page says so. The build emits `h5p-player.js` there itself and `scripts/build-demo.mjs`
- * writes `h5p-jobs.js` beside it.
+ * whose zip carries the files a host deploys, not the source modules. They come from `dist/`.
  */
 function playerDistPlugin(): Plugin {
   const dist = resolve(playerDir, 'dist')
@@ -159,10 +144,8 @@ export default defineConfig(({ command }) => ({
   },
 
   resolve: {
-    // Not the player's `./plan`, which the SCORM page's builder imports. Taken from source, its
-    // modules are the element's too, and the build split them into a chunk `h5p-player.js`
-    // imports, while the page's zip carries that file alone. So the build makes the player's
-    // `dist/h5p-plan.js` first (`build` in package.json), as `pnpm dev` does.
+    // Not the player's `./plan`, which the SCORM page's builder imports: from source it joins the
+    // element's chunk, but the zip has `h5p-player.js` alone, so `dist/h5p-plan.js` is built first.
     alias: [
       { find: /^@missing-elements\/h5p-offline-player$/, replacement: ELEMENT },
       // The page's stylesheet the same way: player-page.css imports it by the package's name, and
@@ -172,10 +155,8 @@ export default defineConfig(({ command }) => ({
     ]
   },
 
-  // In dev, the player's generated `public/`: the vendored runtime at `/frame-assets/`, where the
-  // element looks for it in dev, and the fixtures at `/fixtures/`. Not in a build: that folder
-  // also holds whatever real packages were dropped in to try, and the build script copies the
-  // frame assets by name.
+  // In dev, the player's generated `public/`: the runtime at `/frame-assets/`, the fixtures at
+  // `/fixtures/`. Not in a build: it holds packages dropped in to try; frames are copied by name.
   publicDir: command === 'serve' ? resolve(playerDir, 'public') : false,
 
   build: {

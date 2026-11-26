@@ -9,13 +9,8 @@ import { librarySources, packageFile, playerDist, serve } from './serve.mjs'
 /** @import { IncomingMessage, ServerResponse } from 'node:http' */
 
 /**
- * `--preview`: the package in the real player, in the person's own browser, served from this
- * computer. The check says whether a package starts; whether it is right — the answers, a
- * scenario's paths, what happens at a video's timestamps — a person judges by playing it, and
- * that is the same for every content type. The package is served as a static host with `Range`
- * serves it, so the libraries take a few requests and media the ranges the player asks for: a
- * large video starts at once, and nothing is read whole or extracted to disk. It runs until its
- * last tab has gone.
+ * `--preview`: the package in the real player, in the person's browser, served from this computer
+ * as a static host with `Range` does, so a large video starts at once; it ends with its last tab.
  */
 
 const here = fileURLToPath(new URL('.', import.meta.url))
@@ -52,9 +47,8 @@ const HEARTBEAT_MS = 15_000
  */
 
 /**
- * Serves the package and its page until the preview is stopped or stops by itself: `closed`
- * settles with `closed` once its last tab has gone, `unopened` when no tab came within `openWait`,
- * and `stopped` after `close()`.
+ * Serves the package and its page until stopped: `closed` settles with `closed` when the last tab
+ * has gone, `unopened` if none came within `openWait`, `stopped` after `close()`.
  * @param {PreviewOptions} options
  * @returns {Promise<{ url: string, closed: Promise<'closed' | 'unopened' | 'stopped'>, close: () => void }>}
  */
@@ -144,9 +138,8 @@ export async function previewPackage(options) {
 }
 
 /**
- * The package as a static host with `Range` serves it: `206` with the bytes asked for, `200` whole
- * otherwise, streamed from disk. Its validator is the file's size and time, so the package written
- * again at the same path is a new package to the element rather than its old caches.
+ * The package as a static host with `Range` serves it, streamed from disk. Its validator is the
+ * file's size and time, so a package rewritten at the same path is new to the element, not cached.
  * @internal
  * @param {string} file
  * @param {IncomingMessage} request
@@ -187,9 +180,8 @@ export async function sendArchive(file, request, response, report) {
 }
 
 /**
- * The one range a `Range` header asks for, read as a static host reads it: `null` when it asks
- * for none, for one this does not parse, or for several, each answered with the whole file; `false`
- * when it starts past the end, which is a `416`.
+ * The one range a `Range` header asks for, as a static host reads it: `null` for none, an unparsed
+ * one or several (answered whole); `false` when it starts past the end, a `416`.
  * @internal
  * @param {string | null} header
  * @param {number} size

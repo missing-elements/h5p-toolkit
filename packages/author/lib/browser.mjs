@@ -10,41 +10,19 @@ import { SourceError } from './source-error.mjs'
 export * from './core.mjs'
 
 /**
- * @missing-elements/h5p-author/browser: the build in a page, or a Tauri window. The same build as
- * Node's, the source checked, generated, laid out and checked as saved content, but for three
- * things: the pack is one the page can reach, each part fetched whole and checked against the
- * index's SHA-256; a source's files are `File`s or `Blob`s the page was given, by name; and the
- * package comes back as a `Blob`, its media stored with their sizes and CRC in their local headers,
- * as embed's SCORM writer stores its entries since #92, so that the player reads each one's size
- * off its header on a host without `Range`, and before the libraries carried for an H5P site's
- * upload check, as Node's build lays them out. An mp4's or an m4a's index is moved to the front, as
- * the normalizer does in Node, by its plan (#218). A video or a recording can stay at a web address
- * and be played from there, for a preview with no download first (`linked`, #263). It needs a
- * secure context, https, localhost or a Tauri window, for `crypto.subtle` and `crypto.randomUUID`.
+ * @missing-elements/h5p-author/browser: Node's build in a page or Tauri window, with a pack it can
+ * reach, files as `File`s or `Blob`s, and a `Blob` out. Needs a secure context, for crypto.subtle.
  */
 
 /**
  * @typedef {{ libraries: import('./pack.mjs').IndexEntry[] }} PackIndex
- *   the `pack` export of `@missing-elements/h5p-libraries` as a bundler emits it: the index, each
- *   library with its part's URL
+ *   the bundler-emitted `pack` export of `@missing-elements/h5p-libraries`: the index, parts by URL
  * @typedef {{
  *   blob: Blob, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, libraries: string[], install: string[],
  *   coreApi: import('./install.mjs').CoreApi, translations: import('./translate.mjs').TranslationReport[], notes: import('./build.mjs').Problem[], media: string[], lengths: import('./media.mjs').MediaLength[], linked: string[], outline: string
- * }} BuildResult the package, and what is worth telling about it: `libraries`, the folders it plays
- *   with; `install`, those it carries for an H5P site's upload check; `coreApi`, the newest H5P core
- *   they ask for, which a site needs to take the package (`coreApiLine` says it); `outline`, the
- *   content as text for a review (`outlineOf`); `builtWith`, the content type and the pack's version
- *   of it, "H5P.Blanks 1.14", and `source`, the source as built, naming it: what to keep with the
- *   package, so that a build with a later pack can say the type has moved; `lengths`, the length
- *   of each video an Interactive Video's times were held to (`lengthLine` says one); `media`, the
- *   files it carries, and `linked`, the files the source names that were left at an address: where there is
- *   one, the package is a preview and not a file to keep, since the address may stop answering
+ * }} BuildResult the package and what is worth telling about it, as Node's, with a `blob`
  * @typedef {{ libraries: Pack | PackIndex | string | URL, files?: Map<string, Blob> | Record<string, Blob>, linked?: Map<string, string> | Record<string, string>, fetch?: typeof fetch }} BuildOptions
- *   `libraries`, a pack `openPack` opened, which a page keeps for its builds, or what to open one
- *   from; `files`, the files a source names, by the names it gives them; `linked`, the videos and
- *   recordings it names that stay where they are, each by its name and the http(s) address it is
- *   played from, none of its bytes read (#263), a file given under the same name going before it;
- *   `fetch`, for media named by web address
+ *   `libraries`: a pack or what opens one; `files`, by name; `linked`, left at an address (#263)
  */
 
 /** What a page's build takes from the browser, which it has in a secure context only. */
@@ -55,12 +33,8 @@ function secure() {
 }
 
 /**
- * The pack a page's build reads: the `pack` export of `@missing-elements/h5p-libraries` as a
- * bundler emits it, or the address of a copy of its `parts/` folder, served as a site serves it to
- * `<h5p-player>`'s `pack-base`, whose `index.json` is read from there and held to its shape by the
- * player's own rule (`packLibrariesIn`). A part is fetched whole when a build first needs it, and
- * checked against the index's SHA-256 before it is read. Keep it open for the page's builds, and
- * close it when they are done.
+ * The pack a page's build reads: the `pack` export of `@missing-elements/h5p-libraries`, or the
+ * address of a copy of its `parts/`; a part is fetched whole and checked against its SHA-256.
  * @param {PackIndex | string | URL} pack
  * @param {{ fetch?: typeof fetch }} [options] `fetch`, for the index and the parts
  */
@@ -138,12 +112,8 @@ function pageMedia(files, linked) {
 }
 
 /**
- * A stored video or recording laid out to stream, its index (`moov`) in front of its media, as
- * Node's build lays it out through the normalizer (#218): by the normalizer's own plan
- * (`faststartPlan`), made of the given file's slices and the rewritten index, so that no byte of
- * the media is copied. Every file is asked of the plan, which tells an mp4 or an m4a by its first
- * eight bytes and leaves any other file, and one with its index first already, as it is: no list
- * of extensions is kept here beside the normalizer's.
+ * A stored video or recording laid out to stream, its `moov` index first, by the normalizer's own
+ * plan (`faststartPlan`, #218): file slices and the new index; no media copied, no extension list.
  * @param {Blob} blob
  * @returns {Promise<Blob>}
  */

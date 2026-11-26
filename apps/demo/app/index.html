@@ -77,9 +77,8 @@
     </div>
 
     <main>
-      <!-- The live region is on the page from the start and the message is put into it, which is
-           what screen readers announce reliably; a region that appears with its text already
-           in it may be read or may not. -->
+      <!-- The live region is on the page from the start and the message is put into it: screen
+           readers announce that reliably, not a region that appears with its text in it. -->
       <div role="status" aria-live="polite">
         <p class="message" id="message" hidden></p>
       </div>

@@ -4,11 +4,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * Every requirement of the cmi5 specification that falls on the assignable unit, from ADL's own
- * list (`@cmi5/requirements`, the one CATAPULT checks against), and how this package answers it.
- * A requirement marked `tested` must be named by number in one of the other test files, next to
- * the test that shows it. When the list grows, this test names the requirements nobody has
- * placed yet.
+ * Every requirement on the AU from ADL's list (`@cmi5/requirements`, as CATAPULT checks), and how
+ * this package answers it; one marked `tested` must be named by number in another test file.
  */
 
 type Answer =
@@ -174,10 +171,8 @@ const ANSWERS: Record<string, Answer> = {
 const requirements: Record<string, { txt: string }> = createRequire(import.meta.url)('@cmi5/requirements')
 
 /**
- * The requirements that may fall on the AU: all of them, less the LMS's `(d)` derivatives and
- * those whose subject is plainly the LMS ("the LMS MUST" with no "AU MUST" beside it). Many
- * never name the AU — "Verbs MUST NOT be duplicated" — and a filter on the AU's name once
- * missed every rule on the verbs and the result properties.
+ * The requirements that may fall on the AU: all but the LMS's `(d)` derivatives and those whose
+ * subject is the LMS. Many never name the AU, so a filter on its name once missed the verb rules.
  */
 const onTheAu = Object.keys(requirements).filter((id) => {
   const text = requirements[id].txt

@@ -1,19 +1,11 @@
 name: Publish to npm
 
-# Publishes every package whose version npm does not have yet, by trusted publishing. npm trusts
-# this file in this repository, run in the `npm` environment, and takes the ID token GitHub gives
-# the run in place of an access token, so none is stored anywhere. It then records each package's
-# provenance: the run and the commit its tarball was built from. Each package's registration on
-# npmjs.com names the file and the environment: renamed, they have to be registered again.
-#
-# Run it by hand, from main, once the bump is committed and pushed; before a player release, run
-# ci.yml by hand first and wait for green (design/build.md). `pnpm -r publish` publishes in
-# dependency order and passes over a version npm has, and each package's prepublishOnly runs
-# first, as on a publish by hand. A dry run packs and checks each package and publishes none; a
-# package's check that its pinned dependency is on npm then stops at one this release would
-# publish.
+# Publishes every package whose version npm lacks, by trusted publishing, so no token is stored.
+# Each package's npmjs.com registration names this file and the `npm` environment: keep both names.
 
 on:
+  # By hand, from main, once the bump is pushed; before a player release, run ci.yml first and wait
+  # for green (design/build.md).
   workflow_dispatch:
     inputs:
       dry-run:
@@ -37,14 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
-      # No cache, as in vscode-publish.yml: a job that publishes installs from the registry against
-      # the lockfile's hashes, not from a store another run wrote. Node 24: pnpm publishes through
-      # npm, and npm takes a trusted publisher's token from 11.5.1, which Node 22's npm is not. No
-      # registry-url: npm's default is npm's registry, and setup-node would write a placeholder token
-      # for it, which nothing here needs.
+      # Node 24: npm takes a trusted publisher's token from 11.5.1, which Node 22's npm lacks. No
+      # registry-url: setup-node would write a placeholder token for it, which nothing here needs.
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          # No cache, as in vscode-publish.yml: a publishing job installs against the lockfile's
+          # hashes, not a store another run wrote.
           package-manager-cache: false
       - name: Check that npm can publish by trusted publishing
         run: |
@@ -59,17 +50,12 @@ jobs:
       # The author, verify, mcp and embed packages' prepublishOnly run browser tests, as ci.yml's
       # test jobs do, and install Chromium the same way.
       - run: pnpm --filter @missing-elements/h5p-offline-player exec playwright install chromium
-      # A recursive publish goes one package at a time, in dependency order, and `publish` takes no
-      # --workspace-concurrency: given it, pnpm stopped on the unknown option before publishing
-      # anything (the first run). Without git checks: prepack writes files into the tree (types/,
-      # the licence, the skill), and the environment already holds the run to main.
-      # Each package's checks that what it depends on is on npm wait up to H5P_PUBLISH_WAIT
-      # minutes, one wait per script, for npm to serve a version published earlier in this run:
-      # npm processes a new one first, 1 to 4 minutes for most packages and 14 for the 31 MB
-      # library pack in release 1.7.0 (#253). A dry run publishes nothing, so there it fails at
-      # once, as by hand.
+      # `publish` takes no --workspace-concurrency: pnpm stopped on it before publishing anything.
+      # No git checks: prepack writes into the tree, and the environment holds the run to main.
       - run: pnpm -r publish --access public --no-git-checks $DRY_RUN
         env:
           NPM_CONFIG_PROVENANCE: true
           DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
+          # Minutes a check waits for npm to serve a dependency published earlier in this run: npm
+          # processes it first, 14 for the 31 MB library pack in 1.7.0 (#253). A dry run waits none.
           H5P_PUBLISH_WAIT: ${{ inputs.dry-run && '0' || '30' }}

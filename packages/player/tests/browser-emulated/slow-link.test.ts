@@ -5,9 +5,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, clearPackageCaches, frameFetch, play, virtualUrl } from '../browser/utils'
 
 /**
- * A large deflated entry over a slow link, emulated through CDP the way DevTools' network
- * throttling is. The emulation reaches the page and its dedicated workers — the Jobs worker, where
- * the archive is read from — which is where the extraction's time to first byte is decided.
+ * A large deflated entry over a slow link, emulated through CDP as DevTools' throttling is. It
+ * reaches the Jobs worker, which reads the archive and so decides the time to first byte.
  */
 
 const MEDIA = 'content/media/big.bin'
@@ -50,9 +49,8 @@ describe('a large deflated entry on a slow link', () => {
     ).arrayBuffer()
     expect(performance.now() - check).toBeGreaterThan(1_500)
 
-    // The media element's opening probe. Four 4 MB segments opened together and handed over
-    // whole put the first byte 16 s out on this link; streamed from the first segment, with the
-    // other connections opened once it flows, it is a matter of the first few hundred kilobytes.
+    // The media element's opening probe: four 4 MB segments opened together and handed over whole
+    // put the first byte 16 s out here; streamed from the first segment, it is a few hundred kB.
     const started = performance.now()
     const response = await frameFetch(player, virtualUrl(player, MEDIA), { headers: { Range: 'bytes=0-1023' } })
     const elapsed = performance.now() - started

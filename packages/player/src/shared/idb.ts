@@ -2,19 +2,15 @@ import { DB_NAME, DB_VERSION, PACKAGES_STORE } from './constants.js'
 import type { PackageRecord } from './protocol.js'
 
 /**
- * The `packages` table. Both the page and the Service Worker open it: the page writes the
- * descriptor before asking the worker to index, and the worker reads it to rebuild adapters
- * after a restart. Indexed on `lastPlayed` so eviction can find the coldest package without
- * loading every row.
+ * The `packages` table, opened by the page (descriptor before indexing) and the Service Worker
+ * (adapters after a restart). Indexed on `lastPlayed` so eviction finds the coldest package.
  */
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
 /**
- * Drops the cached handle, so the next call opens a fresh one.
- *
- * Only if it is still the current handle: a connection that closed long ago must not discard the
- * replacement someone has since opened.
+ * Drops the cached handle so the next call opens a fresh one, only if it is still the current one:
+ * a long-closed connection must not discard its replacement.
  */
 function forget(db: IDBDatabase, opened: Promise<IDBDatabase>): void {
   if (dbPromise === opened) dbPromise = null
@@ -38,11 +34,8 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onsuccess = () => {
       const db = request.result
 
-      // This handle is long-lived — the Service Worker holds it across every request it serves —
-      // so it has to survive the database going away underneath it. Clearing site data closes it
-      // from outside, and a `deleteDatabase` elsewhere blocks until it is closed from here.
-      // Without both of these, every later call throws "the database connection is closing"
-      // and nothing recovers short of a reload.
+      // Long-lived, so it must survive the database going away: clearing site data closes it, and
+      // a `deleteDatabase` elsewhere blocks until it is closed here. Else every call fails.
       db.onversionchange = () => forget(db, opened)
       db.onclose = () => forget(db, opened)
 
@@ -105,9 +98,8 @@ async function withStore<T>(
   } catch (error) {
     if (!isConnectionGone(error)) throw error
 
-    // The handle died between being handed out and being used — site data cleared mid-request is
-    // the ordinary way that happens. Reopening recreates the store, so the retry starts from an
-    // empty table rather than failing for the rest of the worker's life.
+    // The handle died between being handed out and used (site data cleared mid-request). Reopening
+    // recreates the store, so the retry starts from an empty table, not failing for good.
     dbPromise = null
     return runTransaction(mode, run)
   }
@@ -134,9 +126,8 @@ export function allPackages(): Promise<PackageRecord[]> {
 }
 
 /**
- * Reads a row and writes what `change` makes of it, in one transaction, so that two loads of the
- * same package writing at once — each its own settings into the row's `views` — cannot lose
- * either. `undefined` from `change` writes nothing.
+ * Reads a row and writes what `change` makes of it in one transaction, so two loads writing their
+ * settings into the row's `views` at once cannot lose either. `undefined` writes nothing.
  */
 export function changePackage(
   pkgId: string,

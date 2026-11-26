@@ -57,12 +57,8 @@ window.addEventListener('error', () => {
 })
 </script>
 <script>
-// The card of the app server (h5p-toolkit #210, #270), shown by a chat in its reply. It frames the
-// play page of the site, which builds the activity in the person's browser and plays it, and is
-// that page's way to what only the chat has: the file the person attached, a save, an open tab.
-// It sends nothing to the server it came from, and writes nothing down.
-//
-// In a function of its own: a chat puts names of its own on the card's window.
+// The app server's card (#210, #270): it frames the site's play page and gives it what only the
+// chat has, and sends nothing to the server. In a function: a chat adds names to the window.
 (() => {
 // The site whose play page is framed: the server writes its origin in.
 const SITE = '__SITE__'
@@ -121,11 +117,8 @@ async function show(input) {
   address = PLAY + fragment
   themed()
   if (self.origin === 'null') return void inTab()
-  // The page loads behind the card's own loader, and takes its place once it has something drawn
-  // to show: its first word, or its load at the latest. Nothing is blank in between.
-  // A page that says nothing did not start in the frame: a chat may refuse a frame without the
-  // browser saying so, and a network may block the site. The page speaks within a moment of its
-  // load, so ten seconds of silence offer the tab, which its first word still takes back (#276).
+  // The loader gives way to the page at its first word, or 300 ms after its load. Ten seconds of
+  // silence offer the tab, as a chat may refuse a frame unseen (#276); a first word takes it back.
   frame.addEventListener('load', () => {
     setTimeout(reveal, 300)
     setTimeout(() => { if (!spoke) inTab('silent') }, 10_000)
@@ -154,13 +147,8 @@ function reveal(spoken = false) {
   sizeToContent()
 }
 
-// Where the page cannot play in the card's frame, the card offers the activity in a tab, where
-// the whole player runs (#274). It knows from the browser, never from a chat's name. A card with
-// no origin was sandboxed without one, and a sandbox passes to every frame inside: the page there
-// has no Service Worker to play with, so no frame is tried (Open WebUI 0.13.4, November 2026).
-// And where a chat refuses the frame, the browser says so (Claude, the same month). The tab is
-// the chat's to open, from its own page: one the card opened itself, by a link, would keep the
-// card's sandbox, and the page in it would have no origin either.
+// Where the page cannot play in the card's frame (a sandbox with no origin, or a refused frame) the
+// card offers a tab (#274), opened by the chat: a link the card opened would keep the sandbox.
 let address = ''
 let tabbed = false
 let spoke = false
@@ -338,10 +326,8 @@ window.addEventListener('message', (event) => {
   }
 })
 
-// A chat's frame saves no file and opens no tab on a press (ChatGPT, November 2026), and the chat
-// does both for the card. So the card tells the page what the chat does, and passes on what the
-// page asks. A save takes a file up to MOST: of what ChatGPT was handed, 8 MB was saved and
-// 16 MB refused, with nothing said why (2026-11-24). A bigger package the page saves its own way.
+// A chat's frame saves no file and opens no tab on a press, so the card does both through the chat.
+// MOST: ChatGPT saved 8 MB and silently refused 16 MB (2026-11-24); the page saves a bigger one.
 const MOST = 8 * 1048576
 let capabilities = null
 let saidSaves = false
@@ -389,11 +375,8 @@ async function save(file, id) {
   }
 }
 
-// Before the activity comes, what the chat is doing, in place of a loader that turns for good
-// (#276). A chat may draw the card while its model still writes the source, which takes longer
-// than a moment for a long one, and say so as it goes (tool-input-partial): each word of it
-// starts the minute again. A call the chat stopped is said (tool-cancelled). With no word at all,
-// the card says at 6 s that it waits, and at a minute that nothing came.
+// Before the activity comes, what the chat is doing, not a loader that turns for good (#276): a
+// long source takes a while to write, so each partial word restarts the minute; 6 s says it waits.
 function waiting(title, note, turning = true) {
   if (shown || tabbed) return
   $('spinner').hidden = !turning

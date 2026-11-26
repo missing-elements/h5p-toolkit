@@ -126,9 +126,8 @@ describe('hostile entry names', () => {
   it('refuses a path it cannot decode', async () => {
     const player = await play(FIXTURES.traversal)
 
-    // Traversal cannot arrive here through a URL: the URL parser collapses `..` and `%2e%2e`
-    // alike before the request is made. What can arrive is a malformed escape, which is left
-    // alone — and a path the worker cannot decode is refused rather than guessed at.
+    // The URL parser collapses `..` and `%2e%2e` before the request, so traversal cannot arrive; a
+    // malformed escape can, and a path the worker cannot decode is refused, not guessed at.
     const response = await frameFetch(player, `${player.scope}virtual/${player.pkgId}/%zz.json`)
     expect(response.status).toBe(400)
   })
@@ -136,9 +135,8 @@ describe('hostile entry names', () => {
   it('does not serve an entry whose name escapes the root, under any name', async () => {
     const player = await play(FIXTURES.traversal)
 
-    // The archive really does contain `../escaped.js` and `nested/../../escaped-too.js`. Both
-    // are dropped at index time rather than repaired, so neither the name they carry nor the
-    // name they would collapse to is served.
+    // The archive contains `../escaped.js` and `nested/../../escaped-too.js`, dropped at index time
+    // rather than repaired, so neither their name nor the collapsed one is served.
     for (const path of ['escaped.js', 'escaped-too.js', 'nested/escaped-too.js']) {
       const response = await frameFetch(player, virtualUrl(player, path))
       expect(response.status).toBe(404)
@@ -160,9 +158,8 @@ describe('hostile entry names', () => {
 
 describe('the version check', () => {
   it('does not go through the ping route from the page, which cannot reach the worker', async () => {
-    // The `_ping` route only answers a client the worker controls, and the host page is not one:
-    // our scope is a sub-directory the page does not sit under. The element asks over the
-    // control channel instead, and must not regress to a fetch that would silently never answer.
+    // `_ping` answers only a client the worker controls, and the host page is not one (our scope is
+    // a sub-directory): the element asks over the control channel, not a fetch never answered.
     const fetched = vi.spyOn(window, 'fetch')
     try {
       await play(FIXTURES.basic)
@@ -213,9 +210,8 @@ describe('the frame policy', () => {
     const player = await play(FIXTURES.basic)
     const document = frameDocument(player)
 
-    // The URL H5P.ArithmeticQuiz builds, scheme and all. Whether it then loads depends on the
-    // network; what is asserted here is that the policy does not stop it, which is the part
-    // that was broken. A scheme-qualified allowlist entry cannot match this on an http page.
+    // The URL H5P.ArithmeticQuiz builds, scheme and all. Loading depends on the network; the policy
+    // must not stop it, as a scheme-qualified allowlist entry would on an http page.
     expect(await inject(document, `${location.protocol}//ajax.googleapis.com/ajax/libs/webfont/1/webfont.js`)).not.toBe('blocked by the policy')
   })
 })

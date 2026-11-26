@@ -1,17 +1,6 @@
 /**
- * The launch page's script in a SCORM package `h5p-embed --scorm` writes: it finds the LMS's
- * API, opens the session, and plays the package beside this page. The LMS hears what the content
- * reports: its score and whether it passed when it finishes, each question's answer as it is
- * given, the time spent, and the state it saves, which comes back on the next launch so the
- * learner continues where they left off.
- *
- * SCORM 1.2 unless the writer said otherwise in the page (`h5p-scorm-version`, 2004 4th
- * Edition), and graded by the content's own result unless it gave a pass mark
- * (`h5p-scorm-pass-mark`) or counts content that finishes without a score as 100
- * (`h5p-scorm-completion-score`). A page written with none of the three is a page from before
- * they existed, and this script does with it what it did then.
- *
- * Outside an LMS, with no API to find, it plays the package and reports nothing.
+ * The launch page's script in a SCORM zip: finds the LMS's API, plays the package beside this page
+ * and reports to it, or just plays with none. Without `h5p-scorm-*` meta it acts as it did before.
  *
  * @import { H5PPlayerElement, PlayerErrorDetail, PlayerStateChangeDetail, UserDataDetail } from '@missing-elements/h5p-offline-player'
  */
@@ -47,9 +36,8 @@
  */
 
 /**
- * lz-string, which the page loads before this script (`lz-string.js`): the saved state goes into
- * `cmi.suspend_data` compressed, as base64, so that a long Interactive Book's fits where its JSON
- * would not. Without it, a page of its own that left the script out, the state goes plain.
+ * lz-string, loaded before this script: the saved state goes into `cmi.suspend_data` as base64, so
+ * a long Interactive Book's fits where its JSON would not. Without it the state goes plain.
  * @typedef {{ compressToBase64: (text: string) => string, decompressFromBase64: (text: string) => string | null }} LzString
  */
 
@@ -179,10 +167,8 @@ function answeredAt() {
 }
 
 /**
- * A `finished` statement's result as the LMS records it: the score out of 100, from `scaled`,
- * else from `raw` over `max`, or 100 for content with no score where the writer counts it so;
- * and whether it was passed, by the pass mark where there is one and a score to hold to it, else
- * by the content's own `success`, `null` when it does not say.
+ * A `finished` result as the LMS records it: the score out of 100 (`scaled`, else `raw` over `max`,
+ * else 100 if the writer counts so), and passed by the pass mark, else the content's `success`.
  * @param {{ score?: { scaled?: unknown, raw?: unknown, max?: unknown }, success?: unknown } | undefined} result
  * @param {number | null} mark
  */
@@ -210,9 +196,8 @@ function scormResult(result, mark) {
  */
 
 /**
- * An interaction's `result`: `correct` or `wrong` as the content says, and where it says nothing,
- * as Fill in the Blanks does not, by its score: full marks, none, or the marks themselves, a
- * number SCORM 1.2 takes there; `neutral` with no score either.
+ * An interaction's `result`: the content's `success`, else its score (Fill in the Blanks gives no
+ * success): full marks, none, or the marks themselves, a number 1.2 takes; `neutral` with none.
  * @param {NonNullable<AnsweredStatement['result']>} result
  */
 function outcomeOf(result) {
@@ -226,12 +211,8 @@ function outcomeOf(result) {
 }
 
 /**
- * A SCORM 1.2 answer or right answer, for the two types 1.2 takes them for, as a report shows them
- * to a person. H5P writes both in 2004's notation, which xAPI took over and 1.2 has not: a fill-in's
- * right answer opens with `{case_matters=false}` and the like, and both part a blank from the next
- * with `[,]`, so 1.2 gets `stored, Range` for `{case_matters=false}stored[,]Range`; the learner's
- * own words are kept as typed. A numeric's is a number, 1.2's `CMIDecimal`, and anything else, such
- * as 2004's range `1[:]5`, is not written. Nothing is written for what comes out empty.
+ * A 1.2 answer or right answer for `fill-in` and `numeric`, as a report shows it: H5P writes 2004's
+ * notation, so `{case_matters=false}stored[,]Range` becomes `stored, Range`; a numeric is a number.
  * @param {unknown} text
  * @param {string} type `fill-in` or `numeric`
  * @param {boolean} right whether it is the right answer, whose modifiers go
@@ -256,10 +237,8 @@ function questionKey(statement) {
 }
 
 /**
- * The question's words, from the statement's description in the content's language, else the
- * first it gives, as text: a question type that writes markup there has it taken out, and the
- * character references it writes, `&nbsp;` and `&rsquo;` among them, read, or a 1.2 id would
- * spell them out (`Q1_don_rsquo_t`) and a 2004 description show them as they are.
+ * The question's words as text, from the description in the content's language, else its first:
+ * markup is removed and `&rsquo;` and the like read, or a 1.2 id would be `Q1_don_rsquo_t`.
  * @param {AnsweredStatement} statement
  * @param {string} language
  */
@@ -274,12 +253,8 @@ function questionText(statement, language) {
 }
 
 /**
- * An interaction's id. In SCORM 1.2 it is what a report shows, since 1.2 has no description: the
- * question's number, its index from 1, and its first words, as in `Q3_which_rivers_cross_germany`,
- * in letters, digits and `_` alone, which every LMS takes as a `CMIIdentifier`; the number alone
- * for a question with no words in Latin letters. The number keeps two questions with the same
- * words apart. In 2004, where the words go into the description, an identifier, as 2004 asks one
- * to be a URI: the part's id as a `urn:uuid:`, else the activity's own, else a `urn:h5p:`.
+ * An interaction's id. In 1.2, which has no description, it is what a report shows, as in
+ * `Q3_which_rivers_cross_germany`, in `CMIIdentifier` characters; in 2004 a URI, as 2004 asks.
  * @param {string} text
  * @param {string} key
  * @param {number} index
@@ -335,10 +310,8 @@ if (initialized) {
 }
 
 /**
- * The pass mark out of 100, read once, at launch, where the writer was given one: the LMS's, which
- * it takes from the manifest (1.2's `cmi.student_data.mastery_score`, 2004's
- * `cmi.scaled_passing_score`) and an administrator may change, else the page's own, for an LMS
- * that reads no mark from the manifest. A zip written without one is graded by the content.
+ * The pass mark out of 100, read once at launch: the LMS's, which an administrator may change, else
+ * the page's own, for an LMS that reads none from the manifest. None written, the content grades.
  */
 const passMark = (() => {
   if (writtenPassMark === null || !Number.isFinite(writtenPassMark)) return null
@@ -348,12 +321,8 @@ const passMark = (() => {
 })()
 
 /*
- * The learner's place. The content saves its state through the element (`resume="host"`), and
- * the whole of it goes into `cmi.suspend_data`, compressed, stamped with the package's build so
- * that a teacher who replaces the package does not hand its learners state saved against another
- * one. With it go the questions answered, by interaction index, so that a question keeps its
- * index and its id across the sessions of an attempt (below). A state written plain, by a zip
- * from before 1.5, is read as it is.
+ * The learner's place: the content's state goes into `cmi.suspend_data` through the element
+ * (`resume="host"`), stamped with the build so a replaced package gets no state saved for another.
  */
 
 /** @type {Map<string, { dataType: string, subContentId: string, data: string }>} */
@@ -398,9 +367,8 @@ if (initialized) {
 let unsavedSaid = false
 
 /**
- * Said once, under the content, when the state cannot be kept: it does not fit, or the LMS
- * refused it. The content plays on; the learner's next launch starts from the last state that
- * was kept, and the reason is in the console.
+ * Said once, under the content, when the state cannot be kept (too long, or the LMS refused it).
+ * The content plays on, the next launch starts from the last state kept, and the console has why.
  * @param {string} reason
  */
 function unsaved(reason) {
@@ -441,22 +409,13 @@ player.addEventListener('userdata', (event) => {
 })
 
 /*
- * Each question's answer, as `cmi.interactions`: what Moodle's interactions report shows, a
- * column per interaction index for every learner. So a question keeps one index, written over
- * when it is answered again, rather than taking a new one on every attempt, which would set one
- * learner's columns against another's. The index and the id come from the questions kept with
- * the state, after what the LMS counted at launch; a new attempt, where the LMS counts none,
- * starts them again. They are kept with each answer, not only with the content's own saves, since
- * content that keeps no state of its own sends none. SCORM 1.2 lets the content write the fields
- * and never read them, which the report does.
+ * Each question's answer, as `cmi.interactions`, which Moodle's report shows as a column per index:
+ * a question keeps one index across answers, or one learner's columns would not match another's.
  */
 
 /**
- * What the LMS counts of this attempt's interactions, read once, at launch, since an attempt the
- * LMS starts over can only start there: fewer than the questions kept is such an attempt, which
- * starts them again; more, interactions this page has no record of, which new questions go after.
- * Within the session the questions kept are the record, so an LMS whose count does not follow what
- * is written, or that counts none, does not put every new question on one index (#130).
+ * The LMS's interaction count, read once at launch: fewer than the questions kept is a new attempt,
+ * more is interactions this page lacks. It is not read again, as it may not follow writes (#130).
  */
 const launchCount = Math.max(0, Number(get('cmi.interactions._count')) || 0)
 if (questions.length > launchCount) questions = questions.slice(0, launchCount)
@@ -493,12 +452,8 @@ function recordAnswer(statement) {
   const types = /** @type {Record<string, string>} */ (scorm2004 ? INTERACTION_TYPES_2004 : INTERACTION_TYPES)
   const type = typeof definition?.interactionType === 'string' ? types[definition.interactionType] : undefined
   if (type) set(at('type'), type)
-  // 2004 takes a pattern and a response only after the type that gives their form, and refuses
-  // them without one (408); H5P writes them in 2004's own notation, which xAPI took over. 1.2 gets
-  // them only where they are the learner's own text or number, `fill-in` and `numeric`, as text a
-  // person reads (`scorm12Answer`): it holds a choice, true-false, matching or sequencing answer to
-  // single characters, which H5P's `0[,]2` and `true` are not, and LMSs part ways on those, so such
-  // an answer carries its result alone.
+  // 2004 refuses a pattern or response set before the type (408). 1.2 holds a choice, true-false,
+  // matching or sequencing answer to single characters, which H5P's are not: the result alone.
   const pattern = Array.isArray(definition?.correctResponsesPattern) ? definition.correctResponsesPattern[0] : undefined
   const result = statement.result ?? {}
   /** @type {string | null} */
@@ -512,10 +467,8 @@ function recordAnswer(statement) {
     right = scorm12Answer(pattern, type, true)
     given = scorm12Answer(result.response, type, false)
   }
-  // An answer to a question answered before is written over the earlier one, and 1.2 keeps a field
-  // the new answer leaves out: a response the learner typed then and not now, or a choice's in H5P's
-  // notation from a zip before 1.2's answers were held to their types, in an attempt it began. So in
-  // 1.2 such a field is emptied, and the record shows nothing of another answer.
+  // 1.2 keeps a field a new answer leaves out, as a typed response an older one had, so it is
+  // emptied when a question is answered again, or the record would show another answer's.
   const clears = again && !scorm2004
   if (right !== null) set(at('correct_responses.0.pattern'), right.slice(0, FEEDBACK_LIMIT))
   else if (clears) set(at('correct_responses.0.pattern'), '')
@@ -567,24 +520,15 @@ player.addEventListener('finished', (event) => {
 })
 
 /*
- * The session ends with the page. Unfinished, it is suspended, so the next launch resumes it.
- *
- * Its time and how it ended are committed on `beforeunload` too, while the page is still there,
- * and the session is finished on `pagehide`, once the page is going for good. ILIAS sends what a
- * closing page writes with a beacon only during `beforeunload`, `unload` or a click; on `pagehide`
- * it tries a synchronous request, which Chrome refuses while a page goes, so the finish alone lost
- * the session's time there (#94). The commit is all `beforeunload` does: the content saves its
- * state for the last time on its own frame's `beforeunload`, which comes after this page's, and a
- * learner asked whether to leave may stay.
+ * Time and exit are committed on `beforeunload` too, as ILIAS beacons a closing page's writes only
+ * then (#94); the finish waits for `pagehide`, as a learner asked whether to leave may stay.
  */
 let ended = false
 
 function writeEnd() {
   set(SESSION_TIME, span(Date.now() - started))
-  // Finished, a 1.2 session ends with nothing; a 2004 one is suspended all the same. Ended
-  // `normal`, Moodle 4.5 handed the next launch an empty data model within the same attempt, and
-  // the `incomplete` written at launch replaced the `completed` it kept, while the content started
-  // over: suspended, the result and the place stay, and a retry counts, as on an H5P site.
+  // Suspended rather than `normal`, which made Moodle 4.5 hand the next launch an empty data model
+  // and the launch's `incomplete` replace `completed`. A finished 1.2 session ends with nothing.
   set(EXIT, finished && !scorm2004 ? '' : 'suspend')
 }
 

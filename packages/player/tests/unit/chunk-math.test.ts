@@ -3,9 +3,8 @@ import { chunksForRange, sliceWithinChunk } from '../../src/shared/chunk-store'
 import { CHUNK_SIZE } from '../../src/shared/constants'
 
 /**
- * Serving a range out of the chunk store is arithmetic plus a slice. Getting it wrong shifts a
- * video by a few bytes, which decodes as a corrupt stream rather than a visible error, so the
- * arithmetic is pinned here rather than left to the integration tests.
+ * Serving a range from the chunk store is arithmetic plus a slice; a mistake shifts a video by a
+ * few bytes, a corrupt stream and no visible error, so it is pinned here.
  */
 describe('chunksForRange', () => {
   it('keeps a range inside one chunk in one chunk', () => {

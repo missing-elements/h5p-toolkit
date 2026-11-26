@@ -5,10 +5,8 @@ import type { H5PPlayerElement, PlayerProgressDetail } from '../../src/h5p-offli
 import { FIXTURES, clearPackageCaches, createPlayer, frameFetch, play, pressComplete, virtualUrl, waitForEvent, waitForSettled } from './utils'
 
 /**
- * A host that ignores `Range` forces the whole archive down before its central directory can be
- * read. The forward index recovers entries from the local headers as they arrive, so a package
- * laid out libraries-first boots while its media is still on its way — and a request for what has
- * not arrived waits for it rather than being refused.
+ * Without `Range` the whole archive comes down before its central directory is read; the forward
+ * index takes entries from local headers meanwhile: a libraries-first package boots, requests wait.
  */
 
 /** 20 MB at 4 MB/s: about five seconds, long enough to watch the player get ahead of it. */

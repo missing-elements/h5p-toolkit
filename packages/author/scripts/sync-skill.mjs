@@ -1,7 +1,5 @@
-// Writes the generated section of each of the h5p-author skill's type files, `references/types/<machine
-// name>.md`, from the pack this package pins: the content type's fields as `h5p-author schema --markdown`
-// prints them. Run after the pack changes (`pnpm --filter @missing-elements/h5p-author sync:skill`); the
-// weekly refresh does, and apps/skills' test fails when a file is out of date.
+// Writes the generated section of each skill type file (`references/types/`) from the pinned pack,
+// as `h5p-author schema --markdown`; run `sync:skill` after the pack changes (apps/skills tests).
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { schemaOf } from '../lib/author.mjs'

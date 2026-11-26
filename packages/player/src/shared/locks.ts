@@ -1,12 +1,6 @@
 /**
- * Web Lock names, one prefix per package: `h5p:<pkgId>:<what>`.
- *
- * The Jobs worker holds one per download or extraction for as long as it writes, and the element
- * holds `playing`, shared, for as long as a package is loaded. Eviction reads
- * `navigator.locks.query()` and never picks a package with anything held under its prefix. That
- * is what makes a write in one tab, or a learner mid-video in another, safe from a quota squeeze
- * caused by a package loading in a third — the `packages` table knows what is cold, but only the
- * locks know what is in use right now, across every context on the origin.
+ * Web Lock names, `h5p:<pkgId>:<what>`: the Jobs worker holds one per write, the element `playing`
+ * (shared). Eviction spares any package with a lock held: only locks know what is in use right now.
  */
 
 export function packageLockName(pkgId: string, what: string): string {

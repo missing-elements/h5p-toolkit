@@ -228,9 +228,8 @@ describe('normalizeArchive', () => {
 })
 
 /**
- * An archive whose one entry carries a CRC that does not match its content: the shape of an
- * entry damaged in transit whose bytes still decode. Written with our own writer, because no
- * ordinary zip tool will record a wrong CRC on purpose.
+ * An archive whose one entry has a CRC that does not match its content, as when it is damaged in
+ * transit and still decodes. Written with our own writer, as no zip tool records a wrong CRC.
  */
 async function archiveWithWrongCrc(name: string, content: Uint8Array, method: 0 | 8): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []

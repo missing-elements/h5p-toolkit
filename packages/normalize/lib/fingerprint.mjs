@@ -3,15 +3,8 @@ import { BlobReader, ZipReader } from '@zip.js/zip.js'
 import { openAsBlob } from 'node:fs'
 
 /**
- * The player's index fingerprint, for Node: what h5p-offline-player puts in every xAPI
- * statement's `context.revision` for this archive (with ` libraries …` after it when a bundle is
- * attached at play time). A copy of `indexFingerprint` in the player's `src/shared/revision.ts`,
- * because this package is plain JavaScript and cannot import the player's TypeScript; the
- * player's unit tests check both against one vector, so keep them in step.
- *
- * SHA-256 over the central directory's records in archive order: per entry the name's length
- * (u32) and raw bytes, the CRC-32 (u32), the compressed and uncompressed sizes (u64) and the
- * method (u16), little-endian.
+ * The player's index fingerprint (its `context.revision`) for Node: a copy of `indexFingerprint` in
+ * `src/shared/revision.ts`, not importable as plain JS; the player's tests hold both to one vector.
  */
 
 /**

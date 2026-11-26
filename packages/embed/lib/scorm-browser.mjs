@@ -4,25 +4,15 @@ import { addScormEntries, buildStamp, mainLibraryOf, readPackage, runtimeFiles, 
 import { EmbedError, PLAYER_FILES } from './shared.mjs'
 
 /**
- * @missing-elements/h5p-embed/scorm/browser: the SCORM package built in a page, for the people
- * who need one and do not run `npx`. The same zip `buildScorm` writes, from the same code
- * (`scorm-core.mjs`), but the package is a `File` the page was given, the player, the runtime and
- * the library pack come from the site the page is on, and the zip comes back as a `Blob` for a
- * download link. Nothing is uploaded anywhere. It needs a secure context, https or localhost, for
- * `crypto.subtle`.
- *
- * In two steps, so that a page can show what a zip will hold before it is written:
- * `planScormInPage` reads the package and plans the parts of the pack it needs, and the plan's
- * `write` fetches the files and writes the zip. `buildScormInPage` is both at once.
+ * @missing-elements/h5p-embed/scorm/browser: the zip `buildScorm` writes, from the same code
+ * (`scorm-core.mjs`), in a page. It needs a secure context (https, localhost) for `crypto.subtle`.
  */
 
 /**
  * @typedef {import('@missing-elements/h5p-offline-player').LibraryPack} PackIndex
- *   the `pack` export of `@missing-elements/h5p-libraries` as a bundler emits it: the index, each
- *   library with its part's URL, as the element's `pack` property takes it
+ *   the `pack` export of `@missing-elements/h5p-libraries` as a bundler emits it
  * @typedef {{ step: 'reading' | 'libraries' | 'writing', libraries?: number }} ScormProgress
- *   where the build is: reading the package, fetching its `libraries` parts of the pack, writing
- *   the zip
+ *   where the build is, and for `libraries` how many parts it fetches
  */
 
 /**
@@ -37,20 +27,14 @@ import { EmbedError, PLAYER_FILES } from './shared.mjs'
  *   place of the content's own pass or fail; none by default
  * @property {boolean} [completionScore] count content that finishes without a score as 100; off
  *   by default
- * @property {string | URL} [base] the folder that holds the player's three files and
- *   `frame-assets/`, and, unless `assets` gives them, `scorm-launch.html`, `scorm.js`,
- *   `lz-string.js`, `embed.css` and `libraries.txt`: this page's own folder by default
+ * @property {string | URL} [base] the folder with the player's files, `frame-assets/` and, unless
+ *   `assets` gives them, the launch files: this page's own folder by default
  * @property {PackIndex | null} [pack] the library pack, as the `pack` export a bundler resolves;
  *   it wins over `packBase`
  * @property {string | URL | null} [packBase] the folder of a copy of the pack's `parts/`, which
- *   the written site has as `libraries/`. Without either, a package that does not carry its
- *   libraries is refused
+ *   the site has as `libraries/`; without it or `pack`, a package lacking libraries is refused
  * @property {{ launch?: string, bridge?: string | Blob, lz?: string | Blob, css?: string | Blob, libraries?: string | Blob }} [assets]
- *   the launch page's template, its bridge, the compressor the bridge keeps the saved state with
- *   (`scorm/lz-string.js`), the stylesheet and the pack's licence list, for a page that bundles
- *   them rather than serving them beside the player. A page that gives the launch page and not the
- *   compressor gets the one at `base`, or a zip without it, whose bridge writes the saved state
- *   plain, as embed 1.4 did
+ *   the launch files and licence list, for a page that bundles them rather than serving them
  * @property {string} [version] the player's version, for the notice; `unknown` if not given
  * @property {string | null} [packVersion] the pack's, the same way
  * @property {(progress: ScormProgress) => void} [onProgress]
@@ -81,16 +65,12 @@ import { EmbedError, PLAYER_FILES } from './shared.mjs'
  * @property {string} title the title the zip takes unless `write` is given another: the one given
  *   to the plan, else `h5p.json`'s, else the file's name
  * @property {{ machineName: string, majorVersion?: number, minorVersion?: number } | null} mainLibrary
- *   the package's main library, as `h5p.json` names it, with the version its dependencies give
- *   it; `null` when it names none
+ *   the main library as `h5p.json` names it, with the version its dependencies give; or `null`
  * @property {string[]} libraries the folders of the libraries the zip will carry from the pack;
  *   none for a package that carries its own
  * @property {number} librariesSize their archives' size in bytes, as the pack's index gives it
  * @property {(options?: { title?: string, scormVersion?: '1.2' | '2004', passMark?: number | null, completionScore?: boolean, onProgress?: (progress: ScormProgress) => void }) => Promise<PageScorm>} write
- *   fetches the parts, the player and the runtime, and writes the zip, under the title and with
- *   the version and the grading options given, each defaulting to the plan's, as `onProgress`
- *   does. It can be called again, for another title or other options; the package is hashed for
- *   the build stamp on the first call only
+ *   fetches the files and writes the zip, with the plan's title and options unless given
  */
 
 /**
@@ -116,10 +96,8 @@ async function fetched(fetchImpl, url, what) {
 const asBlob = (value) => (value instanceof Blob ? value : new Blob([value]))
 
 /**
- * Reads a package in a page and plans its SCORM zip: `h5p.json`, and the parts of the pack the
- * zip will carry, by the player's own plan. Refuses what `buildScorm` refuses before it writes,
- * with the same messages: a package that needs a library neither it nor the pack has, and a file
- * that is not a package.
+ * Reads a package in a page and plans its SCORM zip: `h5p.json` and the pack's parts it needs, by
+ * the player's plan. Refuses what `buildScorm` refuses, with the same messages, before it writes.
  * @param {PageScormOptions} options
  * @returns {Promise<PlannedScorm>}
  */
@@ -186,9 +164,8 @@ export async function planScormInPage(options) {
     report({ step: 'libraries', libraries: parts.length })
     /** @param {string} url @param {string} what */
     const blob = async (url, what) => (await fetched(fetchImpl, url, what)).blob()
-    // The compressor came in 1.5, after pages that bundle the launch files were written: such a
-    // page that does not give it plays on without it, its state plain, rather than fail for a file
-    // it never had to serve.
+    // The compressor came in 1.5: a page that bundles the launch files and gives none plays on
+    // without it, state plain, rather than fail for a file it never had to serve.
     const compressor = async () => {
       try {
         return await blob(at('lz-string.js'), "The launch page's compressor")
@@ -244,9 +221,8 @@ export async function planScormInPage(options) {
 }
 
 /**
- * Builds the SCORM 1.2 zip of a package in a page, and returns it as a `Blob`: `planScormInPage`
- * and the plan's `write` at once. Refuses what `buildScorm` refuses, with the same messages, and a
- * part of the pack whose bytes do not match the index, since they came over the network.
+ * Builds the SCORM zip of a package in a page, as a `Blob`: `planScormInPage` and its `write` at
+ * once. Refuses what `buildScorm` refuses, and a pack part whose bytes do not match the index.
  * @param {PageScormOptions} options
  * @returns {Promise<PageScorm>}
  */

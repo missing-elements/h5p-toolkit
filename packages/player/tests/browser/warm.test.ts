@@ -5,9 +5,8 @@ import { cacheNameFor } from '../../src/shared/chunk-store'
 import { FIXTURES, clearPackageCaches, createPlayer, waitForSettled } from './utils'
 
 /**
- * Warming: on a host that honours `Range`, the runs of the archive that hold the libraries are
- * pulled into the cache before the frame boots, so the runtime's own requests are answered from
- * it. The fixture's five entries are one such run.
+ * Warming: on a host with `Range`, the runs holding the libraries are pulled into the cache before
+ * the frame boots, so the runtime's requests hit it.
  */
 
 function playWatching(src: string) {

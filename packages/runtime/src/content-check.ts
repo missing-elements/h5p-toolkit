@@ -1,39 +1,6 @@
 /**
- * The content of a package checked against its libraries' semantics, the way the H5P platforms
- * check it before they show it: every field held to the type its library's `semantics.json`
- * gives it, text stripped to the tags the field allows, plain text escaped, numbers held to their
- * range, sub-content to the libraries a field names, and anything the semantics do not name
- * removed. H5P's content types are written for parameters that have been through this — they put
- * text into the page as HTML — so a package whose own code is withheld (`untrusted`) still needs
- * it, or a `<script>` in a text field would run through jQuery's `.html()`.
- *
- * A port of `H5PContentValidator` from h5p-php-library's `h5p.classes.php` (GPL-3.0), at commit
- * cb64a1f3884408487c3178e31fc140f5d45ca165 (2026-08-11), with the XSS filter it copied from
- * Drupal 7's `common.inc` (GPL-2.0-or-later). Pure and synchronous: the semantics are loaded by
- * the caller first, for the libraries `librariesIn` finds, so this module needs no browser and
- * its rules are tested in Node.
- *
- * Where it differs from upstream, it is stricter, or it has to be:
- * - A sub-content library is accepted when a field names the same machine name and major
- *   version, not only the exact string. The file server answers for a minor with the newest one
- *   reachable, and the content upgrade moves the content to it, so a field written for
- *   `H5P.MultiChoice 1.16` holds `H5P.MultiChoice 1.17` once the pack serves 1.17. Upstream
- *   upgrades sub-content to the version its parent's semantics name, which keeps both installed.
- * - A boolean that is not a boolean is removed; upstream checks and keeps it.
- * - A number written as a string becomes a number, and so does one clamped to a bound the
- *   semantics wrote as a string; upstream keeps the string in both cases.
- * - A multi-select is a list after an invalid option is removed; upstream unsets the index and
- *   leaves a hole, which JSON writes as an object (`{"0": "a", "2": "b"}`).
- * - A field's `optional` is not written into the semantics: upstream marks the fields of an
- *   optional group optional on the shared object, which then holds for every later use of it.
- * - A `subContentId` in a sub-content group is held to the shape `validateLibrary` holds one to;
- *   upstream keeps whatever is there.
- * - A value of the wrong shape — a string where a group, a list or a file belongs — is removed;
- *   upstream fails on several of them with a PHP error, which fails the save.
- * - A malformed attribute is dropped up to the next whitespace. Upstream's pattern for that has an
- *   empty alternative, which in PCRE can match nothing at all.
- * - The step check uses whole steps of at least one, as PHP's integer `%` does; a fractional step,
- *   which PHP 8 divides by zero on, is not checked.
+ * A modified port (2026-08-11) of h5p-php-library's `H5PContentValidator`, GPL-3.0, with Drupal
+ * 7's `filter_xss`, GPL-2.0-or-later: NOTICE.md names the commit and lists every departure.
  */
 import { libraryKey, parseLibrary } from './library-names'
 
@@ -163,9 +130,8 @@ function entityLength(rest: string): number {
 }
 
 /**
- * PHP's `htmlspecialchars($text, ENT_QUOTES, 'UTF-8', false)`: `&`, `"`, `'`, `<` and `>`
- * written as references — `'` as `&#039;` — and a reference already there kept, as every call
- * upstream makes asks. Invalid UTF-8, a lone surrogate here, gives an empty string, as PHP does.
+ * PHP's `htmlspecialchars($text, ENT_QUOTES, 'UTF-8', false)`: `&`, `"`, `'` (as `&#039;`), `<`,
+ * `>` become references, existing ones kept. A lone surrogate gives an empty string, as PHP does.
  */
 export function escapeHtml(text: string): string {
   if (hasLoneSurrogate(text)) return ''
@@ -358,9 +324,8 @@ function filterTag(piece: string, allowed: Set<string>, allowedStyles: RegExp[] 
 }
 
 /**
- * Upstream's `filter_xss`, Drupal 7's: only the allowed tags, each with its attributes written
- * anew — no `on…` handler, no style but the allowed ones on the tags that may carry one, no URL
- * with a scheme off the list — and every entity well formed.
+ * Upstream's `filter_xss`, Drupal 7's: only the allowed tags, attributes written anew (no `on…`
+ * handler, only allowed styles, no URL scheme off the list), every entity well formed.
  */
 export function filterXss(text: string, allowedTags: string[], allowedStyles: RegExp[] | false = false): string {
   if (text.length === 0) return text
@@ -623,6 +588,7 @@ class ContentChecker {
     }
     const valid = (item: Json) => isScalar(item) && options.has(phpKey(item))
 
+    // An invalid option is removed, not unset as upstream does: a hole, an object in JSON.
     if (field.multiple) {
       const items = Array.isArray(value) ? value : [value]
       const kept: string[] = []
@@ -695,6 +661,8 @@ class ContentChecker {
     const names = (Array.isArray(field.options) ? field.options : [])
       .map((option) => (typeof option === 'string' ? option : isObject(option as Json) && typeof (option as Fields).name === 'string' ? ((option as Fields).name as string) : null))
       .filter((name): name is string => name !== null)
+    // The same name and major is accepted: the file server answers for a minor with the newest
+    // reachable, and the content upgrade moves the content to it (upstream keeps both).
     const accepted =
       wanted !== null &&
       names.some((name) => {
@@ -795,10 +763,8 @@ export function checkContentMetadata(metadata: Json): { metadata: Fields; messag
 }
 
 /**
- * The content's parameters checked against the semantics of `library` — the main library's
- * string, as the content is to run it — and of every library it names, all already in
- * `semantics`. Throws when the main library has none: content that cannot be checked does not
- * play. A copy; the input is untouched.
+ * The parameters checked against the semantics of `library` and of every library they name, as
+ * platforms do: types put text in the page as HTML. Throws without the main semantics.
  */
 export function checkContent(library: string, params: Json, semantics: SemanticsTable): CheckResult {
   const main = parseLibrary(library)

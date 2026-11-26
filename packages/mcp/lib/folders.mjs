@@ -4,10 +4,8 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Where a build may read and write when neither the person nor the app named a folder: Desktop,
- * Documents and Downloads, those that exist. Never the home folder whole, which holds keys and
- * settings no build has a reason to read: one that is a link to the home folder, or to a folder
- * that holds it, is left out. A link to a folder elsewhere, as on another drive, is kept.
+ * Where a build may read and write when no folder is named: Desktop, Documents and Downloads, as
+ * they exist, never the home folder whole (keys, settings): a link to it, or above it, is left out.
  * @param {string} [home]
  * @returns {Promise<string[]>}
  */
@@ -39,9 +37,8 @@ export function rootFolders(roots) {
 const DEVICE = /^(?:con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])$/
 
 /**
- * A file name for a package from its title: its letters and digits, in any script and as written,
- * joined by `-`, at most 60 characters; `h5p-content` for a title with none of them, and `-file`
- * after a name Windows keeps for a device, as `con`.
+ * A file name from a package's title: its letters and digits in any script, joined by `-`, at most
+ * 60 characters; `h5p-content` if none, and `-file` after a name Windows keeps for a device.
  * @param {unknown} title
  * @returns {string}
  */

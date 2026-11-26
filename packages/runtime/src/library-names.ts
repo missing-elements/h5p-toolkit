@@ -1,8 +1,6 @@
 /**
- * How content names a library, and how the libraries a content names are found: shared by the
- * content check and the content upgrade, which once each parsed the string their own way, one
- * taking `H5P.Foo-1.0` and the other only `H5P.Foo 1.0`, so the check could find a library the
- * upgrade never touched.
+ * How content names a library and how they are found, shared by the check and the upgrade: each
+ * once parsed the string its own way, so the check found libraries the upgrade never touched.
  */
 
 /** A library as content names it: the machine name and the version its parameters were written for. */
@@ -26,9 +24,8 @@ export const libraryKey = (library: LibraryName): string => `${library.machineNa
 export const MAX_DEPTH = 64
 
 /**
- * Every library the content names, once, found by shape — an object whose `library` is a library
- * string — in every field, not only in the ones the semantics call a library: a superset of what
- * the check reaches, so their semantics can be loaded before it, and what the upgrade looks into.
+ * Every library the content names, once, found by shape (an object whose `library` is a library
+ * string) in every field: a superset of what the check reaches, so its semantics load first.
  */
 export function librariesIn(params: unknown): LibraryName[] {
   const found = new Map<string, LibraryName>()

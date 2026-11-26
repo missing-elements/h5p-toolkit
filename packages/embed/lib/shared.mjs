@@ -1,8 +1,6 @@
 /**
- * What every entry of the package shares and no Node import: the error the command and the
- * functions throw, and the player's files by name. `build.mjs` re-exports the error, so a caller
- * of `@missing-elements/h5p-embed` finds it where it did; the SCORM builder that runs in a page
- * takes both from here, since `build.mjs` imports `node:fs`.
+ * What every entry shares, with no Node import: `EmbedError` and the player's files by name. The
+ * page's SCORM builder takes them from here, as `build.mjs` imports `node:fs`.
  */
 
 export class EmbedError extends Error {}

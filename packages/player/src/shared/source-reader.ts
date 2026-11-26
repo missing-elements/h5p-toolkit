@@ -3,11 +3,8 @@ import type { SourceHandle } from './source.js'
 import { streamSpan } from './span-stream.js'
 
 /**
- * The zip.js side of a source: `SourceReader` presents a `SourceHandle` to zip.js. Kept apart
- * from the handles in `source.ts` because this is the one module that imports zip.js, and the
- * element — which probes a source but never reads an archive — must not carry it; how a span is
- * actually pulled, in segments or in one request, lives in `span-stream.ts`, which the Jobs
- * worker uses without zip.js.
+ * The zip.js side of a source, apart from `source.ts` as the one module importing zip.js: the
+ * element probes a source but never reads an archive, so it must not carry it.
  */
 
 /* ------------------------------------------------------------------ zip.js bridge */
@@ -32,12 +29,8 @@ export class SourceReader extends Reader<SourceHandle> {
   }
 
   /**
-   * Streams a span in one read instead of paging through it.
-   *
-   * zip.js only calls `readUint8Array` when a reader does not provide this, and it then walks the
-   * entry in 64 kB steps. Over a `File` each step is a free `slice()`; over HTTP each one is a
-   * request, so inflating a 218 MB video meant about 3,500 round trips to the origin — slow
-   * enough to look like a hang, and enough to get throttled. One ranged request covers it.
+   * Streams a span in one read. Without this zip.js walks an entry in 64 kB steps: free over a
+   * `File`, a request each over HTTP (a 218 MB video meant about 3,500 round trips).
    */
   createReadable(options: CreateReadableOptions = {}): ReadableStream<Uint8Array> {
     const start = options.offset ?? 0

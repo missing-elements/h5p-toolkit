@@ -9,9 +9,8 @@ const MEDIA = 'content/media/big.bin'
 const MEDIA_SIZE = LARGE_ENTRY_SIZE
 
 /**
- * The two large-entry strategies. Both exist so that a package with a video in it does not have
- * to be unpacked before anything can play, and both are where a byte-level mistake shows up as a
- * corrupt stream rather than an error.
+ * The two large-entry strategies: a package with a video plays without being unpacked first, and a
+ * byte-level mistake shows as a corrupt stream rather than an error.
  */
 describe('a large stored entry', () => {
   it('is sliced straight out of the archive, with the right total size', async () => {
@@ -89,9 +88,8 @@ describe('a large deflated entry', () => {
     await clearPackageCaches()
     const player = await play(FIXTURES.largeDeflated)
 
-    // A media element's first request carries no Range: Chrome only starts using them once it
-    // knows the resource supports them. Waiting for the whole entry here is what made a large
-    // video play from a picked file, where the inflate is quick, and fail from a URL.
+    // A media element's first request has no Range (Chrome uses them once it knows they work);
+    // waiting for the whole entry made a large video play from a picked file and fail from a URL.
     const response = await frameFetch(player, virtualUrl(player, MEDIA))
 
     expect(response.status).toBe(200)
@@ -106,9 +104,8 @@ describe('a large deflated entry', () => {
     await clearPackageCaches()
     const player = await play(FIXTURES.largeDeflated)
 
-    // An mp4 whose `moov` index sits at the end — and plenty are not written faststart — is
-    // unplayable until that tail arrives. Extraction only runs forward, so the tail is always
-    // beyond the watermark at first; refusing it would mean refusing the file.
+    // An mp4 with `moov` at the end is unplayable until its tail arrives. Extraction runs forward,
+    // so the tail is beyond the watermark at first, and refusing it would refuse the file.
     const start = MEDIA_SIZE - 16
     const response = await frameFetch(player, virtualUrl(player, MEDIA), {
       headers: { Range: `bytes=${start}-` }
@@ -143,9 +140,8 @@ describe('a large deflated entry', () => {
 
     await frameFetch(player, url, { headers: { Range: 'bytes=0-1023' } })
 
-    // The fixture's filler is a run of zero bytes, so any misplacement of a chunk shows up. One
-    // request: a range past the watermark is answered in full with a body that follows the
-    // extraction, so there is nothing to retry.
+    // The filler is zero bytes, so a misplaced chunk shows. One request: a range past the watermark
+    // is answered in full, its body following the extraction, so there is nothing to retry.
     const response = await frameFetch(player, url, { headers: { Range: `bytes=${MEDIA_SIZE - 16}-` } })
     expect(response.status).toBe(206)
     expect(response.headers.get('content-range')).toBe(`bytes ${MEDIA_SIZE - 16}-${MEDIA_SIZE - 1}/${MEDIA_SIZE}`)

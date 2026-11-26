@@ -10,9 +10,8 @@ import { defaultFolders, fileStem, rootFolders } from './folders.mjs'
 
 /**
  * @typedef {object} ServerOptions
- * @property {string[]} [allow] the folders a build may read and write, given when the server starts;
- *   they take precedence over the app's roots, which take precedence over Desktop, Documents and
- *   Downloads
+ * @property {string[]} [allow] the folders a build may read and write; they take precedence over
+ *   the app's roots, which take precedence over Desktop, Documents and Downloads
  * @property {boolean} [open] open a preview in the person's browser; default true
  * @property {string} [libraries] the pack's `parts/` folder to build from; the installed pack by default
  */
@@ -49,10 +48,8 @@ const whereFiles = (folders) => folders.length
 const sourceBeside = (path) => path.replace(/\.h5p$/i, '.source.json')
 
 /**
- * A read source's files named in the folder it was read into, so that a build looks for each there
- * and nowhere else: one the read wrote, where it is, and one the package lacks, where the person can
- * put it. Every file a read source names, but by a web address, is under its folder by its path
- * (`readPackage`); a path is a field of a file alone in every content type.
+ * A read source's local `path`s put under the folder it was read into, so a build looks only there
+ * (`path` is only ever a file's field): the read's own files, or ones the person adds.
  * @param {unknown} value
  * @param {string} folder
  * @returns {unknown}
@@ -95,10 +92,8 @@ export async function createServer(options = {}) {
   const building = new Set()
 
   /**
-   * A package's path in the folder, with a number added to the name where it is taken, the
-   * package's or its source's: a build never writes over a file, so a package built again takes
-   * the next number. A link takes its name too, even one that leads nowhere. The path is held for
-   * the build until it is let go of, so that builds at once take names of their own.
+   * A package's path in the folder, numbered where the name is taken (a build never writes over a
+   * file; a link takes its name too), and held until let go of so builds at once take their own.
    * @param {string} folder
    * @param {string} stem the file name without `.h5p`
    */
@@ -168,9 +163,8 @@ export async function createServer(options = {}) {
     let unwritten
     try {
       result = await buildPackage(source, target, { base: dirname(target), within: allowed, fetch: publicFetch, libraries: options.libraries })
-      // Made new: a file or a link put at its name since the name was found free is not written through.
-      // As the build took it, naming the content type's version it was built with (author's #219):
-      // for a quiz in the quiz format, the source it was built as, which has the field for it.
+      // As the build took it, naming the type's version it used (author #219); written new, so a
+      // file or link put at the name since it was found free is not written through.
       unwritten = await writeFile(sourceFile, `${JSON.stringify(result.source, null, 2)}\n`, { flag: 'wx' }).then(() => undefined, (error) => error)
     } catch (error) {
       if (error instanceof SourceError) return refusal(`${error.message}\nFix each at its path and build again.${/outside the folders/.test(error.message) ? ` ${whereFiles(allowed)}` : ''}`)

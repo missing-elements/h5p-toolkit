@@ -13,6 +13,7 @@
     "test:browser": "pnpm --filter @missing-elements/h5p-offline-player test:browser",
     "test:engine": "pnpm --filter @missing-elements/h5p-offline-player test:engine && pnpm --filter @missing-elements/h5p-demo test",
     "typecheck": "pnpm -r typecheck",
+    "comments": "node scripts/comments.mjs",
     "normalize": "node packages/normalize/bin/h5p-normalize.mjs",
     "verify": "node packages/verify/bin/h5p-verify.mjs",
     "author": "node packages/author/bin/h5p-author.mjs",

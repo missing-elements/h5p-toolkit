@@ -9,34 +9,16 @@ import { chromium } from 'playwright'
 import { ContentGenerator, MEDIA, libraryString, librariesIn, mediaIn, sweepOptions } from './lib/sweep-content.mjs'
 
 /**
- * Plays every content type in the library pack and reports what each one does: whether it boots,
- * played `untrusted` and trusted, and what it sends when worked through. Built on 2026-10-14; the
- * hub serves no example content, so each package is made here.
- *
- * Each content type's content is generated from its own `semantics.json` by the generator of
- * @missing-elements/h5p-author, run as `lib/sweep-content.mjs` says, and `sweep/<machineName>.json`,
- * where one exists, adds what generation cannot give — a drop zone, words that cross — and the
- * element's attributes for it (`attributes`). The packages are content-only, as h5p.com and
- * h5p.org export, so the pack supplies every library: this is the pack's own test as much as the
- * player's. Run it with the player built (`pnpm build`):
- *
- *   pnpm sweep                        every content type, both modes
- *   pnpm sweep --only H5P.Blanks      one or more, comma-separated
- *   pnpm sweep --modes trusted        untrusted, trusted or both
- *   pnpm sweep --out <dir>            where packages, screenshots and the report go
- *   pnpm sweep --headed               watch it
- *   pnpm sweep --semantics H5P.Blanks a content type's fields, as a tree, for writing its file
- *
- * It fails when a content type does not reach `ready` or throws while booting. What a content
- * type sends once there — the walk presses what a learner would — is reported, not judged: that
- * depends on the library's own buttons and timing, which a first cut checked and found too
- * unsteady on a slow runner to gate anything on.
+ * Plays each content type in the pack, untrusted and trusted, as a content-only export. Fails when
+ * one does not reach `ready` or throws booting; what it sends after is reported, not judged.
  */
 
 configure({ useWebWorkers: false })
 
 const rootDir = resolve(import.meta.dirname, '..')
 const repoDir = resolve(rootDir, '..', '..')
+// `sweep/<machineName>.json` adds what generation cannot give (a drop zone, words that cross) and
+// the element's attributes.
 const overridesDir = join(rootDir, 'sweep')
 const playerDist = join(repoDir, 'packages', 'player', 'dist')
 const runtimeDist = join(repoDir, 'packages', 'runtime', 'dist')
@@ -384,9 +366,8 @@ async function buildPackage(library, params) {
 }
 
 /**
- * The files generated content points at: a grey image of the size its parameters state, a second
- * of silence, the demo's ten seconds of Big Buck Bunny (CC BY 3.0, Blender Foundation), and a
- * line of text.
+ * The files generated content points at: a grey image of the stated size, a second of silence, a
+ * line of text, and the demo's 10 s of Big Buck Bunny (CC BY 3.0, Blender Foundation).
  */
 async function sampleMedia() {
   const video = new ZipReader(new BlobReader(await openAsBlob(join(rootDir, 'demo', 'content', 'video.h5p'))))
@@ -440,9 +421,8 @@ function silence(seconds) {
 }
 
 /**
- * A content type's fields, one a line: name, type and widget, optional, default, minimum, and the
- * options of a library or select field. The strings a content type shows (`l10n` and the like)
- * are folded to one line.
+ * A content type's fields, one a line: name, type, widget, optional, default, minimum, and a
+ * library or select field's options. Strings a type shows (`l10n` and the like) fold to one line.
  */
 function semanticsTree(fields, depth = 0) {
   const folded = new Set(['l10n', 'i10n', 'a11y', 'texts', 'UI', 'localize'])

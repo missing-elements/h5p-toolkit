@@ -3,11 +3,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, createPlayer, frameDocument, frameFetch, frameWindow, inject, messageOf, play, settle, virtualUrl, waitForSettled } from './utils'
 
 /**
- * `untrusted`: a package played as data. Its own library folders never run — the bundle's copy
- * does — `content/` serves only H5P's own list of content file types, every entry carries
- * `nosniff`, and the frame's policy names script paths rather than the origin. `untrusted.h5p`
- * carries a copy of the fixture content type that marks the frame (`ownLibraryRan`) and says so
- * on screen, and a file of each kind under `content/`.
+ * `untrusted`: a package played as data. Its own libraries never run (the bundle's do), `content/`
+ * serves only H5P's content file types, each with `nosniff`, and the policy names script paths.
  */
 
 type Marked = Window & {

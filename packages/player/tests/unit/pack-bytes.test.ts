@@ -7,23 +7,15 @@ import { describe, expect, it } from 'vitest'
 import { splitPack, writePack } from '../../../libraries/scripts/parts.mjs'
 
 /**
- * The library pack's bytes, which the player pins by hash, depend on nothing but its libraries. A
- * zip records a wall-clock time with no zone, and the pack was once written with a date built
- * from UTC fields: the pack built at UTC+2 said 02:00 and CI's said 00:00, so the first weekly
- * refresh after the split rewrote every archive with no library changed (#48, #51). Nor do they
- * depend on the order a hub bundle lists a library's files in, which changed when Branching
- * Scenario's bundle was rebuilt and rewrote the 30 parts it is the first to carry (#116).
- *
- * Each time zone runs in a process of its own: whether setting `TZ` inside a running test worker
- * moves its clock is the engine's business, and a child process starts in the zone it is given.
+ * The pack's bytes, pinned by hash, depend on its libraries alone: not on time zone (#48, #51) or
+ * the hub's file order (#116). Each zone gets a process, as `TZ` may not move a worker's clock.
  */
 
 const librariesDir = resolve(import.meta.dirname, '../../../libraries')
 const parts = pathToFileURL(resolve(librariesDir, 'scripts/parts.mjs')).href
 
-// A pack of one library, written by the `writePack` that apps/demo/scripts/build-libraries.mjs
-// writes the real one with, split by the real `splitPack`; prints the bytes' hashes and the first
-// entry's DOS time and date.
+// A pack of one library, written by the `writePack` the real one uses and split by `splitPack`;
+// prints the bytes' hashes and the first entry's DOS time and date.
 const build = `
 import { createHash } from 'node:crypto'
 import { mkdtemp, readFile } from 'node:fs/promises'

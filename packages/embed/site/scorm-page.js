@@ -1,27 +1,7 @@
 /*! @missing-elements/h5p-embed. MIT. */
 /**
- * The SCORM page: `.h5p` files picked or dropped become SCORM zips, built in the browser by
- * `planScormInPage` and its `write` from this site's own copies of the player, the runtime and
- * the library pack, with nothing uploaded anywhere. `startScormPage()` runs it; the site's
- * `scorm-main.js` calls it with what `h5p-embed` wrote into `config.js`, and the demo's
- * `/demo/scorm.html` with its own copies.
- *
- * The page holds `#file`, the input; `#status`, a line that says where the build is and then what
- * it made; `#download`, the link to the zip, hidden until there is one; and `#notice`, for a
- * refusal. A page with a `#state` badge, as the demo's pages have, gets the state's name in it,
- * `idle`, `building`, `ready` or `error`, and as `data-state` on it and on the `.status` strip
- * around `#status`, which its stylesheet colours.
- *
- * A page that also holds `#files`, a list, and `#build`, a button, as both pages here do, works in
- * steps. Each file chosen gets a row in the list, which says what its zip will hold, or why none
- * can be written, and takes the title the LMS lists it by; nothing is written until `#build` is
- * pressed, which writes the rows one after another, and a file chosen or dropped meanwhile gets its
- * row and waits for the next press; `#download` is then the zip, or, for several,
- * one zip that holds them all, while each row links its own. Where the page also holds the
- * options, radios named `scorm-version` (`1.2` or `2004`), `#pass-mark` and `#completion-score`,
- * every zip is written with them, and changing one takes back the zips written before. The
- * closest `[data-step]` around each is shown once it can be reached. A page with neither `#files`
- * nor `#build` builds the first file it is given at once, as the page did up to embed 1.5.
+ * The SCORM page: `.h5p` files picked or dropped become zips, built in the browser with no upload.
+ * With `#files` and `#build` it works in steps, else builds the first file at once, as up to 1.5.
  */
 import { BlobWriter, ZipWriter } from '@zip.js/zip.js'
 import { addStored } from '../lib/scorm-core.mjs'
