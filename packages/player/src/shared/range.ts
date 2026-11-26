@@ -24,6 +24,8 @@ export function parseRange(header: string | null | undefined, size: number): Ran
   if (rawStart === '') {
     const suffixLength = Number(rawEnd)
     if (suffixLength === 0) return 'unsatisfiable'
+    // Satisfiable on an empty entry (RFC 9110 §14.1.2), but no byte range says zero bytes: the whole (#293).
+    if (size === 0) return 'none'
     const start = Math.max(0, size - suffixLength)
     return { start, end: size - 1 }
   }
