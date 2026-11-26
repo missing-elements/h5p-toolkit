@@ -150,8 +150,9 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     YouTube's carries none, and Panopto and Echo360 are not asked. It counts only as JSON that
     names Vimeo with a length above zero, so a box that answers 200 for the host says none. An
     interaction is held to that number of seconds, as the library holds it to its player's whole
-    seconds; a bookmark, an end screen or a start is past such a video's end only a second beyond
-    it, for the rounding, and the problem says whose word the length is.
+    seconds. A bookmark, an end screen or a start is refused only when it is more than a second
+    past that length, an allowance for the rounding, and the problem says whose word the length
+    is.
   - **A build says the length it held the times to.** A result's `lengths` has it for each
     Interactive Video's video, by the name the source gives it, and the command line and both
     servers say each (`lengthLine`), so that whoever changes the times next starts from it.
@@ -408,8 +409,8 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   them at `/h5p/bundles/`. Where `--libraries` names a folder that holds no pack, the build looks
   where a run put it (#285): one folder down, since a bundle unzipped into a folder named `parts`
   holds `parts/parts/index.json`; then, on the command line, the `parts/` beside the tool, since
-  the archive unpacks the two side by side and runs unpacked it into `tool/` or `build/` and built
-  from the folder above. Either way the build's line names the folder it read. In 6 of 31 lab
+  the archive holds the two side by side, and in lab runs it was unpacked into a folder of its own,
+  `tool/` or `build/`, and the build run from the folder above. Either way the build's line names the folder it read. In 6 of 31 lab
   runs on routes 1 and 3 the first build stopped at a parts folder, one nested and five beside
   the tool. The build tool beside them is the command line as one file, 756 kB,
   which builds from an unzipped bundle with nothing installed. Its version is an import the

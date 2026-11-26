@@ -250,7 +250,7 @@ describe('the command line as one file', () => {
     await copyFile(join(built, 'h5p-author.mjs'), join(nested, '..', 'h5p-author.mjs'))
     await writeFile(join(nested, '..', 'quiz.json'), JSON.stringify(QUIZ))
     const { stdout: deeper } = await exec(process.execPath, ['h5p-author.mjs', 'build', 'quiz.json', 'quiz.h5p', '--libraries', 'parts'], { cwd: join(nested, '..') })
-    expect(deeper).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in \S*parts\/parts, \d+ more for installing on an H5P site\.\n/)
+    expect(deeper).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in \S*parts[\\/]parts, \d+ more for installing on an H5P site\.\n/)
 
     // The tool and its parts unpacked into a folder of their own, and the build run from the one
     // above it, naming parts as route 1 does: the parts beside the tool are read (#285).
@@ -258,7 +258,7 @@ describe('the command line as one file', () => {
     await copyFile(join(built, 'h5p-author.mjs'), join(tool, 'h5p-author.mjs'))
     await writeFile(join(tool, '..', 'quiz.json'), JSON.stringify(QUIZ))
     const { stdout: beside } = await exec(process.execPath, ['tool/h5p-author.mjs', 'build', 'quiz.json', 'quiz.h5p', '--libraries', 'parts'], { cwd: join(tool, '..') })
-    expect(beside).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in tool\/parts, \d+ more for installing on an H5P site\.\n/)
+    expect(beside).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in tool[\\/]parts, \d+ more for installing on an H5P site\.\n/)
     // A folder that holds no pack, where none is beside the tool either, still stops the build.
     await expect(exec(process.execPath, [join(built, 'h5p-author.mjs'), 'build', 'quiz.json', 'other.h5p', '--libraries', 'nowhere'], { cwd: sandbox })).rejects.toMatchObject({
       stderr: expect.stringContaining("nowhere is not a library pack's parts folder: it has no readable index.json")

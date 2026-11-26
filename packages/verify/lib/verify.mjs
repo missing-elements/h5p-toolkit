@@ -406,8 +406,9 @@ export async function verifyPackage(options) {
  * no browser.
  * @internal
  * @param {any} params an Interactive Video's, as `content.json` holds them
- * @returns {({ path: string, from: number, to: number } | { path: string, time: number })[]} each by its
- *   JSON path, in seconds: an interaction's start and end, a bookmark's or the start's time
+ * @returns {({ path: string, from: number, to: number } | { path: string, time: number, says: 'starts at' | 'is' })[]}
+ *   each by its JSON path, in seconds: an interaction's start and end, or, for one with no end after
+ *   its start, its start; a bookmark's or the start's time
  */
 export function videoTimes(params) {
   const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
@@ -416,12 +417,21 @@ export function videoTimes(params) {
   /** @type {ReturnType<typeof videoTimes>} */
   const interactions = list(assets?.interactions).flatMap((interaction, i) => {
     const { from, to } = interaction?.duration ?? {}
-    return number(from) && number(to) && from <= to ? [{ path: `interactiveVideo.assets.interactions[${i}].duration`, from, to }] : []
+    const path = `interactiveVideo.assets.interactions[${i}].duration`
+    /** @type {ReturnType<typeof videoTimes>} */
+    const found =
+      number(from) && number(to) && from <= to
+        ? [{ path, from, to }]
+        : // No end after its start, so the library does not move it: it shows from its start, if ever.
+          number(from) && from > 0
+          ? [{ path, time: from, says: 'starts at' }]
+          : []
+    return found
   })
   /** @type {ReturnType<typeof videoTimes>} */
   const marks = [
-    ...list(assets?.bookmarks).map((bookmark, i) => ({ path: `interactiveVideo.assets.bookmarks[${i}].time`, time: bookmark?.time })),
-    { path: 'override.startVideoAt', time: params?.override?.startVideoAt }
+    ...list(assets?.bookmarks).map((bookmark, i) => ({ path: `interactiveVideo.assets.bookmarks[${i}].time`, time: bookmark?.time, says: /** @type {const} */ ('is') })),
+    { path: 'override.startVideoAt', time: params?.override?.startVideoAt, says: /** @type {const} */ ('is') }
   ].filter(({ time }) => number(time) && time > 0)
   return [...interactions, ...marks]
 }
@@ -449,7 +459,7 @@ export function lateTimes(times, seconds, exact) {
       const from = Math.max(0, Math.round((last - (time.to - time.from)) * 100) / 100)
       return [`video time: ${time.path}: runs from ${time.from} to ${time.to} s, and ${end}: Interactive Video plays it from ${from} to ${last} s instead`]
     }
-    return time.time > seconds + (exact ? 0 : 1) ? [`video time: ${time.path}: is ${time.time} s, after ${end}`] : []
+    return time.time > seconds + (exact ? 0 : 1) ? [`video time: ${time.path}: ${time.says} ${time.time} s, after ${end}`] : []
   })
 }
 

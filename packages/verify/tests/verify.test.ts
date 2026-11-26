@@ -178,7 +178,7 @@ describe('videoTimes', () => {
       interactiveVideo: {
         assets: {
           // An end screen past the end is moved to it by the library, and is no time to hold.
-          interactions: [{ duration: { from: 2, to: 900 } }, { duration: { from: 900, to: 905 } }, {}, { duration: { from: 9, to: 3 } }],
+          interactions: [{ duration: { from: 2, to: 900 } }, { duration: { from: 900, to: 905 } }, {}, { duration: { from: 9, to: 3 } }, { duration: { from: 950 } }],
           bookmarks: [{ time: 950 }, { time: '12' }],
           endscreens: [{ time: 990 }]
         }
@@ -188,8 +188,11 @@ describe('videoTimes', () => {
     expect(videoTimes(params)).toEqual([
       { path: 'interactiveVideo.assets.interactions[0].duration', from: 2, to: 900 },
       { path: 'interactiveVideo.assets.interactions[1].duration', from: 900, to: 905 },
-      { path: 'interactiveVideo.assets.bookmarks[0].time', time: 950 },
-      { path: 'override.startVideoAt', time: 30 }
+      // With no end after its start, an interaction is held by its start.
+      { path: 'interactiveVideo.assets.interactions[3].duration', time: 9, says: 'starts at' },
+      { path: 'interactiveVideo.assets.interactions[4].duration', time: 950, says: 'starts at' },
+      { path: 'interactiveVideo.assets.bookmarks[0].time', time: 950, says: 'is' },
+      { path: 'override.startVideoAt', time: 30, says: 'is' }
     ])
     expect(videoTimes({})).toEqual([])
     expect(videoTimes({ interactiveVideo: { assets: { interactions: 'none' } }, override: { startVideoAt: 0 } })).toEqual([])
@@ -201,7 +204,8 @@ describe('lateTimes', () => {
     { path: 'interactions[0].duration', from: 5, to: 10 },
     { path: 'interactions[1].duration', from: 9.6, to: 14.6 },
     { path: 'interactions[2].duration', from: 900, to: 905 },
-    { path: 'bookmarks[0].time', time: 10.5 }
+    { path: 'interactions[3].duration', time: 950, says: 'starts at' as const },
+    { path: 'bookmarks[0].time', time: 10.5, says: 'is' as const }
   ]
 
   it("says where the library plays an interaction that ends past the video's last whole second, and a bookmark past the end (#285)", () => {
@@ -209,6 +213,7 @@ describe('lateTimes', () => {
     expect(lateTimes(times, 10, true)).toEqual([
       'video time: interactions[1].duration: runs from 9.6 to 14.6 s, and the video ends at 10 s: Interactive Video plays it from 5 to 10 s instead',
       'video time: interactions[2].duration: runs from 900 to 905 s, and the video ends at 10 s: Interactive Video plays it from 5 to 10 s instead',
+      'video time: interactions[3].duration: starts at 950 s, after the video ends at 10 s',
       'video time: bookmarks[0].time: is 10.5 s, after the video ends at 10 s'
     ])
   })
@@ -216,7 +221,8 @@ describe('lateTimes', () => {
   it("counts a host's length as the library does, and leaves a bookmark a second's slack", () => {
     expect(lateTimes(times, 10.7, false)).toEqual([
       'video time: interactions[1].duration: runs from 9.6 to 14.6 s, and the video ends at about 10.7 s, as its player says: Interactive Video plays it from 5 to 10 s instead',
-      'video time: interactions[2].duration: runs from 900 to 905 s, and the video ends at about 10.7 s, as its player says: Interactive Video plays it from 5 to 10 s instead'
+      'video time: interactions[2].duration: runs from 900 to 905 s, and the video ends at about 10.7 s, as its player says: Interactive Video plays it from 5 to 10 s instead',
+      'video time: interactions[3].duration: starts at 950 s, after the video ends at about 10.7 s, as its player says'
     ])
   })
 })

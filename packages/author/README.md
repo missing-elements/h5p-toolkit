@@ -216,9 +216,10 @@ has sound from its index, a Vimeo video's length as Vimeo gives it, in whole sec
 Ogg's, a WAV's or an MP3's length is not read, and YouTube says none. A file that no source can
 name is said on standard error, and the command then exits with 1. It needs no libraries.
 
-A build of an Interactive Video says the length it held the times to. It refuses an interaction
-that ends past the video's last whole second, which Interactive Video would move to end there and
-start as much earlier, and says where it would play. It refuses a bookmark, an end screen or a
+A build of an Interactive Video says the length it held the times to. An interaction's end is
+held to the video's last whole second, not to its exact length: Interactive Video moves an
+interaction that ends later so that it ends at that second, its start earlier by as much, keeping
+its length. The build refuses such an interaction and says where it would play. It refuses a bookmark, an end screen or a
 start past the end too (for a Vimeo video, more than a second past the length Vimeo gives, which
 is whole seconds). What a source places on a picture or times on a video by
 numbers alone, hotspots, areas, stages and interactions, it notes, since only a look at the preview
