@@ -15,7 +15,7 @@ const folder = resolve('work')
 try {
   const { notes, outline } = await buildPackage(source, join(folder, 'rivers.h5p'), { base: folder, within: [folder], fetch: publicFetch })
 } catch (error) {
-  if (!(error instanceof SourceError)) throw error // an existing output, a file outside `within`
+  if (!(error instanceof SourceError)) throw error // an existing output, an output outside `within`
   console.log(error.problems) // [{ path, message }]
 }
 ```

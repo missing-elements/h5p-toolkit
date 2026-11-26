@@ -79,7 +79,7 @@ Your app sends your conversation to its model, as it does without this server.
 The package has a second command, `h5p-mcp-app`: an MCP server over HTTP for a chat app that shows
 a card in its reply, ChatGPT first. The person asks for an activity, the reply plays it, and its
 `.h5p` is saved from there. A chat app on the web reaches it only at a public https address, so
-host it where one is served; on your computer, to try it:
+host it where one is served. To try it on your computer, run:
 
 ```sh
 npx -y -p @missing-elements/h5p-mcp h5p-mcp-app --port 8787
