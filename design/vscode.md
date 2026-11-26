@@ -30,7 +30,10 @@ screenshots (`pnpm demo:screenshots`), which show the bar.
 - **A webview frames a page from a server on 127.0.0.1.** A webview's own origin,
   `vscode-webview://`, cannot register a Service Worker, since the spec takes `http` and `https`
   script URLs only; a page it frames from a local server can. The frame's worker registers and
-  controls it, and the Interactive Video's H.264 picture decodes (its sound was not checked).
+  controls it, and the Interactive Video's H.264 picture decodes (its sound was not checked). The
+  verifier's check and preview name the same server `localhost`, for YouTube
+  ([verify.md](verify.md)); here it keeps its address, since the name was not tried in a webview
+  and the origin is where VS Code keeps the worker and caches.
 - **VS Code does not play every format a browser does, and says it does.** In VS Code's Electron
   MP3 plays; an MP4's H.264 picture plays and its AAC sound does not; M4A audio and WebM do not (no
   Matroska demuxer); and YouTube's player buffers for ever. `canPlayType` and

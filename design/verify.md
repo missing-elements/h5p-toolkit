@@ -31,6 +31,25 @@ not.
   and only the screenshot showed it (#218); the rest of the content plays, so it is no fail. An
   MP4 in a browser with no H.264, or no AAC for a recording, as Playwright's Chromium, is "not
   checked" instead: its failing there says nothing about a learner's browser.
+- **The server goes by the name `localhost`, not by its address.** YouTube's player refuses a
+  page opened at an IP address: at `http://127.0.0.1:<port>` it answered error 150, "This video is
+  unavailable", for any video, in the check's screenshot and with no warning, where at
+  `http://localhost:<port>` the same headless browser shows the video (#283, measured 2026-11-26).
+  The server listens on 127.0.0.1 alone, and Chromium, Firefox and WebKit each reach it by the
+  name. The VS Code extension shares the server and keeps the address ([vscode.md](vscode.md)).
+- **An Interactive Video's times are held to its video's length, which its own player says.** A
+  build holds them only to a length it can read with no browser, and YouTube gives a build none
+  ([author.md](author.md)). The library's player has the length once it has loaded, with nothing
+  played: on YouTube one to two seconds after `ready`. So for content that is an Interactive Video
+  the check reads `video.getDuration()` in the frame, waiting up to five seconds past the settle
+  for a player still loading, and warns of each interaction that starts past the end, each
+  bookmark past it and a start past it, by its path. A file's length is the browser's and exact. A
+  host's player says an estimate in whole seconds, so a time is late only a second past it, and the
+  warning says the length is the player's word. An end screen past the end is no warning: the
+  library moves it to the end (`addEndscreen`). Where the player says no length, as for a video
+  its host does not have, or with no network, one warning says the times were not checked; a
+  video the browser gave up on is already named, and needs none. An Interactive Video inside
+  another type is not read.
 - **The browser is Chrome or Edge if installed, else Playwright's Chromium**, through
   `playwright-core` rather than `playwright`, so installing the package downloads nothing; the
   error names `npx playwright install chromium` as the way to get one.

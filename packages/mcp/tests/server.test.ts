@@ -266,7 +266,7 @@ describe('h5p_preview', () => {
     expect(file).toBeTruthy()
     const answer = await call('h5p_preview', { package: basename(file!) })
     expect(answer.isError).toBeFalsy()
-    const address = /http:\/\/127\.0\.0\.1:\d+\//.exec(textOf(answer))?.[0]
+    const address = /http:\/\/localhost:\d+\//.exec(textOf(answer))?.[0]
     expect(address).toBeTruthy()
     expect((await fetch(address!)).status).toBe(200)
   })

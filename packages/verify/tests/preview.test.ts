@@ -82,6 +82,8 @@ describe('h5p-verify --preview', () => {
     const bytes = await readFile(quiz)
     const preview = await previewPackage({ file: quiz, port: 0 })
     try {
+      // By name: YouTube's player refuses a page opened at an IP address (#283).
+      expect(preview.url).toMatch(/^http:\/\/localhost:\d+$/)
       const archive = `${preview.url}/__package/quiz.h5p`
       expect(await (await fetch(`${preview.url}/`)).text()).toContain('"src":"/__package/quiz.h5p"')
       // What the element's probe asks first.
@@ -211,7 +213,7 @@ describe('h5p-verify --preview', () => {
         child.once('exit', () => reject(new Error(`ended before it started: ${output}`)))
       })
       expect(output).toContain('Open that address in a browser.')
-      const address = /at (http:\/\/127\.0\.0\.1:\d+\/)$/m.exec(output)?.[1]
+      const address = /at (http:\/\/localhost:\d+\/)$/m.exec(output)?.[1]
       expect(address).toBeDefined()
       expect((await fetch(address!)).status).toBe(200)
       child.kill('SIGINT')

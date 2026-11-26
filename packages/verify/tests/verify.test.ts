@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { BlobReader, BlobWriter, type Entry, TextReader, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from '@zip.js/zip.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { contentChanges, summarize, verifyPackage } from '../lib/verify.mjs'
+import { contentChanges, summarize, verifyPackage, videoTimes } from '../lib/verify.mjs'
 
 /**
  * The real thing end to end: a browser, the player's Service Worker, the demo's committed
@@ -172,6 +172,30 @@ describe('contentChanges', () => {
   })
 })
 
+describe('videoTimes', () => {
+  it("lists where each interaction starts, each bookmark and the video's own start, and nothing that is no time", () => {
+    const params = {
+      interactiveVideo: {
+        assets: {
+          // One that ends past the end shows to it, and an end screen past it is moved to it.
+          interactions: [{ duration: { from: 2, to: 900 } }, { duration: { from: 900, to: 905 } }, {}],
+          bookmarks: [{ time: 950 }, { time: '12' }],
+          endscreens: [{ time: 990 }]
+        }
+      },
+      override: { startVideoAt: 30 }
+    }
+    expect(videoTimes(params)).toEqual([
+      { path: 'interactiveVideo.assets.interactions[0].duration', time: 2, says: 'starts at' },
+      { path: 'interactiveVideo.assets.interactions[1].duration', time: 900, says: 'starts at' },
+      { path: 'interactiveVideo.assets.bookmarks[0].time', time: 950, says: 'is' },
+      { path: 'override.startVideoAt', time: 30, says: 'is' }
+    ])
+    expect(videoTimes({})).toEqual([])
+    expect(videoTimes({ interactiveVideo: { assets: { interactions: 'none' } }, override: { startVideoAt: 0 } })).toEqual([])
+  })
+})
+
 describe('h5p-verify', () => {
   it('fails a package whose library throws while booting, even though the content comes up', async () => {
     const report = await verifyPackage({ file: await quizWithBrokenLibrary(), out: join(dir, 'broken') })
@@ -234,6 +258,31 @@ describe('h5p-verify', () => {
       else await writer.add(entry.filename, new Uint8ArrayReader(bytes))
     })
     expect((await verifyPackage({ file: odd })).warnings).toContainEqual(expect.stringMatching(/^video (?:does not play|not checked): videos\/odd%zz\.mp4: /))
+  })
+
+  it("warns of an Interactive Video's time past the end of its video, whose length its player says (#283)", async () => {
+    const late = await rewritten(video, 'late-video.h5p', async (entry, bytes, writer) => {
+      if (entry.filename !== 'content/content.json') return void (await writer.add(entry.filename, new Uint8ArrayReader(bytes)))
+      const params = JSON.parse(new TextDecoder().decode(bytes))
+      params.interactiveVideo.assets.interactions[0].duration = { from: 900, to: 905 }
+      params.interactiveVideo.assets.bookmarks = [{ time: 950, label: 'Past the end' }]
+      await writer.add(entry.filename, new TextReader(JSON.stringify(params)))
+    })
+    const report = await verifyPackage({ file: late })
+    expect(report.verdict).toBe('pass')
+    const times = report.warnings.filter((warning) => warning.startsWith('video time: '))
+    // The length was read, or the video is named as not checked, which covers its times.
+    expect(report.warnings.filter((warning) => warning.startsWith('video times not checked'))).toEqual([])
+    // Playwright's own Chromium plays no H.264, and reads no length.
+    if (report.warnings.some((warning) => warning.startsWith('video not checked'))) expect(times).toEqual([])
+    else {
+      expect(times).toEqual([
+        expect.stringMatching(/^video time: interactiveVideo\.assets\.interactions\[0\]\.duration: starts at 900 s, after the video ends at \d+(?:\.\d+)? s$/),
+        expect.stringMatching(/^video time: interactiveVideo\.assets\.bookmarks\[0\]\.time: is 950 s, after the video ends at \d+(?:\.\d+)? s$/)
+      ])
+    }
+    // The demo's own video holds every time within it.
+    expect((await verifyPackage({ file: video })).warnings.filter((warning) => /^video times?[: ]/.test(warning))).toEqual([])
   })
 
   it('fails a file that is not an archive', async () => {

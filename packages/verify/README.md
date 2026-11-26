@@ -26,8 +26,10 @@ Exit code 0: it plays (possibly with warnings); 1: it does not; 2: the check cou
 It checks that the archive indexes and carries the libraries it declares, that the runtime
 reaches `ready`, that nothing throws while booting (an error after `ready` is a warning), that the
 content drew something, and it lists failed requests, CSP blocks, a video or audio the browser
-could not play, and the build's `revision`. It does not judge correctness, suitability,
-accessibility or licensing: look at the screenshot.
+could not play, and the build's `revision`. For an Interactive Video it reads the video's length
+from the player, a YouTube video's too, and warns of an interaction, a bookmark or a start placed
+after the end, or says that the player gave no length to hold them to. It does not judge
+correctness, suitability, accessibility or licensing: look at the screenshot.
 
 ## Played untrusted
 
@@ -65,7 +67,7 @@ npx @missing-elements/h5p-verify@latest course.h5p --preview
 ```
 
 ```
-Previewing course.h5p at http://127.0.0.1:4645/
+Previewing course.h5p at http://localhost:4645/
 The package stays on this computer. The preview ends when its tab is closed, or with Ctrl+C.
 ```
 
