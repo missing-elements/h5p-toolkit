@@ -42,10 +42,12 @@ not.
   ([author.md](author.md)). The library's player has the length once it has loaded, with nothing
   played: on YouTube one to two seconds after `ready`. So for content that is an Interactive Video
   the check reads `video.getDuration()` in the frame, waiting up to five seconds past the settle
-  for a player still loading, and warns of each interaction that starts past the end, each
-  bookmark past it and a start past it, by its path. A file's length is the browser's and exact. A
-  host's player says an estimate in whole seconds, so a time is late only a second past it, and the
-  warning says the length is the player's word. An end screen past the end is no warning: the
+  for a player still loading, and warns by its path of each interaction that ends past the
+  video's last whole second, with where it plays: the library moves it as it loads (`loaded()`)
+  to end there and start as much earlier, counting from this same number (#285). It warns of a
+  bookmark or a start past the end too, which is never reached. A file's length is the browser's
+  and exact. A host's player says an estimate in whole seconds, so a bookmark or a start is late
+  only a second past it, and the warning says the length is the player's word. An end screen past the end is no warning: the
   library moves it to the end (`addEndscreen`). Where the player says no length, as for a video
   its host does not have, or with no network, one warning says the times were not checked; a
   video the browser gave up on is already named, and needs none. An Interactive Video inside

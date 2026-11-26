@@ -105,7 +105,7 @@ describe('the build in a page', () => {
         expect(text.indexOf('moov')).toBeLessThan(text.indexOf('mdat'))
       } finally { await reader.close() }
       await expect(buildPackage(source(40), { libraries, files: { 'clip.mp4': clip } })).rejects.toMatchObject({
-        problems: [{ path: 'params.interactiveVideo.assets.interactions[0].duration', message: 'starts at 40 s, after the video ends at 30 s' }]
+        problems: [{ path: 'params.interactiveVideo.assets.interactions[0].duration', message: 'runs from 40 to 42 s, and the video ends at 30 s: Interactive Video plays it from 28 to 30 s instead, so end it by 30 s' }]
       })
     } finally {
       await libraries.close()

@@ -244,6 +244,26 @@ describe('the command line as one file', () => {
     expect(stdout).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in parts, \d+ more for installing on an H5P site\.\n/)
     expect((await stat(join(sandbox, 'quiz.h5p'))).size).toBeGreaterThan(0)
 
+    // The bundle unzipped into a folder named parts, as a Haiku run did, builds from the index
+    // one folder down, and the build says where it read it (#285).
+    const nested = await unzip(join(dir, 'route3.zip'), 'route3-nested/parts')
+    await copyFile(join(built, 'h5p-author.mjs'), join(nested, '..', 'h5p-author.mjs'))
+    await writeFile(join(nested, '..', 'quiz.json'), JSON.stringify(QUIZ))
+    const { stdout: deeper } = await exec(process.execPath, ['h5p-author.mjs', 'build', 'quiz.json', 'quiz.h5p', '--libraries', 'parts'], { cwd: join(nested, '..') })
+    expect(deeper).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in \S*parts\/parts, \d+ more for installing on an H5P site\.\n/)
+
+    // The tool and its parts unpacked into a folder of their own, and the build run from the one
+    // above it, naming parts as route 1 does: the parts beside the tool are read (#285).
+    const tool = await unzip(join(dir, 'route3.zip'), 'route3-beside/tool')
+    await copyFile(join(built, 'h5p-author.mjs'), join(tool, 'h5p-author.mjs'))
+    await writeFile(join(tool, '..', 'quiz.json'), JSON.stringify(QUIZ))
+    const { stdout: beside } = await exec(process.execPath, ['tool/h5p-author.mjs', 'build', 'quiz.json', 'quiz.h5p', '--libraries', 'parts'], { cwd: join(tool, '..') })
+    expect(beside).toMatch(/^Built \S+quiz\.h5p: H5P\.QuestionSet, \d+ libraries from the pack in tool\/parts, \d+ more for installing on an H5P site\.\n/)
+    // A folder that holds no pack, where none is beside the tool either, still stops the build.
+    await expect(exec(process.execPath, [join(built, 'h5p-author.mjs'), 'build', 'quiz.json', 'other.h5p', '--libraries', 'nowhere'], { cwd: sandbox })).rejects.toMatchObject({
+      stderr: expect.stringContaining("nowhere is not a library pack's parts folder: it has no readable index.json")
+    })
+
     // Both files resolve by the package's name, through its exports, as a site that pins it reaches them.
     const scope = join(dir, 'scope')
     await mkdir(join(scope, 'dist'), { recursive: true })

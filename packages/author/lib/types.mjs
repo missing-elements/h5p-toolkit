@@ -464,10 +464,13 @@ const interactiveVideo = {
 
 /**
  * An Interactive Video's times held to its video's length, where the build knows one (an mp4's
- * index gives it, and Vimeo says a video's): an interaction that starts past the end never shows,
- * a bookmark or an end screen past it is never reached, a start past it plays nothing. An
- * interaction may end past it, and shows to the end. A host says a length in whole seconds, so a
- * time is past the end of its video only a second beyond that.
+ * index gives it, and Vimeo says a video's). An interaction that ends past the video's last whole
+ * second is moved by the library as it loads (`loaded()` in H5P.InteractiveVideo 1.28): it then
+ * ends there and starts as much earlier, and one that starts past the end shows before it, so
+ * each is refused with where it would play (#285). H5P's editor caps those times at that second
+ * too. A bookmark or an end screen past the end is never reached, and a start past it plays
+ * nothing. A host says a length in whole seconds: an interaction is held to that number, and a
+ * bookmark, an end screen or a start is past the end only a second beyond it.
  * @param {any} params an Interactive Video's, as H5P stores them
  * @param {string} path where they are
  * @param {(file: string) => import('./media.mjs').MediaLength | undefined} lengthOf a video's length, by its path in the package or the address it stays at
@@ -483,8 +486,11 @@ export function videoTimes(params, path, lengthOf, report) {
   const late = (/** @type {unknown} */ time) => typeof time === 'number' && time > length + (host ? 1 : 0)
   const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
   const assets = params.interactiveVideo.assets
+  // The library counts a file's whole seconds; a host's length is whole seconds already.
+  const last = host ? length : Math.floor(length)
   list(assets?.interactions).forEach((interaction, i) => {
-    if (late(interaction?.duration?.from)) report(`${path}.interactiveVideo.assets.interactions[${i}].duration`, `starts at ${interaction.duration.from} s, after ${end}`)
+    const moved = movedInteraction(interaction?.duration, last)
+    if (moved) report(`${path}.interactiveVideo.assets.interactions[${i}].duration`, `runs from ${interaction.duration.from} to ${interaction.duration.to} s, and ${end}: Interactive Video plays it from ${moved.from} to ${moved.to} s instead, so end it by ${last} s`)
   })
   for (const key of ['bookmarks', 'endscreens']) {
     list(assets?.[key]).forEach((mark, i) => {
@@ -493,6 +499,20 @@ export function videoTimes(params, path, lengthOf, report) {
   }
   if (late(params.override?.startVideoAt)) report(`${path}.override.startVideoAt`, `is ${params.override.startVideoAt} s, after ${end}`)
   return known
+}
+
+/**
+ * Where H5P.InteractiveVideo 1.28 plays an interaction that ends past its video's last whole
+ * second, as it moves it on load: ending at that second, as long as it was written. `undefined`
+ * for one it leaves where it is, and for times that are not a start before an end.
+ * @param {unknown} duration an interaction's `duration`, `{ from, to }` in seconds
+ * @param {number} last the video's last whole second, as the library counts it
+ * @returns {{ from: number, to: number } | undefined}
+ */
+export function movedInteraction(duration, last) {
+  const { from, to } = /** @type {{ from?: unknown, to?: unknown }} */ (duration ?? {})
+  if (typeof from !== 'number' || typeof to !== 'number' || from > to || to <= last) return undefined
+  return { from: Math.max(0, Math.round((last - (to - from)) * 100) / 100), to: last }
 }
 
 /**

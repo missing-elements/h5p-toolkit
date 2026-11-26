@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { BlobReader, BlobWriter, type Entry, TextReader, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from '@zip.js/zip.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { contentChanges, summarize, verifyPackage, videoTimes } from '../lib/verify.mjs'
+import { contentChanges, lateTimes, summarize, verifyPackage, videoTimes } from '../lib/verify.mjs'
 
 /**
  * The real thing end to end: a browser, the player's Service Worker, the demo's committed
@@ -173,12 +173,12 @@ describe('contentChanges', () => {
 })
 
 describe('videoTimes', () => {
-  it("lists where each interaction starts, each bookmark and the video's own start, and nothing that is no time", () => {
+  it("lists each interaction's start and end, each bookmark and the video's own start, and nothing that is no time", () => {
     const params = {
       interactiveVideo: {
         assets: {
-          // One that ends past the end shows to it, and an end screen past it is moved to it.
-          interactions: [{ duration: { from: 2, to: 900 } }, { duration: { from: 900, to: 905 } }, {}],
+          // An end screen past the end is moved to it by the library, and is no time to hold.
+          interactions: [{ duration: { from: 2, to: 900 } }, { duration: { from: 900, to: 905 } }, {}, { duration: { from: 9, to: 3 } }],
           bookmarks: [{ time: 950 }, { time: '12' }],
           endscreens: [{ time: 990 }]
         }
@@ -186,13 +186,38 @@ describe('videoTimes', () => {
       override: { startVideoAt: 30 }
     }
     expect(videoTimes(params)).toEqual([
-      { path: 'interactiveVideo.assets.interactions[0].duration', time: 2, says: 'starts at' },
-      { path: 'interactiveVideo.assets.interactions[1].duration', time: 900, says: 'starts at' },
-      { path: 'interactiveVideo.assets.bookmarks[0].time', time: 950, says: 'is' },
-      { path: 'override.startVideoAt', time: 30, says: 'is' }
+      { path: 'interactiveVideo.assets.interactions[0].duration', from: 2, to: 900 },
+      { path: 'interactiveVideo.assets.interactions[1].duration', from: 900, to: 905 },
+      { path: 'interactiveVideo.assets.bookmarks[0].time', time: 950 },
+      { path: 'override.startVideoAt', time: 30 }
     ])
     expect(videoTimes({})).toEqual([])
     expect(videoTimes({ interactiveVideo: { assets: { interactions: 'none' } }, override: { startVideoAt: 0 } })).toEqual([])
+  })
+})
+
+describe('lateTimes', () => {
+  const times = [
+    { path: 'interactions[0].duration', from: 5, to: 10 },
+    { path: 'interactions[1].duration', from: 9.6, to: 14.6 },
+    { path: 'interactions[2].duration', from: 900, to: 905 },
+    { path: 'bookmarks[0].time', time: 10.5 }
+  ]
+
+  it("says where the library plays an interaction that ends past the video's last whole second, and a bookmark past the end (#285)", () => {
+    // Measured in the browser on the demo's 10 s clip: 9.6 to 14.6 s played from 5 to 10 s.
+    expect(lateTimes(times, 10, true)).toEqual([
+      'video time: interactions[1].duration: runs from 9.6 to 14.6 s, and the video ends at 10 s: Interactive Video plays it from 5 to 10 s instead',
+      'video time: interactions[2].duration: runs from 900 to 905 s, and the video ends at 10 s: Interactive Video plays it from 5 to 10 s instead',
+      'video time: bookmarks[0].time: is 10.5 s, after the video ends at 10 s'
+    ])
+  })
+
+  it("counts a host's length as the library does, and leaves a bookmark a second's slack", () => {
+    expect(lateTimes(times, 10.7, false)).toEqual([
+      'video time: interactions[1].duration: runs from 9.6 to 14.6 s, and the video ends at about 10.7 s, as its player says: Interactive Video plays it from 5 to 10 s instead',
+      'video time: interactions[2].duration: runs from 900 to 905 s, and the video ends at about 10.7 s, as its player says: Interactive Video plays it from 5 to 10 s instead'
+    ])
   })
 })
 
@@ -265,6 +290,7 @@ describe('h5p-verify', () => {
       if (entry.filename !== 'content/content.json') return void (await writer.add(entry.filename, new Uint8ArrayReader(bytes)))
       const params = JSON.parse(new TextDecoder().decode(bytes))
       params.interactiveVideo.assets.interactions[0].duration = { from: 900, to: 905 }
+      params.interactiveVideo.assets.interactions[1].duration = { from: 8, to: 15 }
       params.interactiveVideo.assets.bookmarks = [{ time: 950, label: 'Past the end' }]
       await writer.add(entry.filename, new TextReader(JSON.stringify(params)))
     })
@@ -276,9 +302,11 @@ describe('h5p-verify', () => {
     // Playwright's own Chromium plays no H.264, and reads no length.
     if (report.warnings.some((warning) => warning.startsWith('video not checked'))) expect(times).toEqual([])
     else {
+      // The demo's clip is 10 s: the library plays both interactions from 5 to 10 s.
       expect(times).toEqual([
-        expect.stringMatching(/^video time: interactiveVideo\.assets\.interactions\[0\]\.duration: starts at 900 s, after the video ends at \d+(?:\.\d+)? s$/),
-        expect.stringMatching(/^video time: interactiveVideo\.assets\.bookmarks\[0\]\.time: is 950 s, after the video ends at \d+(?:\.\d+)? s$/)
+        'video time: interactiveVideo.assets.interactions[0].duration: runs from 900 to 905 s, and the video ends at 10 s: Interactive Video plays it from 5 to 10 s instead',
+        'video time: interactiveVideo.assets.interactions[1].duration: runs from 8 to 15 s, and the video ends at 10 s: Interactive Video plays it from 3 to 10 s instead',
+        'video time: interactiveVideo.assets.bookmarks[0].time: is 950 s, after the video ends at 10 s'
       ])
     }
     // The demo's own video holds every time within it.

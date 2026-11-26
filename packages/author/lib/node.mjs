@@ -1,4 +1,4 @@
-import { constants, createReadStream, createWriteStream, openAsBlob } from 'node:fs'
+import { constants, createReadStream, createWriteStream, existsSync, openAsBlob } from 'node:fs'
 import { copyFile, lstat, mkdir, mkdtemp, open, readFile, realpath, rm, rmdir, stat } from 'node:fs/promises'
 import { lookup } from 'node:dns/promises'
 import { tmpdir } from 'node:os'
@@ -68,11 +68,18 @@ import { SourceError } from './source-error.mjs'
  */
 
 /**
- * The parts folder a pack is read from: the one named, or the pinned pack's.
+ * The parts folder a pack is read from: the one named, or the pinned pack's. A type's bundle holds
+ * `parts/` and `libraries.txt`, so one unzipped into a folder named `parts` has its index one
+ * folder down, `parts/parts/index.json`: where the folder named has no index and that one does,
+ * that one is the pack (#285). The build's line names the folder it read.
+ * @internal
  * @param {string} [folder]
  */
-function partsFolder(folder) {
-  return folder ? resolve(folder) : dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-libraries/parts/index.json')))
+export function partsFolder(folder) {
+  if (!folder) return dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-libraries/parts/index.json')))
+  const named = resolve(folder)
+  const inner = join(named, 'parts')
+  return !existsSync(join(named, 'index.json')) && existsSync(join(inner, 'index.json')) ? inner : named
 }
 
 /**

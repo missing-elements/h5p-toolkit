@@ -76,7 +76,10 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   address downloaded at build time. It lands under `content/images|videos|audios|files/` with its
   MIME type, an image's size read from its header (PNG, JPEG, GIF, BMP; a JPEG's segments walked
   to its frame header, which a colour profile can push past 64 kB), and its copyright, on H5P's
-  own list of types (no SVG, no WebP). A video's or a recording's container is read: an mp4 or an
+  own list of types (no SVG, no WebP). A copyright names its licence's version `version`, where a
+  source names its own `licenseVersion`; that word in a copyright is refused with the value to
+  write as `version`, since a run told only the fields a copyright takes deleted it, and the
+  version with it (#285). A video's or a recording's container is read: an mp4 or an
   m4a by its index, after `ftyp` or, as in an older file, `moov`, `mdat`, `free` or `wide`, any
   other by its first bytes. One its field does
   not take is refused (a video takes MP4, WebM and Ogg; a recording MP3, M4A, WAV, Ogg and WebM):
@@ -87,8 +90,12 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   slices and the rewritten index (#218, item 5). No index to read is a
   problem. Where the index lists tracks, no sound or no picture is a note, a silent video being
   one an author can mean, and so is HEVC. Where it gives a length, that holds an Interactive
-  Video's times (`videoTimes`): a start, a bookmark or an end screen past the end is refused, an
-  interaction that ends past it is not, since it shows to the end. No time is named in a list
+  Video's times (`videoTimes`): an interaction that ends past the video's last whole second is
+  refused with where it would play, since H5P.InteractiveVideo 1.28 moves it as it loads
+  (`loaded()`) to end there and start as much earlier, so one that starts past the end shows
+  before it (#285; written at 9.6 to 14.6 s on a 10 s clip, it played from 5 s in the verifier's
+  browser), and H5P's editor caps those times at that second too. A bookmark, an end screen or a
+  start past the end is refused, since it is never reached. No time is named in a list
   where an item was refused, since the list's indices no longer match the source's. A download
   is given up after a minute with no byte, not after a fixed time. A YouTube, Vimeo, Panopto or
   Echo360 address stays an address, as the editor
@@ -141,9 +148,10 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   - **Vimeo says a video's length, and an Interactive Video's times are held to it.** Its oEmbed
     answer for a video it has carries `duration` in whole seconds (`length` in `HOSTED`);
     YouTube's carries none, and Panopto and Echo360 are not asked. It counts only as JSON that
-    names Vimeo with a length above zero, so a box that answers 200 for the host says none. A
-    time is past such a video's end only a second beyond the length, for the rounding, and the
-    problem says whose word the length is.
+    names Vimeo with a length above zero, so a box that answers 200 for the host says none. An
+    interaction is held to that number of seconds, as the library holds it to its player's whole
+    seconds; a bookmark, an end screen or a start is past such a video's end only a second beyond
+    it, for the rounding, and the problem says whose word the length is.
   - **A build says the length it held the times to.** A result's `lengths` has it for each
     Interactive Video's video, by the name the source gives it, and the command line and both
     servers say each (`lengthLine`), so that whoever changes the times next starts from it.
@@ -397,7 +405,13 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   in a bundle: H5P.MathDisplay, 2.8 MB, is fetched where text holds math. With pack 1.1.0 a
   question type's bundle is 0.6 to 1.5 MB, a Question Set's 2.6, a container's 4.3 to 8.4, and
   the 55 types' 99 MB in all, more than jsDelivr's 50 MB cap, so the organisation's site serves
-  them at `/h5p/bundles/`. The build tool beside them is the command line as one file, 756 kB,
+  them at `/h5p/bundles/`. Where `--libraries` names a folder that holds no pack, the build looks
+  where a run put it (#285): one folder down, since a bundle unzipped into a folder named `parts`
+  holds `parts/parts/index.json`; then, on the command line, the `parts/` beside the tool, since
+  the archive unpacks the two side by side and runs unpacked it into `tool/` or `build/` and built
+  from the folder above. Either way the build's line names the folder it read. In 6 of 31 lab
+  runs on routes 1 and 3 the first build stopped at a parts folder, one nested and five beside
+  the tool. The build tool beside them is the command line as one file, 756 kB,
   which builds from an unzipped bundle with nothing installed. Its version is an import the
   bundler writes into the file; where the packages are installed their `package.json` files are
   read first, since Node before 22.12 warns on a JSON import, and a `package.json` above the one

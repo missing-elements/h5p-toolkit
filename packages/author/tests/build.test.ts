@@ -859,6 +859,20 @@ describe('media', () => {
     expect(entries.find(entry => entry.filename === 'content/images/red.png')!.compressionMethod).toBe(0)
   })
 
+  it("says where a file's copyright takes the licence's version, written as the source's licenseVersion (#285)", async () => {
+    await writeFile(join(dir, 'red.png'), png(300, 200))
+    const card = (copyright: Record<string, string>) => ({ ...META, type: 'H5P.Dialogcards', params: { dialogs: [{ text: 'Red', answer: 'Rot', image: { path: 'red.png', copyright }, imageAltText: 'A red square' }] } })
+    expect(await problems(card({ license: 'CC BY', licenseVersion: '4.0', author: 'Ann' }), { base: dir })).toEqual([
+      'params.dialogs[0].image.copyright.licenseVersion: is the source\'s word; a file\'s copyright names its licence\'s version "version": write "version": "4.0"'
+    ])
+    // Beside a version, it is one more field a copyright does not have.
+    expect(await problems(card({ license: 'CC BY', version: '4.0', licenseVersion: '4.0' }), { base: dir })).toEqual([
+      'params.dialogs[0].image.copyright.licenseVersion: is not part of a copyright; write license, author, title, year, source or version'
+    ])
+    const { content } = await build(card({ license: 'CC BY', version: '4.0', author: 'Ann' }), { base: dir })
+    expect(content.dialogs[0].image.copyright).toEqual({ license: 'CC BY', version: '4.0', author: 'Ann' })
+  })
+
   it('keeps a hosted video where it is, and moves an mp4\'s index to the front', async () => {
     await writeFile(join(dir, 'slow.mp4'), mp4(false))
     const { content, entries } = await build({
@@ -1043,13 +1057,17 @@ describe('media', () => {
       type: 'H5P.InteractiveVideo',
       params: { interactiveVideo: { video: { files: [{ path: 'short.mp4' }] }, assets: { interactions, bookmarks } }, ...(startVideoAt === undefined ? {} : { override: { startVideoAt, retryButton: 'on' } }) }
     })
-    expect(await problems(source([text(5, 40), text(500, 600)], [{ time: 10, label: 'In' }, { time: 31, label: 'Out' }], 45), { base: dir })).toEqual([
-      'params.interactiveVideo.assets.interactions[1].duration: starts at 500 s, after the video ends at 30.03 s',
+    // An interaction that ends past the last whole second is moved by the library, keeping its
+    // length (#285): one that starts past the end shows before it.
+    expect(await problems(source([text(5, 30.5), text(25, 40), text(500, 600)], [{ time: 10, label: 'In' }, { time: 31, label: 'Out' }], 45), { base: dir })).toEqual([
+      'params.interactiveVideo.assets.interactions[0].duration: runs from 5 to 30.5 s, and the video ends at 30.03 s: Interactive Video plays it from 4.5 to 30 s instead, so end it by 30 s',
+      'params.interactiveVideo.assets.interactions[1].duration: runs from 25 to 40 s, and the video ends at 30.03 s: Interactive Video plays it from 15 to 30 s instead, so end it by 30 s',
+      'params.interactiveVideo.assets.interactions[2].duration: runs from 500 to 600 s, and the video ends at 30.03 s: Interactive Video plays it from 0 to 30 s instead, so end it by 30 s',
       'params.interactiveVideo.assets.bookmarks[1].time: is 31 s, after the video ends at 30.03 s',
       'params.override.startVideoAt: is 45 s, after the video ends at 30.03 s'
     ])
-    // Within its length, an interaction that ends past it included, it builds.
-    expect((await build(source([text(5, 40)], [{ time: 10, label: 'In' }]), { base: dir })).content.interactiveVideo.assets.interactions).toHaveLength(1)
+    // Within its length, an interaction that ends at its last whole second included, it builds.
+    expect((await build(source([text(5, 30)], [{ time: 10, label: 'In' }]), { base: dir })).content.interactiveVideo.assets.interactions).toHaveLength(1)
     // An item refused leaves a list whose indices are not the source's: no time is named in it.
     expect(await problems(source(['a stray line', text(500, 600)], []), { base: dir })).toEqual([
       expect.stringMatching(/^params\.interactiveVideo\.assets\.interactions\[0\]: expected an object/)
@@ -1065,14 +1083,15 @@ describe('media', () => {
     const fromFile = await build(source('lesson.mp4', [text(5, 10)]), { base: dir })
     expect(fromFile.lengths).toEqual([{ file: 'lesson.mp4', seconds: 30.033 }])
     expect(fromFile.lengths.map(lengthLine)).toEqual(['The video lesson.mp4 is 30.03 s long: keep every time within it.'])
-    // Vimeo's is its own answer's, in whole seconds: a time is past the end only a second beyond it.
+    // Vimeo's is its own answer's, in whole seconds: an interaction is held to it, and a bookmark is
+    // past the end only a second beyond it.
     const answers = (body: unknown, type = 'application/json') => async () => new Response(JSON.stringify(body), { headers: { 'content-type': type } })
     const vimeo = answers({ type: 'video', provider_name: 'Vimeo', duration: 62, video_id: 76979871 })
-    const hosted = await build(source(film, [text(5, 10), text(62.9, 70)]), { fetch: vimeo })
+    const hosted = await build({ ...source(film, [text(5, 10), text(55, 62)]), params: { interactiveVideo: { video: { files: [{ path: film }] }, assets: { interactions: [text(5, 10), text(55, 62)], bookmarks: [{ time: 62.9, label: 'End' }] } } } }, { fetch: vimeo })
     expect(hosted.lengths).toEqual([{ file: film, seconds: 62, host: 'Vimeo' }])
     expect(hosted.lengths.map(lengthLine)).toEqual([`The video ${film} is about 62 s long, as Vimeo says: keep every time within it.`])
     expect(await problems(source(film, [text(5, 10), text(300, 310)]), { fetch: vimeo })).toEqual([
-      'params.interactiveVideo.assets.interactions[1].duration: starts at 300 s, after the video ends at about 62 s, as Vimeo says'
+      'params.interactiveVideo.assets.interactions[1].duration: runs from 300 to 310 s, and the video ends at about 62 s, as Vimeo says: Interactive Video plays it from 52 to 62 s instead, so end it by 62 s'
     ])
     // An answer that is not Vimeo's own for a video it has says no length, and holds no time:
     // one that does not name it, a page, a video being made ready, what is no JSON, and one far

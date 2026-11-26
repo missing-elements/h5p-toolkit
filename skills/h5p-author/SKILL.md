@@ -86,7 +86,8 @@ H5P.Video, H5P.Text.
   and `&#58;` for `:`: `*10&#58;30*` takes 10:30, where `*10:30*` is the answer 10 with the
   tip 30. A backslash escapes nothing.
 - A file is `{ "path": "photo.jpg" }`, beside the source or a web address, with `copyright`
-  when known. What a file is, a video's length or a picture's size, is one command, `media`:
+  when known: `{ "license": "CC BY", "version": "4.0", "author": "Ann Author" }`, the
+  licence's version as `version` there. What a file is, a video's length or a picture's size, is one command, `media`:
   `npx @missing-elements/h5p-author@latest media clip.mp4` where npm reaches its registry,
   `node h5p-author.mjs media clip.mp4` beside the tool of route 1 or 3, `h5p_media` among
   route 0's tools.

@@ -534,6 +534,12 @@ export class MediaStore {
     /** @type {Record<string, string>} */
     const out = { license: 'U' }
     for (const [key, entry] of Object.entries(value)) {
+      if (key === 'licenseVersion' && value.version === undefined) {
+        // The source's own word for it, beside its license (#285): a run that read only the list
+        // below deleted the field, and the version with it.
+        report(`${at}.licenseVersion`, `is the source's word; a file's copyright names its licence's version "version": write "version": ${JSON.stringify(entry)}`)
+        continue
+      }
       if (!COPYRIGHT_FIELDS.includes(key)) {
         report(`${at}.${key}`, 'is not part of a copyright; write license, author, title, year, source or version')
         continue

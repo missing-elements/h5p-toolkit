@@ -27,8 +27,9 @@ It checks that the archive indexes and carries the libraries it declares, that t
 reaches `ready`, that nothing throws while booting (an error after `ready` is a warning), that the
 content drew something, and it lists failed requests, CSP blocks, a video or audio the browser
 could not play, and the build's `revision`. For an Interactive Video it reads the video's length
-from the player, a YouTube video's too, and warns of an interaction, a bookmark or a start placed
-after the end, or says that the player gave no length to hold them to. It does not judge
+from the player, a YouTube video's too. It warns of an interaction that runs past the end, which
+the player moves to end there and start earlier, and of a bookmark or a start placed after the
+end, or says that the player gave no length to hold them to. It does not judge
 correctness, suitability, accessibility or licensing: look at the screenshot.
 
 ## Played untrusted

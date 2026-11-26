@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildPackage, SourceError } from '../lib/author.mjs'
 import { imageSize } from '../lib/media.mjs'
 import { GENERATED_END, GENERATED_START, schemaLines, schemaMarkdown, SOURCE_FIELDS, withSection } from '../lib/schema.mjs'
-import { byNumber } from '../lib/types.mjs'
+import { byNumber, movedInteraction } from '../lib/types.mjs'
 import { jpeg, png } from './helpers/media'
 
 const META = { title: 'Layout', language: 'en', license: 'U', authors: [{ name: 'Ann Author', role: 'Author' }] }
@@ -160,6 +160,18 @@ describe('Interactive Video', () => {
     expect(await problems('H5P.InteractiveVideo', {
       interactiveVideo: { video: { files: [{ path: 'https://youtu.be/dQw4w9WgXcQ' }] }, assets: { interactions: [{ duration: { from: 9, to: 3 }, action: question }] } }
     })).toEqual(['params.interactiveVideo.assets.interactions[0].duration: ends at 3 s, before it starts at 9 s'])
+  })
+
+  it("says where Interactive Video plays an interaction that ends past its video's last whole second (#285)", () => {
+    // As H5P.InteractiveVideo 1.28 moves it on load: to end there, as long as it was written.
+    expect(movedInteraction({ from: 9.6, to: 14.6 }, 10)).toEqual({ from: 5, to: 10 })
+    expect(movedInteraction({ from: 10, to: 15 }, 10)).toEqual({ from: 5, to: 10 })
+    expect(movedInteraction({ from: 500, to: 600 }, 30)).toEqual({ from: 0, to: 30 })
+    // Left where it is: within the video, or no start before an end.
+    expect(movedInteraction({ from: 5, to: 10 }, 10)).toBeUndefined()
+    expect(movedInteraction({ from: 9, to: 3 }, 2)).toBeUndefined()
+    expect(movedInteraction({ to: 40 }, 30)).toBeUndefined()
+    expect(movedInteraction(undefined, 30)).toBeUndefined()
   })
 })
 
