@@ -34,7 +34,7 @@ export function comments(text, file) {
       const line = at + 1
       const body = []
       while (at < lines.length) {
-        body.push(lines[at].trim().replace(/^(\/\*+|<!--|\*(?!\/))\s?/, '').replace(/\s*(\*\/|-->).*$/, '').trim())
+        body.push(lines[at].trim().replace(/^(\/\*+|<!--|\*(?!\/))\s?/, '').replace(/\s*(\*\/|--!?>).*$/, '').trim())
         if (lines[at].includes(close)) break
         at++
       }
