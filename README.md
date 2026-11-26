@@ -9,8 +9,7 @@ packaging for an LMS) as static files, command-line tools and agent skills.
 [H5P to SCORM](https://h5p-offline-player.vercel.app/demo/scorm.html) ·
 [VS Code extension](https://marketplace.visualstudio.com/items?itemName=MissingElements.h5p-preview)
 
-Every package is at version 1 since October 2026, except the author package, the MCP server and
-the VS Code extension, which are 0.x;
+Every package is at version 1, except the MCP server and the VS Code extension, which are 0.x;
 [Compatibility](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/compatibility.md)
 says what a version number promises. **Every week**, jobs rebuild the library pack from the H5P hub
 and the interface strings from Moodle's translations, open a pull request when either changed, and

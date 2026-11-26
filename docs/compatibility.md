@@ -136,6 +136,31 @@ is `report.json`'s shape, and gains fields the same way. The verifier is a step 
 people's pipelines, so a check that turns a pass into a fail comes in a minor, never a patch; a new
 warning can come in any release.
 
+### h5p-author, `@missing-elements/h5p-author`
+
+Since 1.0.0:
+
+- **The source.** Its fields, as `sourceSchema` defines them, and what `params` takes: what H5P's
+  editor would let an author save, written as the
+  [README](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/author#the-source)
+  says. The quiz format the skill published first is still taken, and a source `read` wrote
+  builds again.
+- **The commands and options**: `build` (with `--check`), `read`, `media`, `schema` (with `--all`
+  and `--markdown`), `bundle` (with `--all`), `--libraries`, `-h` and `-v`, and the exit codes: 0
+  done, 1 not. What they print is for people, and its wording may change.
+- **The API**: every export [the API page](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/author-api.md)
+  names, with the options and result fields given there, from `.`, `./browser` and `./core`; and
+  `SourceError`, whose `problems` are `{ path, message }`, the message's wording not covered.
+- **What a build writes**: a package that plays in the player, and that an H5P site takes when it
+  has the H5P core the build names; and its source beside it, with `builtWith`.
+
+A refusal of a source that built before comes in a minor, never a patch, and only for what H5P's
+editor refuses or what does not play as written; any other comes in a major. A new note can come in
+any release. The release pins a library pack, as the player does, and moves the pin in a minor: a
+content type's fields, and the H5P core a package needs, are the libraries' and move with it. The
+skill's text the package ships (`SKILL.md`, `references/`) is instructions for a model, and changes
+in any release.
+
 ## What is not covered
 
 - The routes inside `h5p/`, the messages between the element, the workers and the frame, and how
@@ -169,7 +194,7 @@ is a major change.
 
 ## Node
 
-The commands — `h5p-normalize`, `h5p-verify`, `h5p-embed` — and the functions behind them
+The commands — `h5p-normalize`, `h5p-verify`, `h5p-embed`, `h5p-author` — and the functions behind them
 declare the Node versions they run on in `engines`. That floor rises in a minor when a Node line
 reaches its end of life, never in a patch.
 
@@ -179,4 +204,6 @@ The player, the runtime and the embed site are released together whenever the co
 changes: the player names the runtime versions it plays with, and the embed site the player, runtime
 and library pack it writes a site from. The library pack has a version of its own, and each release
 of it is followed by a player release that pins it, since `pack` plays only the version the player
-names. cmi5, the normalizer and the verifier are versioned on their own.
+names. h5p-author names an exact pack and player, so it follows a pack release too, and the MCP
+server, which is 0.x, a range of h5p-author. cmi5, the normalizer and the verifier are versioned on
+their own.
