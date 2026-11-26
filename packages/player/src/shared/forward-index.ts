@@ -191,7 +191,7 @@ export class LocalHeaderScanner {
 
     if (flags & FLAG_DESCRIPTOR) {
       // Sizes come after the data (h5p.com's exporter does this), so it is scanned for them.
-      // Without the optional signature the scan stops, and the central directory decides.
+      // Without the optional signature the scan runs to the end of input, then the central directory decides.
       this.state = { kind: 'descriptor', entry }
       return true
     }

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 
-// Its own file, not a `test` block in `vite.config.ts`: the tests start the dev server themselves,
-// so the runner's Vite needs none of the demo's plugins. Only the installable app is tested.
+// Its own file, not a `test` block in `vite.config.ts`: the app's tests start the dev server and the
+// sweep's generator runs in Node, so the runner's Vite needs no demo plugins. Tested: app, sweep.
 export default defineConfig({
   test: {
     environment: 'node',

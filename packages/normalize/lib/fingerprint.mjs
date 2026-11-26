@@ -3,8 +3,8 @@ import { BlobReader, ZipReader } from '@zip.js/zip.js'
 import { openAsBlob } from 'node:fs'
 
 /**
- * The player's index fingerprint (its `context.revision`) for Node: a copy of `indexFingerprint` in
- * `src/shared/revision.ts`, not importable as plain JS; the player's tests hold both to one vector.
+ * The player's `indexFingerprint` (its `context.revision`) for Node, copied from `src/shared/revision.ts`
+ * (plain JS cannot import it; tests hold both to one vector). Names, CRCs, sizes, method, order; no dates.
  */
 
 /**

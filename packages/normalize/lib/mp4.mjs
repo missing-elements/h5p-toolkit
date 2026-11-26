@@ -188,8 +188,8 @@ const MAX_DEPTH = 8
  */
 
 /**
- * How to lay an mp4 out with `moov` before `mdat`, so a player decodes the first frame at once: a
- * remux, only chunk offsets change. Never throws over content: what it cannot move is `skipped`.
+ * How to lay an mp4 out with `moov` before `mdat`, so a player decodes the first frame from the first
+ * bytes, not after the last: only chunk offsets change. Never throws over content: it `skipped`s what it cannot move.
  * @param {Read} read
  * @param {number} size the file's length
  * @returns {Promise<FaststartPlan>}

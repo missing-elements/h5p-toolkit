@@ -10,7 +10,7 @@ import { viewPage } from './page.mjs'
 
 /**
  * The ports tried in order before any free one: VS Code keeps the player's worker and caches per
- * origin, so the address stays the same across sessions. Not the command's 4645, Open in Browser's.
+ * origin, so a window prefers the same address each session. Not the command's 4645, Open in Browser's.
  */
 export const PORTS = Array.from({ length: 10 }, (_, index) => 4646 + index)
 

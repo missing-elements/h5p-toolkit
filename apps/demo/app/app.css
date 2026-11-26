@@ -336,7 +336,7 @@
   .app .menu-install,
   .app .about,
   .app main > footer { display: none; }
-  /* The bar, then the screen filling the window: home scrolls only when the recent list is longer.
+  /* The bar, then the screen filling the window; the window scrolls only if the recent list is longer.
      Never shorter than its content, or centred content would spill out of the top, out of reach. */
   .app { display: flex; flex-direction: column; }
   .app main { display: flex; flex: 1; flex-direction: column; padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }

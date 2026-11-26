@@ -10,8 +10,8 @@
 export const LANGUAGE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/
 
 /**
- * The language for a declared tag, by the RFC 4647 lookup: the tag, then its last subtag cut
- * (`de-AT` gets `de`), each as written and via aliases. `undefined` when no strings (English).
+ * The language for a declared tag, by the RFC 4647 lookup: the tag, then its last subtag cut (`de-AT`
+ * gets `de`), as written and via aliases. `undefined` for a missing or invalid tag, or none here (English).
  */
 export function matchLanguage(tag: string | undefined, languages: readonly string[], aliases: Record<string, string> = {}): string | undefined {
   if (!tag || !LANGUAGE_TAG.test(tag)) return undefined

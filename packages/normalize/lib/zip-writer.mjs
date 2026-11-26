@@ -1,6 +1,6 @@
 /**
- * A zip writer that streams: sizes and CRC are known first, so no data descriptor is needed and no
- * entry is held in memory, as zip.js's `ZipWriter` would hold a 220 MB video to learn them.
+ * A zip writer that streams: sizes and CRC are known first, so no data descriptor and no entry held in
+ * memory; zip.js's `ZipWriter` holds a 220 MB video to learn them unless it may write a descriptor.
  */
 
 const LOCAL_HEADER = 0x04034b50

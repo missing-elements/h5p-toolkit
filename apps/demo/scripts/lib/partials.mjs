@@ -1,6 +1,6 @@
 /**
- * The markup the pages share, in `partials/`. A page's line `<!-- partial: topbar -->` becomes
- * `partials/topbar.html`, indented as it was; a missing or self-naming partial fails the build.
+ * The markup the pages share, in `partials/`. A page's line `<!-- partial: topbar -->` is replaced
+ * by that file's contents, indented as it was; a missing or self-naming partial fails the build.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'

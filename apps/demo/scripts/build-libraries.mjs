@@ -7,8 +7,8 @@ import { splitPack, writePack, writePackModule } from '../../../packages/librari
 import { HUB, download as cachedDownload, hubBundle as cachedBundle } from './lib/hub.mjs'
 
 /**
- * Builds the library pack into `packages/libraries/`: the hub's libraries at the newest minor of
- * each major (H5P keeps minors compatible), for exports with none. Committed: no hub at deploy.
+ * Builds the library pack (for exports with none) into `packages/libraries/`: the hub's newest minor
+ * of each major, the editor libraries, older minors they name, the addon. Committed: no hub at deploy.
  */
 
 configure({ useWebWorkers: false })

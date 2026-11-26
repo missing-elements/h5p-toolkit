@@ -85,7 +85,7 @@ const unchecked = (what, status) =>
 
 /**
  * Stops a check whose request failed with anything but a 404, the one answer that says a version
- * is not served: for any other it says it could not tell, rather than to publish what may be there.
+ * is not served: for any other it says it could not tell, rather than publishing what may be there.
  * @param {Served} response
  * @param {string} what what was asked for, as the message names it
  */

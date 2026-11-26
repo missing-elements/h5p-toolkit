@@ -8,7 +8,7 @@ import type { SourceHandle } from '../shared/source.js'
 
 /**
  * Warming: pulls the spans the index named, one ranged request each, into the cache. A header off
- * the index's position drops the span. It never fails a load; only a full warm writes the marker.
+ * the index's position throws and ends the warm (later offsets can't be trusted); only a full warm writes the marker.
  */
 
 export interface WarmProgress {

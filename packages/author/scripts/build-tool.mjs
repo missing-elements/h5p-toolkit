@@ -4,8 +4,8 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * The command line as one file, `h5p-author.mjs`, with `h5p-author-LICENSES.txt`: every package
- * bundled in with its licence (#247), for route 3 of the skill. No pinned pack: `--libraries`.
+ * The command line as one file, `h5p-author.mjs`, with its licences in `h5p-author-LICENSES.txt` (#247), for route 3.
+ * No pinned pack: `--libraries`. Run `pnpm build:tool` (plan first); `node scripts/build-tool.mjs [folder]` skips the plan.
  */
 // Packing runs Vite 8, which needs Node 22.12 on the workspace's floor: said here before Vite fails
 // to load. The package's `engines` stays `>=22`, since installing it runs none of this.

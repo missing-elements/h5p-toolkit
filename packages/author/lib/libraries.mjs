@@ -22,8 +22,8 @@ import { patchSemantics } from './types.mjs'
  */
 
 /**
- * What libraries are loaded from: the pack `openPack` opens, or any other with these members, as
- * one over a package's own folders. `open` reads `library.json` and `semantics.json`, checked.
+ * What libraries load from: the pack `openPack` opens, or another with these members. `newest` is the
+ * library for a name and major; `open` reads `library.json` and `semantics.json` as its source checks them, and its `translations` names, for `translation`.
  * @typedef {{
  *   libraries: LibraryRecord[],
  *   newest(machineName: string, major?: number): LibraryRecord | null,
@@ -138,7 +138,7 @@ export async function loadLibraries(pack, { type, language, params }) {
 
 /**
  * The libraries a saved package's content is checked against: its own where it carries a major,
- * else the pack's: content has the shape of the version it was saved with, which the pack may pass.
+ * else the pack's: content has the shape of the version it was saved with, and the pack may have moved past it.
  * @param {PackageFiles} files the package's
  * @param {LibrarySource} [fallback] for what the package does not carry: the pack `openPack` opens
  * @returns {Promise<LibrarySource>}

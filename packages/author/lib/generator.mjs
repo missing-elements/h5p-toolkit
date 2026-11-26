@@ -787,8 +787,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Written sub-content: the library it names, its parameters filled from that library's semantics.
-   * One the pack lacks, or the field does not take, is a problem; lenient, it is kept as written.
+   * Written sub-content: the library it names, its parameters filled from its semantics. Authoring,
+   * one the pack lacks or the field does not take is a problem; lenient, only one the pack lacks stays as written.
    * @param {any} written
    * @param {string[]} stack
    * @param {string} path

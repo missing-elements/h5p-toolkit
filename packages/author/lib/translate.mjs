@@ -91,7 +91,7 @@ function escapeDefaults(fields) {
 
 /**
  * A library's semantics with its interface texts in a language, from its first translation that
- * translates any. With no editor here, the content's language fills all.
+ * translates any. With no editor here, the content's language is used, and English stays wherever no translation text applies.
  * @param {any[]} semantics the library's, left as it is
  * @param {{ name: string, read: () => Promise<unknown> }[]} files its translations that serve the language, best first
  * @param {string} label the library as `H5P.Blanks 1.14`, for the report

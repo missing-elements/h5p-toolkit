@@ -1,6 +1,6 @@
 /**
  * What an H5P site's upload check wants beyond what plays: core's validator (Moodle, WordPress,
- * Drupal) refuses a package whose libraries lack their dependencies at the exact version (#146).
+ * Drupal) refuses a package whose libraries lack their dependencies at the exact version, unless the site has that version (#146).
  */
 
 /** @param {{ machineName: string, majorVersion: number | string, minorVersion: number | string }} library */

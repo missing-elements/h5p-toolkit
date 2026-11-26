@@ -1,6 +1,6 @@
 /**
- * The page a preview's webview frames: the element as the mode says, telling the webview what it
- * reached, and no one else (the first ancestor origin); the webview takes it from this origin only.
+ * The page a preview's webview frames: the element as the mode says, telling only the webview (at the
+ * first ancestor origin) what it reached; the webview takes it from this origin only.
  * @param {object} settings
  * @param {string} settings.name the file's name
  * @param {string} settings.src the package's address on the server, a path
@@ -63,8 +63,8 @@ export function viewPage(settings) {
       // set now would stay on it, in front of the element's own, which reads the attribute.
       if (settings.untrusted) player.setAttribute('untrusted', '')
 
-      // The media VS Code 1.143 on macOS does not play in full, read from the content's parameters:
-      // \`mp4\` (no sound), \`webm\`, \`aac\` and \`youtube\`. It says yes to every type it is asked about.
+      // Media VS Code 1.143 on macOS fails: \`mp4\` plays without sound; \`webm\`, \`aac\`, \`youtube\` not at all.
+      // Read from the content's parameters, as it says yes to every type asked, so a hidden slide counts.
       function unplayableMedia() {
         let contents = null
         try {

@@ -113,8 +113,8 @@ export function typeAnswers(options = {}) {
 const installedReferences = () => join(dirname(fileURLToPath(import.meta.resolve('@missing-elements/h5p-author/package.json'))), 'references')
 
 /**
- * The h5p-author skill, to serve over MCP (#280): `SKILL.md`, `LICENSE` and the `.md` files of
- * `references/`, held in memory. A named folder that lacks it is an error; the installed one, null.
+ * The h5p-author skill over MCP (#280): `SKILL.md`, `LICENSE`, the `.md` under `references/`, in memory.
+ * A named folder that lacks it is an error; the installed one gives null only on a missing file (ENOENT).
  * @param {{ references?: string }} [options] the author package's `references/`, as `typeAnswers` takes it; the installed package's by default
  * @returns {Promise<SkillsExtension | null>}
  */

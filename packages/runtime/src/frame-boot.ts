@@ -452,7 +452,7 @@ var librarySource = function (base: string, listed: string[]): UpgradeSource & {
           if (!response.ok) throw new Error('could not load ' + library.folder + '/upgrades.js (' + response.status + ')');
           return response.text().then(function (code) {
             // Evaluated, not added as a script, as platforms use `importScripts` in a try: a throw
-            // then fails the upgrade, not the boot (the error listener below would report it).
+            // rejects this chain, so `upgradeToServed`'s catch takes it and the boot is not hit.
             window.H5PUpgrades = window.H5PUpgrades || {};
             (0, eval)(code + '\n//# sourceURL=' + url);
             return window.H5PUpgrades[machineName] || null;
@@ -533,8 +533,8 @@ var upgradeToServed = function (): Promise<void> {
 };
 
 /**
- * For `untrusted` packages: the content checked against the served semantics (`content-check.ts`),
- * after the upgrade, before `H5P.init` reads it. Content that cannot be checked does not play.
+ * For `untrusted` packages: the content checked against the served semantics (`content-check.ts`) after
+ * the upgrade. It does not play without the main library's; a sub-content library without any is removed.
  */
 var checkUntrusted = function (): Promise<void> {
   if (!config.untrusted) return Promise.resolve();

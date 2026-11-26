@@ -1,6 +1,6 @@
 /**
- * Authored text as H5P stores it: a rich-text field holds markup (its tags and `div`, `span`, `p`,
- * `br`, no others), every other field plain text, escaped as the platforms keep it (`takesMarkup`).
+ * Authored text as H5P stores it: a rich-text field with `tags` listed holds markup (those and `div`,
+ * `span`, `p`, `br`, no others), every other field plain text, escaped as platforms keep it (`takesMarkup`).
  */
 
 /** An `&` that does not begin an entity. */

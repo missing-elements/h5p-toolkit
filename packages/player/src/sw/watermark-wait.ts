@@ -2,7 +2,7 @@ import { COLD_ENTRY_WAIT_MS, WATERMARK_POLL_MS } from '../shared/constants.js'
 import { onWatermark, type ChunkMeta, type ChunkStore } from '../shared/chunk-store.js'
 
 /**
- * Waits until the entry has `needed` bytes, is complete, or has a recorded failure. The bound is a
+ * Waits until the entry has at least `needed` bytes, is complete, or has a recorded failure. The bound is a
  * stall, not a wall clock, and a running or queued notice resets it: a quiet link is not death.
  */
 export async function waitForWatermark(

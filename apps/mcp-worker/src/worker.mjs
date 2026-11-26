@@ -3,8 +3,8 @@ import { createApp } from '@missing-elements/h5p-mcp/app'
 import mcp from '@missing-elements/h5p-mcp/package.json' with { type: 'json' }
 
 /**
- * The app server (`h5p-mcp-app`, design/mcp.md) as a Worker: its files ride in as modules under
- * `/bundle`. It receives a chat's tool calls and never a file, and stores or logs nothing of one.
+ * The app server (`h5p-mcp-app`, design/mcp.md) as a Worker: its files ride in under `/bundle`.
+ * Tool calls carry an activity's source, never a file; it stores or logs nothing (`wrangler.jsonc`).
  */
 
 /** Where a Worker's modules are files. */

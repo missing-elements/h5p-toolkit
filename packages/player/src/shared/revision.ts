@@ -16,8 +16,8 @@ export interface FingerprintEntry {
 }
 
 /**
- * SHA-256 over the central directory's records in archive order, as `sha256:<hex>`: the index, as a
- * range-read package is never read whole. Keep in step with the normalizer's `lib/fingerprint.mjs`.
+ * SHA-256 of the index (a range-read package is never read whole), as `sha256:<hex>`: each entry's
+ * name, CRC-32, sizes and method in archive order, no dates. Keep in step with the normalizer's `lib/fingerprint.mjs`.
  */
 export async function indexFingerprint(entries: Iterable<FingerprintEntry>): Promise<string> {
   const parts: Uint8Array[] = []

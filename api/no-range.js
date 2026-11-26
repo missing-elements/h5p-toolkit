@@ -1,8 +1,8 @@
 import { Readable } from 'node:stream'
 
 /**
- * A host that ignores `Range`, for the hosted demo, as Vercel's static files honour it: it answers
- * `200` with the whole body. Demo content only; dev has it in the player's `vite.plugins.ts`.
+ * Vercel's static files honour `Range`, so this stands in for a host that ignores it: `200`, the
+ * whole body. Demo content only; dev and preview have it in the player's `vite.plugins.ts`.
  */
 
 export const config = { supportsResponseStreaming: true }

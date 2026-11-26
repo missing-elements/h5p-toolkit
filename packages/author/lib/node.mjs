@@ -309,8 +309,8 @@ export function guardedFetch({ lookup: resolveHost = lookup, fetch: send = (inpu
 }
 
 /**
- * A `fetch` that refuses a local network on every redirect, for builds acting on what a model
- * wrote: it guards against mistakes and planted addresses, not a hostile network.
+ * A `fetch` that refuses a local network on every redirect, for builds acting on what a model wrote: a guard
+ * against mistakes and planted addresses; it looks a name up and then asks, so a host that answers differently the second time is not covered.
  */
 export const publicFetch = guardedFetch()
 

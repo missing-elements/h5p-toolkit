@@ -1,7 +1,7 @@
 /*! h5p-offline-player resizer. MIT. Sizes an <iframe> of the H5P embed page to its content. */
 /**
- * The page-side half of H5P's resizer protocol: it applies the height a framed page reports. Served
- * from the player's origin, so nothing goes to a third party; a classic script, to run anywhere.
+ * The page-side half of H5P's resizer protocol: it applies the height a framed page reports, and a
+ * frame can only resize itself. Served from the player's origin, so no third-party script; a classic one.
  */
 (function () {
   if (window.__h5pResizer) return;

@@ -8,11 +8,11 @@ import { fileURLToPath } from 'node:url'
 
 const MOST = 2
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const CODE = /\.(ts|mts|mjs|js|cjs|css|html|ya?ml|sh)$/
+const CODE = /\.(ts|mts|mjs|js|cjs|css|html|jsonc|ya?ml|sh)$/
 // Others' code and what a build writes: not ours to shorten.
 const SKIPPED = /(^|\/)(node_modules|dist|dist-demo|vendor|public|cmi5-catapult|parts|staged)\/|\.d\.m?ts$|(^|\/)pnpm-lock\.yaml$/
 // A line a tool reads is not prose, and a licence notice is kept whole.
-const DIRECTIVE = /^(@ts-|@vitest-|v8 ignore|c8 ignore|prettier-ignore|eslint-|#region|#endregion|\/ <reference)/
+const DIRECTIVE = /^(@ts-|@vitest-|v8 ignore|c8 ignore|prettier-ignore|eslint-|#region|#endregion|<reference)/
 const NOTICE = /copyright \(c\)|spdx-license-identifier|@license|@preserve|permission is hereby granted/i
 
 /**
@@ -29,12 +29,14 @@ export function comments(text, file) {
   const found = []
   for (let at = 0; at < lines.length; at++) {
     const first = lines[at].trim()
-    const close = !hash && first.startsWith('/*') ? '*/' : !hash && first.startsWith('<!--') ? '-->' : null
+    // A block that opens after code and runs on past its line counts too.
+    const trailing = !hash && !first.startsWith('/*') ? /\s\/\*(?!.*\*\/)/.exec(lines[at]) : null
+    const close = !hash && (trailing || first.startsWith('/*')) ? '*/' : !hash && first.startsWith('<!--') ? '-->' : null
     if (close) {
       const line = at + 1
       const body = []
       while (at < lines.length) {
-        body.push(lines[at].trim().replace(/^(\/\*+|<!--|\*(?!\/))\s?/, '').replace(/\s*(\*\/|--!?>).*$/, '').trim())
+        body.push((body.length || !trailing ? lines[at] : lines[at].slice(trailing.index)).trim().replace(/^(\/\*+|<!--|\*(?!\/))\s?/, '').replace(/\s*(\*\/|--!?>).*$/, '').trim())
         if (lines[at].includes(close)) break
         at++
       }

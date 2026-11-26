@@ -2,8 +2,8 @@
    stylesheet: all of it is the host page's job, not the element's, which is the demo's point. */
 @import "@missing-elements/h5p-offline-player/page.css";
 
-/* A link to a heading lands below the sticky bar: its height at each width (60, 102 and 129 px,
-   measured 2026-10-18) plus a breath. */
+/* A link to a heading lands below the sticky bar and a breath: it is 60 px high from 64rem (one row),
+   102 from 40rem (links on a second row), 129 under it (two rows of links), measured 2026-10-18. */
 html { scroll-padding-top: 9.75rem; }
 @media (min-width: 40rem) { html { scroll-padding-top: 8rem; } }
 @media (min-width: 64rem) { html { scroll-padding-top: 5.25rem; } }

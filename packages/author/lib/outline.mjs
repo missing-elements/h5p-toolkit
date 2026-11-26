@@ -5,7 +5,7 @@ import { questionTitle } from './types.mjs'
 
 /**
  * A built content as plain text for review before handover: what an author wrote, one line each,
- * indented by list. Only text a learner reads, plus what marks an answer right (✓, score ranges).
+ * indented by list. Learner-read text and answer marks (✓, score ranges), and draw counts, numbered headers, branching destinations, video times, media paths.
  */
 
 /** @param {unknown} value @returns {value is Record<string, any>} */

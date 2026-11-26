@@ -5,8 +5,8 @@ import { build, transform } from 'esbuild'
 import { CORE_DIR } from './sync-core.mjs'
 
 /**
- * Builds `dist/` (the H5P core, the boot script, `l10n.js`, notices) and `index.js`, a static
- * `new URL` per file. A bundler emits each file alone, so the core sheet is rebuilt.
+ * Builds `dist/` (the H5P core, the boot script, `l10n.js`, notices) and `index.js`, a static `new URL`
+ * per file. A bundler emits each alone, so the sheet's `../fonts/` and `../images/` URLs break: it is rebuilt.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')

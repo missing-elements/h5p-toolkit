@@ -144,8 +144,8 @@ export default defineConfig(({ command }) => ({
   },
 
   resolve: {
-    // Not the player's `./plan`, which the SCORM page's builder imports: from source it joins the
-    // element's chunk, but the zip has `h5p-player.js` alone, so `dist/h5p-plan.js` is built first.
+    // Not the player's `./plan` (the SCORM builder imports it): from source the build splits it into a
+    // chunk `h5p-player.js` imports, but the zip has that file alone, so `dist/h5p-plan.js` is built first.
     alias: [
       { find: /^@missing-elements\/h5p-offline-player$/, replacement: ELEMENT },
       // The page's stylesheet the same way: player-page.css imports it by the package's name, and

@@ -211,8 +211,8 @@ function outcomeOf(result) {
 }
 
 /**
- * A 1.2 answer or right answer for `fill-in` and `numeric`, as a report shows it: H5P writes 2004's
- * notation, so `{case_matters=false}stored[,]Range` becomes `stored, Range`; a numeric is a number.
+ * A 1.2 `fill-in` or `numeric` answer as plain text a report shows, which the caller cuts to 255: 2004's
+ * `{case_matters=false}stored[,]Range` becomes `stored, Range`; `null` for none or a numeric not a number.
  * @param {unknown} text
  * @param {string} type `fill-in` or `numeric`
  * @param {boolean} right whether it is the right answer, whose modifiers go
@@ -237,8 +237,8 @@ function questionKey(statement) {
 }
 
 /**
- * The question's words as text, from the description in the content's language, else its first:
- * markup is removed and `&rsquo;` and the like read, or a 1.2 id would be `Q1_don_rsquo_t`.
+ * The question's words as text, from the description in the content's language, else `en-US`, else
+ * its first: markup is removed and `&rsquo;` read, or a 1.2 id would be `Q1_don_rsquo_t`.
  * @param {AnsweredStatement} statement
  * @param {string} language
  */

@@ -56,7 +56,7 @@ export function libraryFolderNames(dependency: LibraryDependency): string[] {
 
 /**
  * Picks the folder satisfying a dependency: the same major, a minor at least as high, the lowest
- * winning (the pack's `H5P.Text-1.1` for content asking 1.0). `downgrade` is the last resort (#85).
+ * winning. `downgrade` (#85) is the last resort: only once every source was tried, never for an archive still arriving.
  */
 export function resolveLibraryFolder(
   available: Map<string, LibraryFolder[]>,
@@ -115,7 +115,7 @@ export function findMissingLibraries(
 
 /**
  * The walk before boot (`PackageReader.checkDependencies`) and the SCORM write, a level at a time
- * from `roots`, so a server answers each level from cache. Returns what nothing served, once each.
+ * from `roots`, so a server answers each level from cache. Returns `missing` and `found`, once each.
  */
 export async function walkDependencies<T>(
   roots: Iterable<LibraryDependency>,

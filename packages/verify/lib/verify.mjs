@@ -393,7 +393,7 @@ export async function verifyPackage(options) {
  * @internal
  * @param {any} params an Interactive Video's, as `content.json` holds them
  * @returns {({ path: string, from: number, to: number } | { path: string, time: number, says: 'starts at' | 'is' })[]}
- *   by JSON path, in seconds: an interaction's start and end, a bookmark's or the start's time
+ *   by JSON path, in seconds: an interaction's start and end, or its start alone with no end after it; a bookmark's or the start's time
  */
 export function videoTimes(params) {
   const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
@@ -423,7 +423,7 @@ export function videoTimes(params) {
 
 /**
  * Warnings for an Interactive Video's times against its video's length. `loaded()` in 1.28 moves an
- * interaction ending past the last whole second to end there, so it starts earlier (#285).
+ * interaction ending past the last whole second to end there, its start moving by as much, to 0 at least (#285).
  * @internal
  * @param {ReturnType<typeof videoTimes>} times
  * @param {number} seconds the video's length, from its player

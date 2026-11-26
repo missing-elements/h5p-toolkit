@@ -47,7 +47,7 @@ function selectValues(field) {
 
 /**
  * @typedef {{ has?: (machineName: string) => boolean, sets?: string[], descriptions?: boolean, all?: boolean }} SchemaOptions
- *   `has` lists only sub-content the pack can build; `sets`, layout-set fields; `all`, all texts
+ *   `has` lists only sub-content the pack can build; `sets`, layout-set fields, as `a.b[].c`; `descriptions: false` omits each field's description; `all`, all texts
  */
 
 /**

@@ -217,7 +217,7 @@ export interface PackageRecord {
   language?: string
   /**
    * Played as data, none of the package's code runs: libraries come from the attached bundle only,
-   * `content/` serves only H5P's file types, and the frame's policy names exact scripts.
+   * `content/` serves only H5P's file types, and the frame allows scripts by exact path or URL, not origin.
    */
   untrusted?: boolean
   status: PackageStatus
@@ -254,8 +254,8 @@ export interface LoadSettings {
    */
   superseded?: string[]
   /**
-   * A library named at a newer minor than any source has is served from the newest older minor.
-   * Set once every source was tried, and kept so a restarted worker serves the same folders.
+   * A library named at a newer minor than any source has is served from the newest older minor of
+   * the same major. Set once every source was tried, kept so a restarted worker serves the same folders.
    */
   downgrade?: boolean
   /** When a load last registered these, for keeping the newest few. */

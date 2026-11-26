@@ -44,8 +44,8 @@ const EXPLANATIONS = {
 }
 
 /**
- * The clock, from the load being asked for until the player is ready or failed. Each state is
- * logged with its time: a long `probing` is a slow host, a long `indexing` a slow package.
+ * The clock, from the load asked for until the player is ready or failed. Each state is logged
+ * with its time: a long `probing` is a slow host, a long `indexing` a slow package or libraries.
  */
 let loadStarted = null
 let ticking = null

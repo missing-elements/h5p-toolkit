@@ -1,6 +1,6 @@
 /**
- * Refuses to publish while what the package pins is not on npm (pack, the player's `./plan`, the
- * normalizer's `./crc32`, `./mp4`: #108, #218): else it fails to install.
+ * Refuses to publish while what the package pins is not on npm (the library pack, the player's `./plan`, the
+ * normalizer's `./crc32`: #108), else it fails to install; `./mp4` is only a version floor, `NORMALIZER_FLOOR` (#218).
  */
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

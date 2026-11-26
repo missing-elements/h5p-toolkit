@@ -25,7 +25,7 @@ const say = (text) => {
 
 /**
  * Anyone can link this page with cmi5 parameters, and a package's scripts would run on this origin:
- * another site's plays `untrusted`, so `startCmi5` leaves `src` to the page.
+ * a package from another site plays `untrusted`, so `startCmi5` leaves `src` to the page.
  */
 const confirmBox = document.querySelector('#confirm-src')
 const urlSrc = new URLSearchParams(location.search).get('src')?.trim() || null

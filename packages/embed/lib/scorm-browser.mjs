@@ -221,8 +221,8 @@ export async function planScormInPage(options) {
 }
 
 /**
- * Builds the SCORM zip of a package in a page, as a `Blob`: `planScormInPage` and its `write` at
- * once. Refuses what `buildScorm` refuses, and a pack part whose bytes do not match the index.
+ * Builds the SCORM zip of a package in a page, as a `PageScorm` whose `blob` is the zip: `planScormInPage`
+ * and its `write` at once. Refuses what `buildScorm` refuses, and a pack part that does not match the index.
  * @param {PageScormOptions} options
  * @returns {Promise<PageScorm>}
  */

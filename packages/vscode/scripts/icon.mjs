@@ -2,8 +2,8 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 
 /**
- * Renders `icon.png` from the demo's `demo/favicon.svg`, so no logo drifts: 256 px square, as the
- * Marketplace takes 128 at least. Rasterized in Chromium, as the repo has no image tooling.
+ * Renders `icon.png` from `demo/favicon.svg` in Chromium (no image tooling), so no logo drifts: 256 px,
+ * not the Marketplace's 128, to stay sharp on dense screens. Committed; rerun when the logo changes.
  */
 
 const SIZE = 256

@@ -117,8 +117,8 @@ async function show(input) {
   address = PLAY + fragment
   themed()
   if (self.origin === 'null') return void inTab()
-  // The loader gives way to the page at its first word, or 300 ms after its load. Ten seconds of
-  // silence offer the tab, as a chat may refuse a frame unseen (#276); a first word takes it back.
+  // The loader gives way to the page at its first message, or 300 ms after its load. Ten seconds of
+  // silence offer the tab, as a chat may refuse a frame unseen (#276); a first message takes it back.
   frame.addEventListener('load', () => {
     setTimeout(reveal, 300)
     setTimeout(() => { if (!spoke) inTab('silent') }, 10_000)

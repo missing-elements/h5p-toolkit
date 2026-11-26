@@ -1,6 +1,6 @@
 /**
- * `@missing-elements/h5p-offline-player/plan`: the library rules, shared with the packages that
- * write what it plays. Not in docs/compatibility.md: depend on an exact version (#106).
+ * `@missing-elements/h5p-offline-player/plan`: the library rules for author (#106) and embed (#109),
+ * free of zip.js, for Node and a page. Not in docs/compatibility.md: depend on an exact version.
  */
 
 export { addonPatterns, dependenciesIn, librariesNamedIn, textMatches, type LibraryDependency, type PackageManifest } from './shared/content-libraries.js'

@@ -253,7 +253,7 @@ const CHECKS = {
     })
   },
   // An answer names personalities, split at ", " and counted only if exactly a personality's
-  // (personalityQuiz.js): another capital, a comma without a space, or a rename counts for none.
+  // (personalityQuiz.js): a name with another capital, no space after a comma, or renamed counts for none; the answer's other names still count.
   'H5P.PersonalityQuiz'(params, path, note) {
     if (!Array.isArray(params.personalities) || !Array.isArray(params.questions)) return
     const names = new Set(params.personalities.map((/** @type {any} */ one) => one?.name).filter((/** @type {any} */ name) => typeof name === 'string' && name))

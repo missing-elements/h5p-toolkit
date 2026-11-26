@@ -11,7 +11,7 @@ import { removeIfMade } from '../lib/node.mjs'
 
 /*
  * A content type's bundle (#166): the parts a build of the type reads, where the pack cannot be
- * installed, with what an upload check wants, no addon. A build from it matches the pack's.
+ * installed, with what an upload check wants, no addon. A build from it matches the pack's, or stops at a part it lacks.
  */
 
 const parts = resolve(import.meta.dirname, '../../libraries/parts')

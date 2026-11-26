@@ -7,8 +7,8 @@
 
   const API = 'https://api.github.com/repos/missing-elements/h5p-toolkit'
   const KEY = 'h5p-demo-stars'
-  // At most one request an hour (GitHub allows 60 per address, and a school is one); after a rate
-  // limit, when GitHub says it lifts (`X-RateLimit-Reset`). Stored before asking.
+  // Asks an hour after a success, ten minutes after a failure (GitHub allows 60 an hour per address;
+  // a school is one), after a rate limit when it lifts (`X-RateLimit-Reset`). Stored before asking.
   const FRESH_MS = 60 * 60 * 1000
   const RETRY_MS = 10 * 60 * 1000
   const root = document.documentElement

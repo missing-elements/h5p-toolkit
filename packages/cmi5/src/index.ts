@@ -130,7 +130,7 @@ export interface Cmi5Options {
   client?: Cmi5Client
   /**
    * The package to play: the address's `src`, then the launch data's `launchParameters`; `false`
-   * leaves the element's `src` alone. Only http(s) reaches the element, else `unsafe-src`.
+   * leaves the element's `src` alone. Only http(s), resolved against `url`, reaches it; else `unsafe-src`, then the next.
    */
   src?: string | false
   /** The page's address, for `src`; `location.href` by default. */
@@ -174,8 +174,8 @@ export function isCmi5Launch(url: string = globalThis.location?.href ?? ''): boo
 }
 
 /**
- * The content's statement as cmi5 allows it: launch actor, registration and the LMS's context
- * template (it wins). No cmi5 category (it marks cmi5-defined ones); a UUID id (9.1.0.0-1).
+ * The content's statement as cmi5 allows it: launch actor, registration, the LMS's context template
+ * (it wins; `contextActivities` are joined, the template's first). No cmi5 category. An id is added if none is a UUID (9.1.0.0-1).
  */
 export { adaptAllowedStatement as allowedStatement }
 
@@ -287,8 +287,8 @@ function forgetKept(storage: SessionStorage | null, key: string): void {
 /* ------------------------------------------------------------------ the session */
 
 /**
- * Starts the session for this launch around the element. It listens at once, as the package loads
- * meanwhile, and holds what is emitted before `initialized` until it is out.
+ * Starts the session around the element. It listens at once, as the package loads meanwhile, and
+ * holds statements until `initialized` is sent. Resolves then or on resume; rejects with the LMS's reason.
  */
 export async function startCmi5(player: PlayerLike, options: Cmi5Options = {}): Promise<Cmi5Session> {
   const emit = (event: Cmi5Event) => {

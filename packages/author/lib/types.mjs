@@ -448,8 +448,8 @@ export function videoTimes(params, path, lengthOf, report) {
 }
 
 /**
- * Where H5P.InteractiveVideo 1.28 plays an interaction ending past the last whole second: moved on
- * load to end there, as long as written; `undefined` if left where it is.
+ * Where H5P.InteractiveVideo 1.28 plays an interaction ending past the last whole second: moved to
+ * end there, as long as written, its start clamped at 0; `undefined` if left, or not a start before an end.
  * @param {unknown} duration an interaction's `duration`, `{ from, to }` in seconds
  * @param {number} last the video's last whole second, as the library counts it
  * @returns {{ from: number, to: number } | undefined}

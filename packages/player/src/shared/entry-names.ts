@@ -1,6 +1,6 @@
 /**
- * Entry-name normalisation. Archives are untrusted: a name that is not a plain relative path under
- * the package root is rejected, never sanitised, so a hostile name cannot become another valid one.
+ * Entry-name normalisation. Archives are untrusted: separators and `.` or empty segments are normalised,
+ * but a name that escapes the package root is rejected, never sanitised, so it cannot become another valid one.
  */
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/

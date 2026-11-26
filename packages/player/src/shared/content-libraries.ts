@@ -18,7 +18,7 @@ export interface PackageManifest {
 
 /**
  * Every library a content's parameters name, as sub-content does: an object whose `library` is
- * `"<machineName> <major>.<minor>"` anywhere in the tree, each once. The parameters are untrusted.
+ * `"<machineName> <major>.<minor>"` anywhere in the tree, each once, in first-seen order. The parameters are untrusted.
  */
 export function librariesNamedIn(params: unknown): LibraryDependency[] {
   const found = new Map<string, LibraryDependency>()

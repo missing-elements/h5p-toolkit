@@ -181,7 +181,7 @@ export async function sendArchive(file, request, response, report) {
 
 /**
  * The one range a `Range` header asks for, as a static host reads it: `null` for none, an unparsed
- * one or several (answered whole); `false` when it starts past the end, a `416`.
+ * or reversed one (`bytes=5-2`) or several (answered whole); `false` when it starts past the end, a `416`.
  * @internal
  * @param {string | null} header
  * @param {number} size

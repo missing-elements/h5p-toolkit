@@ -183,7 +183,7 @@ it('opens a file from the keyboard, shows it under its own title, and closes it 
   expect(state).toMatchObject({ screen: 'home', startOver: false, back: false })
 
   // Listen before the first key: Playwright switches picker interception on at the first listener,
-  // and Enter opens the picker on the next event, so a later one missed it in 7 of 10 Linux runs.
+  // and Enter opens the picker on the next event: a later one missed it in 7 of 10 Chromium runs.
   const choosing = page.waitForEvent('filechooser')
 
   // "Choose a file" is a button, so Tab reaches it and Enter opens the picker.

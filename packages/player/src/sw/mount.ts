@@ -896,7 +896,7 @@ class VirtualServer {
     if (!snapshot) return reader
     const manifest = reader.manifest
     await reader.absorb(snapshot)
-    // `h5p.json` has just arrived: its title, metadata and language reach the record here, or not
+    // `h5p.json` has just arrived: its title and metadata reach the record here, or not
     // until the download is whole, after an early boot without them (#57).
     if (reader.manifest !== manifest) {
       const record = await db.getPackage(load.pkgId)

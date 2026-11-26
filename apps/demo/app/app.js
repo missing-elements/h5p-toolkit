@@ -1,6 +1,6 @@
 /**
- * The installable app's page. `sw.js` mounts the player's handlers, so nothing plays until the page
- * is controlled, or the element would register its own worker at `/h5p/`, not offline.
+ * The installable app's page. `sw.js` mounts the player's handlers, so playing waits for the page to
+ * be controlled; if it never is, the element registers its own worker at `/h5p/`, online only.
  */
 
 import { foreignHost, messageIn, packageUrl, trustPrompt } from '../demo/page-common.js'

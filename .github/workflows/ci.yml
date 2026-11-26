@@ -34,8 +34,8 @@ env:
   H5P_TEST_SKIP_SLOW: ${{ (github.event_name != 'schedule' && github.event_name != 'workflow_dispatch') && '1' || '' }}
 
 jobs:
-  # The heavy packages get a lane each, the rest share one. A change picks its packages and their
-  # dependents; a file outside packages/, apps/, skills/ and docs picks all: its reach is unknown.
+  # Heavy packages get a lane each, the rest one. A change picks its packages and dependents; a file
+  # outside packages/, apps/, skills/, design/, docs/, root *.md, LICENSE picks all (reach unknown).
   scope:
     runs-on: ubuntu-latest
     outputs:

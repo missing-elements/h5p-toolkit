@@ -1,8 +1,8 @@
 import type { ByteRange } from './range.js'
 
 /**
- * Small archive reads kept in fixed blocks, so no byte is asked for twice: a 1.5 MB quiz took 13
- * sequential ranged requests to boot (#133). An index's blocks outlive the worker (#136).
+ * Small archive reads kept in fixed blocks, so no held byte is asked for twice: a 1.5 MB quiz took 13
+ * sequential requests to boot (#133). Least recently used go past `maxBytes`; an index's blocks outlive the worker (#136).
  */
 export class BlockCache {
   /** Held blocks by `blockId`, oldest use first: a use moves a block to the end. */

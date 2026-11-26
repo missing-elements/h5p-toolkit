@@ -88,8 +88,8 @@ it.each([false, true])('plays every scenario in the preview across the 80% thres
   page.on('pageerror', error => errors.push(error.message))
   try {
     const frame = await open(page, preview.url, untrusted)
-    // Question Set 1.21 draws no feedback or score bar on its result page (h5p-question-set#183),
-    // so only the screen-reader announcement carries the pass and fail messages: checked here.
+    // Question Set 1.21 draws no feedback or score bar on its result page (h5p-question-set#183, fixed
+    // by the open #184), so for now only the screen-reader announcement carries the messages: checked.
     const announced = (text: string) => frame.locator('.qs-progress-announcer').filter({ hasText: text }).waitFor({ state: 'attached' })
 
     await attempt(page, 6, 0)

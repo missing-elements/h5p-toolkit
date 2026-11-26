@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 /**
  * Writes `h5p-preview-<version>.vsix` from what `build.mjs` built, for Marketplace and Open VSX.
- * Its README's links resolve to this folder, which vsce's default base, the root, would not.
+ * `--no-dependencies`: everything is in `dist/` and `assets/`, so no node_modules goes in.
  */
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -27,6 +27,7 @@ const result = spawnSync(
     '--no-dependencies',
     '--out',
     out,
+    // The README's links resolve to this folder; vsce's default base is the repository root.
     '--baseContentUrl',
     `${folder}/blob/HEAD/packages/vscode/`,
     '--baseImagesUrl',

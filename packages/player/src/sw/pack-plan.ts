@@ -32,8 +32,8 @@ export interface ProvidedLibrary {
 }
 
 /**
- * What a package carries of its libraries, from its top-level folders holding a `library.json`.
- * With `read` the version and dependencies come from it, else from the folder name (cheaper).
+ * What a package carries of its libraries, from its top-level folders holding a `library.json`: read
+ * where `read` is given and `readable` allows, else by folder name (cheaper). A bad or mismatched `library.json` drops it.
  */
 export async function ownLibraries(
   folders: Iterable<string>,

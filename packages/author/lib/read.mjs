@@ -18,7 +18,7 @@ import { LAYOUTS, placesOf } from './types.mjs'
  * @typedef {import('./build.mjs').Source} Source
  * @typedef {import('./build.mjs').Problem} Problem
  * @typedef {{ source: Source, files: string[], notes: Problem[] }} ReadContent
- *   `files`, the media the source names, by path in `content/`; `notes`, what was left out
+ *   `files`, the media the source names, by path in `content/`; `notes`, what was left out, reads back otherwise, or could not be read back
  */
 
 /** @param {unknown} value @returns {value is Record<string, any>} */

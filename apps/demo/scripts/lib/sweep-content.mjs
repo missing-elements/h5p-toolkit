@@ -1,8 +1,8 @@
 import { ContentGenerator, librariesIn, libraryString } from '@missing-elements/h5p-author'
 
 /**
- * The sweep's run of h5p-author's generator, lenient: a required field with no default gets the
- * smallest value the content check accepts, as every type must play. Ids are numbered: same bytes.
+ * h5p-author's generator as the sweep runs it, lenient so every type plays: a required field with no
+ * default gets its label, a pattern's first sample, 1 in range, the first option, a sub-content or media.
  */
 
 export { ContentGenerator, librariesIn, libraryString }
@@ -24,6 +24,7 @@ const PATTERNED_SAMPLES = ['Sample', '#808080', 'https://example.org/', 'sample@
 /** @type {import('@missing-elements/h5p-author').GeneratorOptions} */
 export const sweepOptions = {
   lenient: true,
+  // Numbered, so a package is the same bytes every run.
   id: (count) => `00000000-0000-4000-8000-${count.toString(16).padStart(12, '0')}`,
   fill(field, { generator, stack }) {
     switch (field.type) {

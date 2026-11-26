@@ -90,8 +90,8 @@ function attached(file) {
  * @param {AppOptions} [options]
  */
 export async function createApp(options = {}) {
-  // A Worker's bundle (#272) has no package folder for `import.meta` to find: it names its files.
   const site = new URL(options.site ?? SITE).origin
+  // A Worker's bundle (#272) has no package folder for `import.meta` to find: it passes `version` and `card`.
   const version = options.version ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version
   const card = (options.card ?? await readFile(new URL('./card.html', import.meta.url), 'utf8')).replaceAll('__SITE__', site)
   // A chat keeps a card by its address, so a card that changed has another.

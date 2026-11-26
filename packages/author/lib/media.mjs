@@ -125,7 +125,7 @@ const COPYRIGHT_SOURCE = /^https?:\/\/.+/i
 
 /**
  * A saved file's copyright as a source writes it (#236): parts with text, none for the licence "U"
- * alone. The editor saves empty parts, which a build refuses: they are left out, `left` told.
+ * alone. Empty parts go quietly; an unlisted licence, with its version, or a non-web source goes and `left` is told.
  * @param {unknown} copyright
  * @param {(key: 'license' | 'source', value: string) => void} [left]
  * @returns {Record<string, string> | undefined}
@@ -711,8 +711,8 @@ export class MediaStore {
   }
 
   /**
-   * The status a host's oEmbed answers: 0 if not in time, -1 if not sent as the host sends it
-   * (`sends`). With it the length in seconds where the answer carries one (`length`, #260).
+   * The status a host's oEmbed answers: 0 if not in time or the request failed, -1 for a status in
+   * `answers` not sent as the host sends it (`sends`). With it the length in seconds (`length`, #260).
    * @param {string} url
    * @param {(typeof HOSTED)[number]} hosted
    * @returns {Promise<{ status: number, seconds?: number }>}

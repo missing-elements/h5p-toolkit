@@ -4,7 +4,7 @@ import { chromium } from 'playwright'
 
 /**
  * Renders the social card, `demo/og-image.png`, 1200x630, in Chromium: link previews want a raster
- * image and the repository has no image tooling. Run when the text or the logo changes.
+ * image and the repository has no image tooling. Run when the text or logo changes, then commit the PNG.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')

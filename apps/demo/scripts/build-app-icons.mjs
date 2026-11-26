@@ -4,7 +4,7 @@ import { chromium } from 'playwright'
 
 /**
  * Renders the app's icons into `app/icons/` from `demo/favicon.svg`: 192, 512, maskable, iOS 180.
- * Rasterized in Chromium, as the repository has no image tooling. Run when the logo changes.
+ * Rasterized in Chromium (no image tooling here). Run when the logo changes, then commit the PNGs.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')

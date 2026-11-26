@@ -291,8 +291,8 @@ async function processEntry({ entry, name, target }, { source, tempDir, writer, 
     return { ...base, action: /** @type {const} */ ('copy'), to: from, warning }
   }
 
-  // Refused, not copied: this writer cannot copy one faithfully (an AES entry loses its 0x9901
-  // extra field, a classic one's check byte comes from the time), and the player cannot play one.
+  // Refused, not copied: this writer cannot copy one faithfully (an AES entry loses its 0x9901 extra
+  // field, a classic one with a data descriptor has a time-derived check byte), and the player cannot play one.
   if (entry.encrypted) throw new Error('the entry is encrypted, which H5P does not use and the player cannot play')
   if (method !== STORE && method !== DEFLATE && method !== DEFLATE64) {
     return copyRaw(target === 'copy' ? undefined : `compression method ${method} cannot be read here; copied as it was`)

@@ -11,7 +11,7 @@ export * from './core.mjs'
 
 /**
  * @missing-elements/h5p-author/browser: Node's build in a page or Tauri window, with a pack it can
- * reach, files as `File`s or `Blob`s, and a `Blob` out. Needs a secure context, for crypto.subtle.
+ * reach, files as `File`s or `Blob`s, a `Blob` out. Needs a secure context: `crypto.subtle`, `crypto.randomUUID`.
  */
 
 /**
@@ -20,9 +20,10 @@ export * from './core.mjs'
  * @typedef {{
  *   blob: Blob, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, libraries: string[], install: string[],
  *   coreApi: import('./install.mjs').CoreApi, translations: import('./translate.mjs').TranslationReport[], notes: import('./build.mjs').Problem[], media: string[], lengths: import('./media.mjs').MediaLength[], linked: string[], outline: string
- * }} BuildResult the package and what is worth telling about it, as Node's, with a `blob`
+ * }} BuildResult the package and what is worth telling about it, as Node's, with a `blob`; with
+ *   `linked` files it is a preview, not one to keep, since an address may stop answering
  * @typedef {{ libraries: Pack | PackIndex | string | URL, files?: Map<string, Blob> | Record<string, Blob>, linked?: Map<string, string> | Record<string, string>, fetch?: typeof fetch }} BuildOptions
- *   `libraries`: a pack or what opens one; `files`, by name; `linked`, left at an address (#263)
+ *   `libraries`: a pack or what opens one; `files`, by name; `linked`, at an address (#263); `fetch`, for media named by web address
  */
 
 /** What a page's build takes from the browser, which it has in a secure context only. */
@@ -34,7 +35,7 @@ function secure() {
 
 /**
  * The pack a page's build reads: the `pack` export of `@missing-elements/h5p-libraries`, or the
- * address of a copy of its `parts/`; a part is fetched whole and checked against its SHA-256.
+ * address of a copy of its `parts/`; parts come whole, SHA-256 checked. Close it: `buildPackage` leaves it open.
  * @param {PackIndex | string | URL} pack
  * @param {{ fetch?: typeof fetch }} [options] `fetch`, for the index and the parts
  */

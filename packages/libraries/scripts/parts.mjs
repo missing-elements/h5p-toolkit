@@ -158,8 +158,8 @@ export async function splitPack(pack, outDir) {
 }
 
 /**
- * Whether a library is carried only for an H5P site's upload check, never played: an editor
- * library or an older minor the player replaces. The validator wants exact dependencies (#146).
+ * Whether a library is carried only for an H5P site's upload check, never played: an editor library or
+ * an older minor the player replaces. The validator wants dependencies at exact major.minor (#146).
  * @param {{ machineName: string, minorVersion: number | string }} library its `library.json`
  * @param {number} newestMinor the pack's newest minor of the library's major
  */
@@ -205,8 +205,8 @@ export async function writePackModule(index, dir = packageDir, name = '@missing-
   const list = (entries) => entries.map((entry) => `    { ...${JSON.stringify(entry)}, url: ${url(entry.folder)} }`).join(',\n')
   const header = `// Written by scripts/parts.mjs. Do not edit; run \`pnpm parts\` in packages/libraries.
 
-// Vite's dev server pre-bundles dependencies into \`node_modules/.vite/deps/\`, where these URLs
-// point at files never put there: one that landed in it is pointed back at the real path.
+// Only Vite's dev server pre-bundles into \`node_modules/.vite/deps/\`, which points these URLs at files
+// never put there; the package's own copy stays at its real path, so such a URL is pointed back at it.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIR = ${JSON.stringify(`/node_modules/${name}/`)}
 

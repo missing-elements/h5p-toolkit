@@ -1,7 +1,7 @@
 // Written by scripts/parts.mjs. Do not edit; run `pnpm parts` in packages/libraries.
 
-// Vite's dev server pre-bundles dependencies into `node_modules/.vite/deps/`, where these URLs
-// point at files never put there: one that landed in it is pointed back at the real path.
+// Only Vite's dev server pre-bundles into `node_modules/.vite/deps/`, which points these URLs at files
+// never put there; the package's own copy stays at its real path, so such a URL is pointed back at it.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIR = "/node_modules/@missing-elements/h5p-libraries/"
 

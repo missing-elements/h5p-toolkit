@@ -78,8 +78,10 @@ was ported on 2026-08-11. Where it departs from the original, it is stricter, or
   removed; upstream fails on several of them with a PHP error, which fails the save.
 - A malformed attribute is dropped up to the next whitespace; upstream's pattern for that has an
   empty alternative, which can match nothing at all.
-- The step check uses whole steps of at least one, as PHP's integer `%` does; a fractional step is
-  not checked.
+- The step check uses the step cut to a whole number, as PHP's integer `%` does; a step that cuts
+  to less than one, which PHP 8 divides by zero on, is not checked.
+- A field's pattern with a modifier JavaScript lacks (`x`, `U`, `D`) is not enforced, as upstream
+  does with PCRE; it cannot be reproduced here.
 
 ## The translations in `dist/l10n.js` — GPL-3.0-or-later
 

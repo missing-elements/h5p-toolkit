@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /*
- * One that does not parse is a skill skills.sh, chats and agents do not list (#242). No YAML parser
- * is in the workspace, so each line is held to `key: value`, a plain value, and the spec's limits.
+ * A skill whose front matter does not parse is one skills.sh, chats and agents skip (#242). No YAML
+ * parser is in the workspace, so each line is held to a plain `key: value` and the spec's limits.
  */
 const skills = resolve(import.meta.dirname, '../../../skills')
 const names = (await readdir(skills, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name)

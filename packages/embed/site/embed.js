@@ -358,8 +358,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
     return
   }
 
-  // Another origin's package would share this origin's storage: it plays untrusted, as data with
-  // pack's code, and asks for a click only when it needs its own code or there is no pack.
+  // Another origin's package would share this origin's storage: it plays untrusted, as data with this
+  // site's sources (its default, else the pack), and asks for a click if there are none or a carried library is missing.
   const { host } = address
   askToTrust = () => {
     loader.hidden = true
