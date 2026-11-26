@@ -55,8 +55,8 @@ export const SEGMENT_CONCURRENCY = 4
 export const SEGMENT_MIN_SPAN = 8 * 1024 * 1024
 
 /**
- * Small HTTP reads of an archive go through `BLOCK_SIZE` blocks (pdf.js's size, zip.js's own step),
- * `BLOCK_CACHE_MAX_BYTES` per worker. Longer reads bypass it, so media never passes through it.
+ * Small HTTP reads of an archive go through `BLOCK_SIZE` blocks (pdf.js's size, zip.js's own step).
+ * Up to `BLOCK_CACHE_MAX_BYTES` per worker; a read over `BLOCK_CACHE_MAX_READ` bypasses it, so media does.
  */
 export const BLOCK_SIZE = 64 * 1024
 export const BLOCK_CACHE_MAX_BYTES = 4 * 1024 * 1024
@@ -72,8 +72,8 @@ export const ARCHIVE_ENTRY = '__archive__'
 export const WARM_ENTRY = '__warm__'
 
 /**
- * Warming, on a `Range` host: runs of the archive holding the declared libraries are pulled whole
- * before boot (2 requests for 156: 128 s to 9 s serially). Editor ones stay on demand (#148).
+ * Warming, on a `Range` host: runs holding the declared libraries are pulled whole before boot, 2 requests
+ * instead of 156. On a host serving one request at a time: 128 s to 9 s. Editor ones stay on demand (#148).
  */
 // A span is a run of inline entries; a larger gap (a video between library folders) splits it.
 export const WARM_GAP = 256 * 1024

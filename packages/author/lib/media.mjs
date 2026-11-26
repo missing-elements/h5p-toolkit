@@ -711,8 +711,8 @@ export class MediaStore {
   }
 
   /**
-   * The status a host's oEmbed answers: 0 if not in time or the request failed, -1 for a status in
-   * `answers` not sent as the host sends it (`sends`). With it the length in seconds (`length`, #260).
+   * The status a host's oEmbed answers: 0 if it fails or is late, -1 for a status in `answers` not sent as
+   * the host sends it (`sends`). Also the length in seconds, where the answer gives one (`length`, #260).
    * @param {string} url
    * @param {(typeof HOSTED)[number]} hosted
    * @returns {Promise<{ status: number, seconds?: number }>}

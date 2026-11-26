@@ -266,8 +266,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Whether a saved list is one the editor started and nobody filled: optional, every item empty,
-   * as an Interactive Video's text track. A check passes it; a source leaves it out.
+   * Whether a saved list is one the editor started and nobody filled: optional, every item what an item is
+   * with nothing written, as an Interactive Video's text track. A check passes it; a source leaves it out.
    * @param {any} field
    * @param {unknown} value
    * @param {string[]} stack
@@ -787,8 +787,8 @@ export class ContentGenerator {
   }
 
   /**
-   * Written sub-content: the library it names, its parameters filled from its semantics. Authoring,
-   * one the pack lacks or the field does not take is a problem; lenient, only one the pack lacks stays as written.
+   * Written sub-content: the library it names, its parameters filled from its semantics. Unless lenient,
+   * a library the pack lacks or the field does not take is a problem; lenient keeps a lacking one as written.
    * @param {any} written
    * @param {string[]} stack
    * @param {string} path

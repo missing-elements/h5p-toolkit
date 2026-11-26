@@ -188,8 +188,8 @@ const MAX_DEPTH = 8
  */
 
 /**
- * How to lay an mp4 out with `moov` before `mdat`, so a player decodes the first frame from the first
- * bytes, not after the last: only chunk offsets change. Never throws over content: it `skipped`s what it cannot move.
+ * How to lay an mp4 out with `moov` before `mdat`, so a player decodes from the first bytes, not the last:
+ * only chunk offsets change. Never throws over content: returns `skipped` for what it cannot move.
  * @param {Read} read
  * @param {number} size the file's length
  * @returns {Promise<FaststartPlan>}
@@ -220,7 +220,7 @@ export async function faststartPlan(read, size) {
   const index = new Uint8Array(whole)
 
   // Where a byte ends up once `moov` moves before `mdat`: what is before `mdat` or after `moov`
-  // stays, and what lay from `mdat` to `moov` moves back by `moov`'s length.
+  // stays, and what lay from `mdat` to `moov` moves later by `moov`'s length.
   /** @param {number} position */
   const shift = (position) => (position >= mdat.offset && position < moov.offset ? moov.size : 0)
 

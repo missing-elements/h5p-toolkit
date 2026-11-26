@@ -43,7 +43,7 @@ export function librariesNamedIn(params: unknown): LibraryDependency[] {
 
 /**
  * The patterns an addon's `library.json` gives under `addTo.content.types[].text.regex`, PHP's
- * `/…/flags` made JavaScript's. One JavaScript cannot read, or with a flag it lacks, is left out.
+ * `/…/flags` made JavaScript's. A pattern JavaScript cannot read, or with a flag it lacks, is left out.
  */
 export function addonPatterns(library: unknown): RegExp[] {
   const types = (library as { addTo?: { content?: { types?: unknown } } } | null)?.addTo?.content?.types

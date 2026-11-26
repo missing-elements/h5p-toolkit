@@ -1,10 +1,8 @@
 import type { LibraryLoad } from '../shared/protocol.js'
 import { dependenciesIn, type LibraryDependency, type PackageManifest } from '../shared/content-libraries.js'
 
-/**
- * What the frame loads and in what order, on the `boot` route: every library the content needs,
- * dependencies first. The order is h5p-standalone's, the one every content type was played in.
- */
+// What the frame loads and in what order, on the `boot` route: every library the content needs,
+// dependencies first. The order is h5p-standalone's, the one every content type was played in.
 
 /** One library as the walk found it: the folder that answered, and what its `library.json` says. */
 export interface WalkedLibrary {

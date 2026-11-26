@@ -161,7 +161,7 @@ export type PackageSource = SourceDescriptor
 export interface LibraryBundle {
   /** The `libraries` source that won; for `pack`, where its parts are. */
   url: string
-  /** The page's own origin, or `fromCache`, means no request to a third party. */
+  /** The origin of `url`. No third party was asked if it is the page's own, or `fromCache` is true. */
   origin: string
   /** Read from a copy downloaded earlier, not fetched now. */
   fromCache: boolean

@@ -34,8 +34,8 @@
 
     button.addEventListener('click', () => {
       const next = shown() === 'dark' ? 'light' : 'dark'
-      // A press that would pin the system's own theme clears the pin: a pin never outlives its
-      // point.
+      // A press that would pin the system's own theme clears the pin instead, so the page follows
+      // the system again and a pin never outlives its point.
       const pin = next === (system.matches ? 'dark' : 'light') ? null : next
       show(pin)
       try {

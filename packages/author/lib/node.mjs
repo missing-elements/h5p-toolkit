@@ -28,7 +28,7 @@ import { SourceError } from './source-error.mjs'
  *   libraries: string[], install: string[], coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], media: string[], lengths: import('./media.mjs').MediaLength[], unread: string[], outline: string
  * }} BuildResult what was written, and what is worth telling; keep `source` and `builtWith` with it
  * @typedef {{ libraries?: string, base?: string, fetch?: typeof fetch, within?: string[], check?: boolean, unread?: boolean }} BuildOptions
- *   `check` writes no package yet downloads web media; `unread`, with it, looks for no file (#270)
+ *   `check` writes no package yet downloads web media; `unread`, with it, reads, downloads and asks nothing (#270)
  * @typedef {{ output: string, source: import('./build.mjs').Source, files: string[], notes: Problem[] }} ReadResult
  *   `output`, the source's path; `files`, media beside it; `notes`, what was left out or unread
  * @typedef {{ libraries?: string, within?: string[] }} ReadOptions
@@ -343,7 +343,7 @@ function foldersOf(within) {
  * `check`, builds it and writes none, and takes no `output`.
  * @param {unknown} input the source: `{ type, title, language, license, authors, params }`, or a quiz in the published quiz format
  * @param {string | undefined} output the package's path; `undefined` with `check`
- * @param {BuildOptions} [options]
+ * @param {BuildOptions} [options] `base`, `within` and `fetch` are not used with `unread`
  * @returns {Promise<BuildResult>}
  */
 export async function buildPackage(input, output, options = {}) {

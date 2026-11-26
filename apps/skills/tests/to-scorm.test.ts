@@ -69,8 +69,8 @@ async function example(type: string, title: string) {
   return { ...META, title, ...JSON.parse(block[1]) }
 }
 
-// The stand-in LMS: one page per version, its values kept between launches, a launch after a
-// suspended session a resumed one, and `_count` one past the highest index written, as Moodle's.
+// The stand-in LMS: one page per version, its values kept between launches; a launch after a suspend
+// resumes, and `cmi.interactions._count` is one past the highest index written, as Moodle answers it.
 const LMS = {
   '1.2': `
   window.values = { 'cmi.core.lesson_status': 'not attempted', 'cmi.core.entry': 'ab-initio', 'cmi.suspend_data': '' }

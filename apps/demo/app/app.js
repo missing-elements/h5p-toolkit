@@ -492,8 +492,8 @@ document.addEventListener('drop', (event) => {
 /* ---------------------------------------------------------------- recent files */
 
 /**
- * Lists what just came up (`recent.js`). A handle is kept only in the installed window: storing one
- * in a private profile took Chromium 153 down (2026-10-12). A tab keeps a copy.
+ * Lists what just came up (`recent.js`). A handle is kept only in the installed window: storing one in
+ * a DevTools-protocol (Playwright) private context took Chromium 153 down (2026-10-12). A tab keeps a copy.
  */
 async function rememberCurrent() {
   const opened = current

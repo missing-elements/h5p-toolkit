@@ -1,6 +1,6 @@
 /**
- * Refuses to publish while the player's `./plan` and the normalizer's `./crc32` are not on npm, as
- * a pin to a version without them would install and fail on its first import (#108, #109).
+ * Refuses to publish until the player's `./plan` and the normalizer's `./crc32` are on npm: a pin to a version
+ * without them fails (#108, #109). The player is pinned exactly: docs/compatibility.md does not cover `./plan`.
  */
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

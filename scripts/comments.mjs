@@ -29,8 +29,9 @@ export function comments(text, file) {
   const found = []
   for (let at = 0; at < lines.length; at++) {
     const first = lines[at].trim()
-    // A block that opens after code and runs on past its line counts too.
-    const trailing = !hash && !first.startsWith('/*') ? /\s\/\*(?!.*\*\/)/.exec(lines[at]) : null
+    // A block that opens after code and runs on past its line counts too; a `/*` after `//` is words.
+    const opens = !hash && !first.startsWith('/*') ? /\s\/\*(?!.*\*\/)/.exec(lines[at]) : null
+    const trailing = opens && !lines[at].slice(0, opens.index).includes('//') ? opens : null
     const close = !hash && (trailing || first.startsWith('/*')) ? '*/' : !hash && first.startsWith('<!--') ? '-->' : null
     if (close) {
       const line = at + 1

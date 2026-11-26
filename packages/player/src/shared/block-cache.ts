@@ -2,13 +2,14 @@ import type { ByteRange } from './range.js'
 
 /**
  * Small archive reads kept in fixed blocks, so no held byte is asked for twice: a 1.5 MB quiz took 13
- * sequential requests to boot (#133). Least recently used go past `maxBytes`; an index's blocks outlive the worker (#136).
+ * requests to boot (#133). `key` must name URL, validator and size, or stale bytes could be served.
  */
 export class BlockCache {
   /** Held blocks by `blockId`, oldest use first: a use moves a block to the end. */
   private readonly blocks = new Map<string, Uint8Array>()
   /** Blocks on their way, by `blockId`. */
   private readonly pending = new Map<string, Promise<Uint8Array>>()
+  /** Bytes held in `blocks`; the least recently used go once they pass `maxBytes`. */
   private held = 0
 
   constructor(
@@ -75,8 +76,8 @@ export class BlockCache {
   }
 
   /**
-   * The blocks of `key` held among `indices`, in that order, for keeping beyond this worker (#136):
-   * a stopped worker takes its cache along. One not held is left out.
+   * The blocks of `key` held among `indices`, in that order, to keep past a stopped worker (#136), only
+   * for an archive with a validator. One not held is left out.
    */
   blocksOf(key: string, indices: Iterable<number>): Array<{ index: number; bytes: Uint8Array }> {
     const out: Array<{ index: number; bytes: Uint8Array }> = []

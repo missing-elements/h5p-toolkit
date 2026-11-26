@@ -48,8 +48,8 @@ await cp(resolve(rootDir, 'app', 'screenshots'), resolve(outDir, 'app', 'screens
 // `assets/` and the precache below picks them up from the manifest.
 
 /**
- * What the app needs offline: its page and what Vite's manifest lists (the real hashed names),
- * `frame-assets/`, manifest and icons. Their hash is the version, so the worker updates with them.
+ * What the app needs offline: its page, what Vite's manifest lists (the real hashed names), the links the
+ * page loads that it does not, `frame-assets/`, manifest and icons. Their hash is the version of the worker.
  */
 async function appPrecache() {
   const manifestPath = resolve(outDir, '.vite', 'manifest.json')

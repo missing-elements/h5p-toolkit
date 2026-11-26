@@ -16,8 +16,8 @@ import { byNumber, LAYOUTS, placesOf, videoTimes } from './types.mjs'
 export { SourceError }
 
 /**
- * A source made a package, as in Node (`node.mjs`) and a page (`browser.mjs`), but for where the
- * files are and the package goes. Nothing is written unless all is right: problems come at once.
+ * The build `node.mjs` and `browser.mjs` share, but for where the files are and the package goes:
+ * a source made a package. Nothing is written unless all is right: every problem comes at once.
  */
 
 /**

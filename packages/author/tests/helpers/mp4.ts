@@ -1,6 +1,6 @@
 /**
- * An mp4 as boxes, its index after its media unless `faststart`. `seconds` and `tracks` (handler,
- * codec) put length and tracks in the index; nothing decodes, and nothing needs Node.
+ * An mp4 as boxes, its index after its media unless `faststart`. `seconds` and `tracks` (a list of
+ * [handler, codec] pairs) go in the index. Nothing decodes or needs Node: a page's build gets one too.
  */
 export function mp4(faststart: boolean, { seconds, tracks = [] }: { seconds?: number, tracks?: [handler: string, codec: string][] } = {}) {
   const text = (value: string) => new TextEncoder().encode(value)

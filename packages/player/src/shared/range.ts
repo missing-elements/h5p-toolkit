@@ -7,8 +7,8 @@ export interface ByteRange {
 export type RangeResult = ByteRange | 'none' | 'unsatisfiable'
 
 /**
- * Parses a `Range` header against a size: the single `bytes` range, `'none'` when it is absent,
- * unusable or multi (`200` is always legal), `'unsatisfiable'` when it selects no bytes: the caller's `416`.
+ * Parses a `Range` header against a size: one `bytes` range; `'none'` if absent, unusable or multi (`200`);
+ * `'unsatisfiable'` (`416`) for `-0`, a start past the end or end < start. A suffix on size 0 gives end -1.
  */
 export function parseRange(header: string | null | undefined, size: number): RangeResult {
   if (!header) return 'none'

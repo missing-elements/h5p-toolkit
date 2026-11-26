@@ -4,7 +4,7 @@ import { mountH5P } from './mount.js'
 
 /**
  * The standalone Service Worker, a self-contained IIFE at `dist/h5p-sw.js` for sites with no build.
- * A host that enforces a single worker imports `mountH5P` from the package's `/sw` export instead.
+ * A host that enforces a single worker imports `mountH5P` from `@missing-elements/h5p-offline-player/sw`.
  */
 
 // A Service Worker cannot spawn a nested Worker, so zip.js has to inflate in place. It uses the
