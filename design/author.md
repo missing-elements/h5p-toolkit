@@ -178,6 +178,35 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   The two that lost a round: an Interactive Video's text written as H5P.AdvancedText, which its
   field does not take, as the type file now says; and a bundle unzipped into `parts/`, leaving
   the index at `parts/parts`.
+- **A picture the skill draws is a diagram, a chart or a flat illustration, its copyright
+  `{ "license": "U", "author": "Generated with AI" }`** (#151, the owner's call of 2026-11-26).
+  The rule before, that media come from the user, left a type that needs a picture without one,
+  and did not stop the drawing: given that skill and no picture, Haiku drew a flower for an Image
+  Hotspots anyway and marked it CC BY 4.0 by the user. The brief (`references/authoring.md`)
+  allows one where it teaches what words alone do not, or where the type needs a picture, and
+  holds the rest:
+  - Never a photograph or anything that passes for one, a real person, a brand or logo, a known
+    character, or a named artist's style. A picture tool's web address is never a `path`: the
+    build would download it, under that tool's terms.
+  - The copyright stays whatever the work's licence is, since the user did not make the picture,
+    and the reply offers no other. Told only the copyright, two of four replies offered to put the
+    picture under the user's CC BY; told "never offer", one of five; told the reply offers no other
+    licence, none of four.
+  - Drawn with what the sandbox has, nothing installed: one run with no Python drawing library
+    installed Pillow with pip, into the machine's own Python.
+  - Looked at once before the build, where the chat can open a picture: before that line no run
+    did, and one Image Hotspots had its stigma under a petal and a stamen's spot off the stamen;
+    after it, every run that drew did.
+  - Its alt text names the parts and what leads to what, and the reply names each picture and asks
+    the user to look at it before learners do, since a diagram teaches a wrong thing as easily as
+    text does.
+  - Measured on 2026-11-26 in Claude Code on Haiku as a chat with a code sandbox, asked for a
+    Course Presentation on the water cycle and an Image Hotspots on the parts of a flower, with no
+    picture given, at $0.012 to $0.023 a run. On the final text, with matplotlib and Pillow the
+    two drew in 2 of 2; with a Python that had neither, the presentation was left without a
+    picture and said so, and the flower was drawn with Python's own `zlib`, nothing installed.
+    Every picture drawn on any version of the text was marked as above (12 of 12), with alt text
+    naming its parts, and every package passed the verifier.
 - **A build that acts on what a model wrote can be confined** (#220, for the local MCP server of
   #219). The command line reads any path a source names and fetches any address, which is right
   for a person's own command.
