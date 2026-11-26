@@ -23,6 +23,13 @@ describe('parseRange', () => {
     expect(parseRange('bytes=-500', 100)).toEqual({ start: 0, end: 99 })
   })
 
+  it('answers a suffix on an empty resource with the whole, since no byte range says zero bytes (#293)', () => {
+    expect(parseRange('bytes=-5', 0)).toBe('none')
+    // The one form RFC 9110 lets an empty resource satisfy; any other stays unsatisfiable.
+    expect(parseRange('bytes=0-', 0)).toBe('unsatisfiable')
+    expect(parseRange('bytes=-0', 0)).toBe('unsatisfiable')
+  })
+
   it('clamps an end past the last byte', () => {
     expect(parseRange('bytes=90-500', 100)).toEqual({ start: 90, end: 99 })
   })
