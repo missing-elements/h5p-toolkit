@@ -15,7 +15,7 @@ change it:
   It sets the libraries' interface texts too, from their own translations, which are often
   incomplete.
 - **The author and the licence**, as the type's file says.
-- **Media**, for a type that needs them, as below.
+- **Media**: the user's, or pictures you draw, as below.
 
 ## Writing it well
 
@@ -30,14 +30,30 @@ change it:
 
 ## Media
 
-- Only files the user has or may use; a web address is downloaded into the package at build
-  time, so its licence travels with it. A YouTube, Vimeo, Panopto or Echo360 video stays
+- Files the user gave or may use, or pictures you draw (below). A web address is downloaded into
+  the package at build time, so its licence travels with it. A YouTube, Vimeo, Panopto or Echo360 video stays
   there and plays from there, which tells that site who watches. Give the video's own
   address, the one H5P plays: `youtube.com/watch?v=…` or `youtu.be/…` (a Short's is taken as
   its video's), `vimeo.com/` and the number, a Panopto viewer's
   `…/Panopto/Pages/Viewer.aspx?id=…`, Echo360's `echo360.org/media/…/h5p`.
 - Pictures: `.png`, `.jpg`, `.gif`, `.bmp`. Video: `.mp4`, `.webm`. Audio: `.mp3`, `.m4a`,
   `.wav`, `.ogg`. H5P takes no SVG or WebP.
+- A picture you draw, where one teaches what words alone do not (a cycle, a process, the parts of
+  a thing, a chart of the material's numbers) or where the type needs a picture the user did not
+  give. Only a diagram, a chart or a simple flat illustration: never a photograph or anything
+  that could pass for one, a real person, a brand or logo, a known character, or a named
+  artist's style. Draw it as a PNG file here, with code (Python's matplotlib or Pillow) or a tool
+  for pictures the chat has, using only what is already here: install nothing to draw. A picture
+  tool's web address is never a `path`. Where nothing here makes a file, draw none.
+  - Its labels and facts are the material's, as for text.
+  - Its `copyright` is `{ "license": "U", "author": "Generated with AI" }` whatever the work's
+    licence. The reply says it is marked so and offers no other licence for it: the user did not
+    make it. Its alt text says what it shows: the parts, their labels, what leads to what.
+  - Where you can open a picture, look at the file once before building, and redraw a part that
+    is hidden, crowded or away from its label.
+  - Where you draw it, you know where each part is: place hotspots and areas from that.
+  - Name each picture you drew in the reply, and ask the user to look at it in the preview before
+    the package goes to learners.
 - Places on a picture (hotspots, areas, stages) are guesses until seen: where you can see the
   picture, look before you place anything (route 0 passes an attachment on unopened). No tool
   watches a video, so its times stay guesses. The build notes what it placed or timed by numbers
