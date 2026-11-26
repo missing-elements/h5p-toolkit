@@ -2,13 +2,14 @@
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { buildPackage, coreApiLine, readPackage, schemaOf, SourceError, writeBundle, writeBundles } from '../lib/author.mjs'
+import { buildPackage, coreApiLine, describeMedia, lengthLine, mediaLine, readPackage, schemaOf, SourceError, writeBundle, writeBundles } from '../lib/author.mjs'
 import { packVersion } from '../lib/node.mjs'
 
 const USAGE = `Usage:
   h5p-author build <source.json> <output.h5p> [--libraries <parts folder>]
   h5p-author build --check <source.json> [--libraries <parts folder>]
   h5p-author read <package.h5p> <folder> [--libraries <parts folder>]
+  h5p-author media <file or web address>...
   h5p-author schema <machine name> [--markdown] [--all] [--libraries <parts folder>]
   h5p-author bundle <machine name> <output.zip> [--libraries <parts folder>]
   h5p-author bundle --all <folder> [--libraries <parts folder>]
@@ -21,6 +22,9 @@ build   Makes a playable .h5p from a source: { "type", "title", "language", "lic
 read    Writes the source a build would take to make a package again into a folder,
         with the package's media beside it: to change it and build it again. Reads
         content made for the pack's versions of its libraries; never writes over a file.
+media   Says what each file is before a source names it: a picture's size, a video's
+        length and whether it has sound; of a video on Vimeo, the length Vimeo gives.
+        Run it before writing an Interactive Video's times. Needs no libraries.
 schema  Prints a content type's fields as a source writes them: --markdown as a skill's
         type file carries them, --all with the interface texts.
 bundle  Writes the libraries a build of one content type reads, as a zip of a parts/
@@ -147,6 +151,8 @@ try {
     const install = result.install.length ? `, ${result.install.length} more for installing on an H5P site` : ''
     console.log(`${check ? 'Checked, no package written' : `Built ${result.output}`}: ${result.manifest.mainLibrary}, ${result.libraries.length} libraries from ${from}${install}${result.media.length ? `, ${result.media.length} media file${result.media.length === 1 ? '' : 's'}` : ''}.`)
     if (!check) console.log(coreApiLine(result.coreApi))
+    // The length an Interactive Video's times were held to, for whoever changes them next (#260).
+    for (const length of result.lengths) console.log(lengthLine(length))
     if (kept) console.log(`Its source, naming ${result.builtWith} as what it was built with, is ${kept}: hand it over with the package.`)
     const language = String(result.manifest.language)
     if (!/^en(?:-|$)/i.test(language)) {
@@ -161,6 +167,12 @@ try {
     }
     for (const { path, message } of result.notes) console.warn(`Note: ${path} ${message}`)
     if (!check) console.log('Not verified: run npx @missing-elements/h5p-verify@latest on it and look at its screenshot before handing it over.')
+  } else if (command === 'media') {
+    if (!rest.length) throw new Error('media takes the files to look at: h5p-author media clip.mp4 map.png')
+    for (const flag of Object.keys(flags)) throw new Error(`media does not take --${flag}`)
+    const facts = await describeMedia(rest)
+    for (const each of facts) (each.problem ? console.error : console.log)(mediaLine(each))
+    if (facts.some((each) => each.problem)) process.exitCode = 1
   } else if (command === 'read') {
     if (rest.length !== 2) throw new Error('read takes a package and a folder to write its source in: h5p-author read quiz.h5p quiz')
     for (const flag of Object.keys(flags)) if (flag !== 'libraries') throw new Error(`read does not take --${flag}`)

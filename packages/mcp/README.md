@@ -47,6 +47,10 @@ gets a number, and it says which.
 - `h5p_build`: a package from a source, its source beside it as `.source.json`. A source with
   problems is refused, each problem named. It checks the package, says what it holds, and which
   H5P core a site needs to take it.
+- `h5p_media`: what a picture, a video or a recording is, in its folders or at a web address,
+  before your content names it: a picture's size, an mp4's length, which an Interactive Video's
+  times are kept within. A file at an address is downloaded as a build downloads one, and a
+  YouTube or Vimeo video is asked of that site as below.
 - `h5p_preview`: opens a package in your browser, in the real player, served from your computer
   until its tab is closed.
 - `h5p_read`: a package back into its source, with its pictures and other files, in a new folder
@@ -65,7 +69,7 @@ address, and refuses to download from an address on your local network: a guard 
 or planted address, not against a hostile network. A video on YouTube, Vimeo, Panopto or Echo360 is
 not downloaded: it stays an address, which the player loads wherever it points, as H5P does
 anywhere. A YouTube or Vimeo address is sent to that site's oEmbed, to ask whether it has the
-video. Math is drawn by the package's own copy of MathJax, which loads nothing from elsewhere.
+video, and Vimeo answers with its length where it has one. Math is drawn by the package's own copy of MathJax, which loads nothing from elsewhere.
 The check and the preview play the package from your computer. Your app
 sends your conversation to its model, as it does without this server.
 

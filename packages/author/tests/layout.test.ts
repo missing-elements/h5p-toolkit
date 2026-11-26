@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildPackage, SourceError } from '../lib/author.mjs'
 import { imageSize } from '../lib/media.mjs'
 import { GENERATED_END, GENERATED_START, schemaLines, schemaMarkdown, SOURCE_FIELDS, withSection } from '../lib/schema.mjs'
+import { byNumber } from '../lib/types.mjs'
 import { jpeg, png } from './helpers/media'
 
 const META = { title: 'Layout', language: 'en', license: 'U', authors: [{ name: 'Ann Author', role: 'Author' }] }
@@ -145,7 +146,10 @@ describe('Interactive Video', () => {
     expect(first).toMatchObject({ x: 5, y: 5, width: 17, height: 16 })
     expect(second).toMatchObject({ x: 50, y: 5, width: 17, height: 16 })
     expect(third).toMatchObject({ x: 5, y: 5 })
-    expect(notes).toEqual([{ path: 'params.interactiveVideo.assets.interactions[2]', message: expect.stringContaining('has no room left for it') }])
+    expect(notes).toEqual([
+      { path: 'params.interactiveVideo.assets.interactions[2]', message: expect.stringContaining('has no room left for it') },
+      { path: 'params.interactiveVideo.assets.interactions', message: expect.stringContaining('holds 6 interactions shown at the times written') }
+    ])
     // A text its lines, a picture its shape, as the editor gives one.
     expect(text).toMatchObject({ x: 5, y: 5, width: 12, height: 5.6 })
     expect(image).toMatchObject({ width: 13.33, height: 10 })
@@ -355,5 +359,14 @@ describe('what a file is', () => {
     expect(await imageSize(file(jpeg(1600, 1200, 150_000)))).toEqual({ width: 1600, height: 1200 })
     expect(await imageSize(file(jpeg(1600, 1200).subarray(0, 8)))).toBeNull()
     expect(await imageSize(file(new Uint8Array([1, 2, 3])))).toBeNull()
+  })
+})
+
+describe('what is placed or timed by numbers alone (#260)', () => {
+  it('notes a list of a library that places by numbers, and nothing of any other name', () => {
+    expect(byNumber('H5P.ImageHotspots', { hotspots: [{}, {}] })).toEqual({ at: 'hotspots', message: expect.stringMatching(/^holds 2 hotspots placed by numbers/) })
+    expect(byNumber('H5P.ImageHotspots', { hotspots: [] })).toBeUndefined()
+    // A name an object has of its own kind is no library of the table's.
+    for (const name of ['constructor', 'toString', '__proto__', 'H5P.Blanks']) expect(byNumber(name, { hotspots: [{}] })).toBeUndefined()
   })
 })

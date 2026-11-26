@@ -463,21 +463,24 @@ const interactiveVideo = {
 }
 
 /**
- * An Interactive Video's times held to its video's length, where the build read one (an mp4's
- * index gives it): an interaction that starts past the end never shows, a bookmark or an end
- * screen past it is never reached, a start past it plays nothing. An interaction may end past it,
- * and shows to the end.
+ * An Interactive Video's times held to its video's length, where the build knows one (an mp4's
+ * index gives it, and Vimeo says a video's): an interaction that starts past the end never shows,
+ * a bookmark or an end screen past it is never reached, a start past it plays nothing. An
+ * interaction may end past it, and shows to the end. A host says a length in whole seconds, so a
+ * time is past the end of its video only a second beyond that.
  * @param {any} params an Interactive Video's, as H5P stores them
  * @param {string} path where they are
- * @param {(file: string) => number | undefined} lengthOf a video's length in seconds, by its path in the package
+ * @param {(file: string) => import('./media.mjs').MediaLength | undefined} lengthOf a video's length, by its path in the package or the address it stays at
  * @param {(path: string, message: string) => void} report
+ * @returns {import('./media.mjs').MediaLength | undefined} the length the times were held to
  */
 export function videoTimes(params, path, lengthOf, report) {
   const files = params?.interactiveVideo?.video?.files
-  const length = (Array.isArray(files) ? files : []).map((file) => (typeof file?.path === 'string' ? lengthOf(file.path) : undefined)).find((each) => each !== undefined)
-  if (length === undefined) return
-  const end = `the video ends at ${Math.round(length * 100) / 100} s`
-  const late = (/** @type {unknown} */ time) => typeof time === 'number' && time > length
+  const known = (Array.isArray(files) ? files : []).map((file) => (typeof file?.path === 'string' ? lengthOf(file.path) : undefined)).find((each) => each !== undefined)
+  if (known === undefined) return undefined
+  const { seconds: length, host } = known
+  const end = host ? `the video ends at about ${Math.round(length * 100) / 100} s, as ${host} says` : `the video ends at ${Math.round(length * 100) / 100} s`
+  const late = (/** @type {unknown} */ time) => typeof time === 'number' && time > length + (host ? 1 : 0)
   const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
   const assets = params.interactiveVideo.assets
   list(assets?.interactions).forEach((interaction, i) => {
@@ -489,6 +492,43 @@ export function videoTimes(params, path, lengthOf, report) {
     })
   }
   if (late(params.override?.startVideoAt)) report(`${path}.override.startVideoAt`, `is ${params.override.startVideoAt} s, after ${end}`)
+  return known
+}
+
+/**
+ * What a note says of things placed on a picture or a map, one or several.
+ * @param {string} on what they are placed on
+ * @returns {(one: boolean) => string}
+ */
+const placedOn = (on) => (one) => `placed by numbers, which a build cannot hold to the ${on}: look at ${one ? 'it' : 'each'} in the preview`
+
+/**
+ * What a source puts on a picture or a video by numbers alone (#260): hotspots, areas and stages
+ * at places, interactions at times. A build holds none of them to what the picture or the video
+ * shows there, so it says each such list once, as a note for whoever hands the package over: only
+ * a person looking at the preview knows whether a hotspot sits on what it names.
+ * @type {Record<string, { at: string, what: [one: string, many: string], on: (one: boolean) => string }>}
+ */
+const BY_NUMBER = {
+  'H5P.ImageHotspots': { at: 'hotspots', what: ['hotspot', 'hotspots'], on: placedOn('picture') },
+  'H5P.ImageHotspotQuestion': { at: 'imageHotspotQuestion.hotspotSettings.hotspot', what: ['area', 'areas'], on: placedOn('picture') },
+  'H5P.ImageMultipleHotspotQuestion': { at: 'imageMultipleHotspotQuestion.hotspotSettings.hotspot', what: ['area', 'areas'], on: placedOn('picture') },
+  'H5P.GameMap': { at: 'gamemapSteps.gamemap.elements', what: ['stage', 'stages'], on: placedOn('map') },
+  'H5P.InteractiveVideo': { at: 'interactiveVideo.assets.interactions', what: ['interaction', 'interactions'], on: () => 'shown at the times written, which a build cannot hold to what the video shows then: play it through in the preview' }
+}
+
+/**
+ * The note for what a library's content places or times by numbers alone, or none.
+ * @param {string} library its machine name
+ * @param {any} params its content, as H5P stores it
+ * @returns {{ at: string, message: string } | undefined}
+ */
+export function byNumber(library, params) {
+  const rule = Object.hasOwn(BY_NUMBER, library) ? BY_NUMBER[library] : undefined
+  if (!rule) return undefined
+  const list = rule.at.split('.').reduce((value, key) => (isObject(value) ? value[key] : undefined), params)
+  if (!Array.isArray(list) || !list.length) return undefined
+  return { at: rule.at, message: `holds ${list.length} ${rule.what[list.length === 1 ? 0 : 1]} ${rule.on(list.length === 1)}` }
 }
 
 /* ---------------------------------------------------------------- Branching Scenario */

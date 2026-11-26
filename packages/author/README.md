@@ -197,6 +197,31 @@ styles pasted from Word, is said, to fix before building. It never writes over a
 is untrusted: only the files its content names are written, only under the folder, and a file
 named by a path that could lead out of it is left out of the source.
 
+## What a file is
+
+```bash
+npx @missing-elements/h5p-author@latest media clip.mp4 delta.png https://vimeo.com/76979871
+```
+
+```
+clip.mp4: an MP4 video, 10 s long
+delta.png: a PNG picture, 1200 by 800 pixels
+https://vimeo.com/76979871: a video on Vimeo, about 62 s long
+```
+
+For whoever writes a source that names a file: an Interactive Video's starts have to be within its
+video's length, and an agent with no way to learn it wrote a parser of its own, or guessed. Each
+file is read as a build reads it: a picture's size from its header, an mp4's length and whether it
+has sound from its index, a Vimeo video's length as Vimeo gives it, in whole seconds. A WebM's, an
+Ogg's, a WAV's or an MP3's length is not read, and YouTube says none. A file that no source can
+name is said on standard error, and the command then exits with 1. It needs no libraries.
+
+A build of an Interactive Video says the length it held the times to, and refuses a start, a
+bookmark or an end screen past it (for a Vimeo video, more than a second past the length Vimeo
+gives, which is whole seconds); an interaction may end past it. What a source places on a picture or times on a video by
+numbers alone, hotspots, areas, stages and interactions, it notes, since only a look at the preview
+says whether a hotspot sits on what it names.
+
 ## A content type's bundle
 
 ```bash
@@ -271,6 +296,12 @@ const { outline } = await buildPackage(source, join(folder, 'rivers.h5p'), { bas
 source, the media written beside it by the paths it names them by, and what was left out or would
 not come back as it is, each `{ path, message }`. With `within`, the package and the folder must be
 inside those folders, on their real paths.
+
+`describeMedia(sources, { base, within, fetch })` says what files are, as `h5p-author media`
+does: for each path or web address, in their order, `{ source, kind, format, width, height,
+seconds, host, notes, problem }`, with only what was read, and `mediaLine(facts)` is one in a
+line. A result's `lengths` is the length each Interactive Video's times were held to, `{ file,
+seconds, host }` by the name the source gives the video, and `lengthLine(length)` says one.
 
 A result's `builtWith` is the content type and the pack's version of it, `H5P.Blanks 1.14`, and
 its `source` the source as built, naming it: what to keep with the package, as the command line

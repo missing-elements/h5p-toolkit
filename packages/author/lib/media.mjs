@@ -53,8 +53,10 @@ const under = (host, domains) => domains.some((domain) => host === domain || hos
  * what each status it answers there means, as seen on 2026-11-20: a problem (`gone`) or a note
  * (`closed`), each with the words for it. A status not listed says nothing. `sends` is how the
  * host itself sends such a status, its body and the type it gives it, by which its own answer is
- * told from one a box in between gives for it (`#ask`).
- * @type {{ host: string, mime: string, plays: RegExp, on: (url: URL) => boolean, form: string, oembed?: (address: string) => string, sends?: { type: string, body: (status: number) => string }, answers?: Record<number, { gone?: string, closed?: string }> }[]}
+ * told from one a box in between gives for it (`#ask`). `length` reads a video's length in seconds
+ * from the host's answer for one it has, where that answer carries it (#260): Vimeo's does, in
+ * whole seconds, and YouTube's does not.
+ * @type {{ host: string, mime: string, plays: RegExp, on: (url: URL) => boolean, form: string, oembed?: (address: string) => string, sends?: { type: string, body: (status: number) => string }, answers?: Record<number, { gone?: string, closed?: string }>, length?: (answer: any) => number | undefined }[]}
  */
 const HOSTED = [
   {
@@ -72,7 +74,9 @@ const HOSTED = [
     // 200, and a 403 is Vimeo refusing the asker's network, which says nothing of the video.
     answers: {
       404: { gone: 'has no video there that others can play: give https://vimeo.com/ and the number of a public video, or all of an unlisted video\'s link, which has more after the number' }
-    }
+    },
+    // Its own answer names it, and a video being made ready has no length yet.
+    length: (answer) => (answer?.provider_name === 'Vimeo' && Number.isFinite(answer.duration) && answer.duration > 0 ? answer.duration : undefined)
   },
   {
     host: 'YouTube',
@@ -177,6 +181,19 @@ const IDLE_MS = 60_000
  * @template F
  * @typedef {{ name: string, from: F }} StagedFile a file to add to the package: its name under `content/`, and where its bytes are
  * @typedef {{ path: string, message: string }} Problem
+ */
+
+/**
+ * @typedef {{ file: string, seconds: number, host?: string }} MediaLength a video's or a
+ *   recording's length: `file`, as the source names it; `seconds`, from its index, or as `host`
+ *   said it, which is in whole seconds
+ * @typedef {{
+ *   source: string, kind?: 'image' | 'video' | 'audio', format?: string, width?: number, height?: number,
+ *   seconds?: number, host?: string, notes: string[], problem?: string
+ * }} MediaFacts what a file is (`MediaStore.describe`): `source`, as it was named; `format`, a
+ *   picture's type or a played file's container; a picture's `width` and `height` in pixels;
+ *   `seconds`, an mp4's length, or a hosted video's as its `host` said it; `notes`, what is worth
+ *   saying besides; `problem`, why it is none a source can name, with nothing else read
  */
 
 /**
@@ -299,6 +316,95 @@ function containerOf(head) {
   return /^\s*</.test(page) ? 'page' : undefined
 }
 
+/**
+ * The types `describe` reads: a picture's, a video's and a recording's. A name's extension says
+ * which; of a web address with none, the type its server gives, a video's before a recording's
+ * where both have one (`.webm`, `.ogg`).
+ */
+const DESCRIBED = { ...TYPES.image, ...TYPES.audio, ...TYPES.video }
+
+/**
+ * The served types `DESCRIBED` loses to a video's, which share an extension with a recording's:
+ * a web address with no extension, served so, is still read.
+ */
+const SERVED_AUDIO = { 'audio/ogg': 'ogg', 'audio/webm': 'webm' }
+
+/** Whose types those are, in a problem. */
+const DESCRIBED_AS = 'only a picture, a video or a recording is read:'
+
+/** A format's name, by a picture's extension or a played file's container. */
+const FORMATS = /** @type {Record<string, string>} */ ({ png: 'PNG', jpg: 'JPEG', jpeg: 'JPEG', gif: 'GIF', bmp: 'BMP', mp4: 'MP4', webm: 'WebM', ogg: 'Ogg', wav: 'WAV', mp3: 'MP3' })
+
+/** Seconds as a message gives them: to a hundredth. @param {number} seconds */
+const rounded = (seconds) => Math.round(seconds * 100) / 100
+
+/**
+ * The line a build's output says of the video an Interactive Video's times were held to (#260),
+ * so that whoever changes them next starts from its length: a file's as its index gives it, a
+ * hosted video's as its host said it, in whole seconds.
+ * @param {MediaLength} length
+ */
+export function lengthLine({ file, seconds, host }) {
+  return `The video ${file} is ${host ? `about ${rounded(seconds)} s long, as ${host} says` : `${rounded(seconds)} s long`}: keep every time within it.`
+}
+
+/**
+ * What a file is, in one line (`MediaStore.describe`, #260): the problem with it, or its kind and
+ * what was read of it, then what is worth saying besides.
+ * @param {MediaFacts} facts
+ */
+export function mediaLine({ source, kind, format, width, height, seconds, host, notes, problem }) {
+  if (problem) return problem
+  const a = (/** @type {string} */ word) => (/^(?:MP|Ogg)/.test(word) ? `an ${word}` : `a ${word}`)
+  /** @type {string} */
+  let what
+  if (host) what = `a video on ${host}, ${seconds === undefined ? 'which does not say how long it is' : `about ${rounded(seconds)} s long`}`
+  else if (kind === 'image') what = `${a(String(format))} picture, ${width} by ${height} pixels`
+  else {
+    // A WebM or an Ogg file is a video's or a recording's, and nothing here reads which.
+    const noun = format === 'WebM' || format === 'Ogg' ? 'file' : kind === 'video' ? 'video' : 'recording'
+    what = `${a(String(format))} ${noun}, ${seconds === undefined ? 'whose length a build does not read' : `${rounded(seconds)} s long`}`
+  }
+  return [`${source}: ${what}`, ...notes].join('; ')
+}
+
+/** The most a host's answer for a video may hold and still be read: Vimeo's is about 1.5 kB. */
+const MAX_ANSWER = 64 * 1024
+
+/**
+ * A short answer's JSON, or nothing where it is none or runs longer than a host's answer does:
+ * what answers is not always the host, and nothing here reads a body of any length whole.
+ * @param {Response} response
+ * @returns {Promise<unknown>}
+ */
+async function shortJson(response) {
+  const reader = response.body?.getReader()
+  if (!reader) return undefined
+  /** @type {Uint8Array[]} */
+  const chunks = []
+  let size = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.length
+      if (size > MAX_ANSWER) return undefined
+      chunks.push(value)
+    }
+    const bytes = new Uint8Array(size)
+    let at = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, at)
+      at += chunk.length
+    }
+    return JSON.parse(new TextDecoder().decode(bytes))
+  } catch {
+    return undefined
+  } finally {
+    await reader.cancel().catch(() => {})
+  }
+}
+
 /** @template F */
 export class MediaStore {
   /**
@@ -316,9 +422,9 @@ export class MediaStore {
     this.known = new Map()
     /** @type {Set<string>} */
     this.names = new Set()
-    /** @type {Map<string, number>} a video's or a recording's length in seconds, by its path in the package, where its index gave one */
+    /** @type {Map<string, MediaLength>} a video's or a recording's length, by its path in the package or the address it stays at, where its index or its host gave one */
     this.lengths = new Map()
-    /** @type {Map<string, Promise<number>>} what a host answered of a video, by the address asked, so one video named twice is asked of once */
+    /** @type {Map<string, Promise<{ status: number, seconds?: number }>>} what a host answered of a video, by the address asked, so one video named twice is asked of once */
     this.asked = new Map()
     /** @type {Set<string>} the hosts that gave no answer at all, none of which is asked again in this build */
     this.unanswered = new Set()
@@ -329,8 +435,10 @@ export class MediaStore {
   }
 
   /**
-   * A video's or a recording's length in seconds, by its path in the package, where it was read.
+   * A video's or a recording's length, by its path in the package or the address it stays at:
+   * read from a file's index, or as its host said it.
    * @param {string} path
+   * @returns {MediaLength | undefined}
    */
   lengthOf(path) {
     return this.lengths.get(path)
@@ -357,7 +465,8 @@ export class MediaStore {
       const address = short ? `https://www.youtube.com/watch?v=${short[1]}` : source
       const hosted = HOSTED.find(({ plays }) => plays.test(address))
       if (hosted) {
-        if (!this.access.unread) await this.#there(hosted, address, source, `${at}.path`, report, note)
+        const seconds = this.access.unread ? undefined : await this.#there(hosted, address, source, `${at}.path`, report, note)
+        if (seconds !== undefined) this.lengths.set(address, { file: source, seconds, host: hosted.host })
         return { path: address, mime: hosted.mime, copyright }
       }
       const url = URL.canParse(address) ? new URL(address) : null
@@ -397,8 +506,8 @@ export class MediaStore {
       } else if (kind === 'video' || kind === 'audio') {
         const file = await this.access.open(staged.from)
         try {
-          const length = await this.#played(file, kind, source, web, `${at}.path`, report, note)
-          if (length) this.lengths.set(name, length)
+          const played = await this.#played(file, kind, source, web, `${at}.path`, report, note)
+          if (played?.seconds) this.lengths.set(name, { file: source, seconds: played.seconds })
         } finally {
           await file.close()
         }
@@ -441,6 +550,61 @@ export class MediaStore {
   }
 
   /**
+   * What a file is, before a source names it (#260): a picture's size, a video's or a recording's
+   * container, and for an mp4 its length and what is worth saying of its tracks, by the readers a
+   * build holds a source's files to; of a video on YouTube, Vimeo, Panopto or Echo360, its host,
+   * and its length where the host's answer gives one. A file named by a web address is downloaded
+   * as a build downloads it. Nothing is staged for a package.
+   * @param {string} written a path, or a web address
+   * @returns {Promise<MediaFacts>}
+   */
+  async describe(written) {
+    const source = written.trim()
+    /** @type {string[]} */
+    const problems = []
+    /** @type {string[]} */
+    const notes = []
+    // A problem names the file; a note comes after its facts, where the file is named already.
+    const own = (/** @type {string} */ message) => (/^it /.test(message) ? `${source}: ${message}` : message)
+    const report = (/** @type {string} */ _at, /** @type {string} */ message) => { problems.push(own(message)) }
+    const note = (/** @type {string} */ _at, /** @type {string} */ message) => { notes.push(message.startsWith(`${source}: `) ? message.slice(source.length + 2) : message) }
+    const failed = () => ({ source, notes, problem: problems[0] })
+    const web = /^https?:\/\//i.test(source)
+    if (web) {
+      const short = YOUTUBE_SHORT.exec(source)
+      const address = short ? `https://www.youtube.com/watch?v=${short[1]}` : source
+      const hosted = HOSTED.find(({ plays }) => plays.test(address))
+      if (hosted) {
+        const seconds = await this.#there(hosted, address, source, '', report, note)
+        if (problems.length) return failed()
+        return { source, kind: 'video', host: hosted.host, ...(seconds === undefined ? {} : { seconds }), notes }
+      }
+      const url = URL.canParse(address) ? new URL(address) : null
+      const other = url ? HOSTED.find(({ on }) => on(url)) : undefined
+      if (other) return { source, notes, problem: `${source} is an address on ${other.host} that H5P.Video cannot play: give ${other.form}` }
+    } else if (/^[a-z][a-z0-9+.-]+:/i.test(source)) {
+      // Two letters or more before the colon: one alone is a Windows drive.
+      return { source, notes, problem: `${source}: expected a file or an http(s) address` }
+    }
+    const staged = web ? await this.#download(source, 'file', DESCRIBED, '', report, DESCRIBED_AS, SERVED_AUDIO) : await this.#local(source, DESCRIBED, '', report, DESCRIBED_AS)
+    if (!staged) return failed()
+    const file = await this.access.open(staged.from)
+    try {
+      if (Object.hasOwn(TYPES.image, staged.extension)) {
+        const size = await imageSize((offset, length) => file.read(offset, length))
+        if (!size) return { source, notes, problem: `${source} is not a ${staged.extension.toUpperCase()} image whose size can be read` }
+        return { source, kind: 'image', format: FORMATS[staged.extension], ...size, notes }
+      }
+      const kind = Object.hasOwn(TYPES.video, staged.extension) ? 'video' : 'audio'
+      const played = await this.#played(file, kind, 'it', web, '', report, note)
+      if (!played) return failed()
+      return { source, kind, format: FORMATS[played.container], ...(played.seconds ? { seconds: played.seconds } : {}), notes }
+    } finally {
+      await file.close()
+    }
+  }
+
+  /**
    * A video's or a recording's bytes held to what its field takes: its container, from its first
    * bytes, a problem where it is none of those; for an mp4, its index, a problem where there is
    * none to read, and a note for a file with no sound, no picture, or a picture not every browser
@@ -452,7 +616,8 @@ export class MediaStore {
    * @param {string} at
    * @param {(path: string, message: string) => void} report
    * @param {(path: string, message: string) => void} note
-   * @returns {Promise<number | undefined>} its length in seconds, where its index gives one
+   * @returns {Promise<{ container: string, seconds?: number } | undefined>} its container, and its
+   *   length in seconds where its index gives one; nothing where it is refused
    */
   async #played(file, kind, source, web, at, report, note) {
     const { takes, what } = PLAYS[kind]
@@ -470,14 +635,14 @@ export class MediaStore {
     }
     if (!info) {
       if (container === 'mp4') report(at, `${source} has no index (moov) a player can read: is the file whole?`)
-      return undefined
+      return container === 'mp4' ? undefined : { container }
     }
     const held = new Set(info.tracks.map((track) => track.kind))
     if (held.size && !held.has('audio')) note(at, `${source} has no sound`)
     if (held.size && kind === 'video' && !held.has('video')) note(at, `${source} has no picture`)
     const codecs = new Set(info.tracks.filter((track) => track.kind === 'video').map((track) => NOT_EVERYWHERE[track.codec]).filter(Boolean))
     for (const codec of codecs) note(at, `${source} is ${codec}, which not every browser plays; H.264 plays in all of them`)
-    return info.duration
+    return { container, ...(info.duration ? { seconds: info.duration } : {}) }
   }
 
   /**
@@ -485,12 +650,13 @@ export class MediaStore {
    * @param {Record<string, string>} types
    * @param {string} at
    * @param {(path: string, message: string) => void} report
+   * @param {string} [takes] what takes those types, for a problem
    */
-  async #local(source, types, at, report) {
+  async #local(source, types, at, report, takes = 'this field takes') {
     const name = this.access.name(source)
     const extension = extensionOf(name)
     if (!Object.hasOwn(types, extension)) {
-      report(`${at}.path`, `${source}: this field takes ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
+      report(`${at}.path`, `${source}: ${takes} ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
       return null
     }
     const found = await this.access.local(source)
@@ -576,46 +742,53 @@ export class MediaStore {
    * @param {string} at
    * @param {(path: string, message: string) => void} report
    * @param {(path: string, message: string) => void} note
+   * @returns {Promise<number | undefined>} the video's length in seconds, where the host's answer gives one (#260)
    */
   async #there(hosted, address, source, at, report, note) {
     const ask = hosted.oembed?.(address)
-    if (!ask || !hosted.answers) return
+    if (!ask || !hosted.answers) return undefined
     let answer = this.asked.get(ask)
     if (!answer) {
       // One at a time, and a host that does not answer costs its ten seconds once, not a video.
-      if (this.unanswered.has(hosted.host)) return
+      if (this.unanswered.has(hosted.host)) return undefined
       answer = this.#ask(ask, hosted)
       this.asked.set(ask, answer)
     }
-    const status = await answer
+    const { status, seconds } = await answer
     if (status === 0) this.unanswered.add(hosted.host)
     const meaning = hosted.answers[status]
     if (meaning?.gone) report(at, `${source}: ${hosted.host} ${meaning.gone} (it answered ${status})`)
     else if (meaning?.closed) note(at, `${source}: ${hosted.host} ${meaning.closed} (it answered ${status})`)
+    return seconds
   }
 
   /**
    * The status a host's oEmbed endpoint answers; 0 where it does not answer in time, and -1 where
    * a status that would say something of the video is not sent as the host sends it (`sends`):
-   * that status's own words and nothing else, under the host's type.
+   * that status's own words and nothing else, under the host's type. With it, the video's length
+   * in seconds, where the host's answer for a video it has carries one (`length`, #260): JSON
+   * that names the host, so a box in between that answers 200 for it says no length.
    * @param {string} url
    * @param {(typeof HOSTED)[number]} hosted
-   * @returns {Promise<number>}
+   * @returns {Promise<{ status: number, seconds?: number }>}
    */
   async #ask(url, hosted) {
     try {
       const response = await this.fetch(url, { signal: AbortSignal.timeout(ASK_MS) })
       const { status } = response
+      const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+      if (status === 200 && hosted.length && type === 'application/json') {
+        return { status, seconds: hosted.length(await shortJson(response)) }
+      }
       if (!hosted.answers || !hosted.sends || !Object.hasOwn(hosted.answers, status)) {
         await response.body?.cancel().catch(() => {})
-        return status
+        return { status }
       }
-      const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
       const own = type === hosted.sends.type && (await response.text()).trim() === hosted.sends.body(status)
       if (!own) await response.body?.cancel().catch(() => {})
-      return own ? status : -1
+      return { status: own ? status : -1 }
     } catch {
-      return 0
+      return { status: 0 }
     }
   }
 
@@ -627,8 +800,10 @@ export class MediaStore {
    * @param {Record<string, string>} types
    * @param {string} at
    * @param {(path: string, message: string) => void} report
+   * @param {string} [takes] what takes those types, for a problem
+   * @param {Record<string, string>} [served] an extension, by a served type `types` does not map to one
    */
-  async #download(source, kind, types, at, report) {
+  async #download(source, kind, types, at, report, takes = 'this field takes', served = /** @type {Record<string, string>} */ ({})) {
     let url
     try {
       url = new URL(source)
@@ -664,11 +839,11 @@ export class MediaStore {
         return null
       }
       const named = extensionOf(lastSegment(new URL(response.url || url.href).pathname))
-      const served = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === served)
+      const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === type) ?? (Object.hasOwn(served, type) ? served[type] : undefined)
       if (!extension) {
         await response.body.cancel()
-        report(`${at}.path`, `${source} is ${served || 'of an unknown type'}: this field takes ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
+        report(`${at}.path`, `${source} is ${type || 'of an unknown type'}: ${takes} ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
         return null
       }
       let received = 0

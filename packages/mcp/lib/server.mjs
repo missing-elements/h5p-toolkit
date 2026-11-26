@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { SourceError, buildPackage, coreApiLine, inside, publicFetch, readPackage } from '@missing-elements/h5p-author'
+import { SourceError, buildPackage, coreApiLine, describeMedia, inside, mediaLine, publicFetch, readPackage } from '@missing-elements/h5p-author'
 import { VerifyError, openBrowser, previewPackage, summarize, verifyPackage } from '@missing-elements/h5p-verify'
 import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typeAnswers } from './answers.mjs'
 import { defaultFolders, fileStem, rootFolders } from './folders.mjs'
@@ -20,7 +20,7 @@ import { defaultFolders, fileStem, rootFolders } from './folders.mjs'
 /** The skill's flow, which every app shows the model with the tools. */
 const INSTRUCTIONS = `Builds H5P content as a .h5p file from a short JSON source, checks that it plays, and opens it in the person's browser.
 1. The content type is chosen with the person: where their request names none, ask which, and ask nothing else. h5p_types with no type lists them.
-2. Call h5p_types with the type and write the source from its notes, example and fields: only what differs from the defaults.
+2. Call h5p_types with the type and write the source from its notes, example and fields: only what differs from the defaults. Before a video's times are written, h5p_media says its length.
 3. Call h5p_build. Where it lists problems, fix each at its path and build again.
 4. Tell the person where the file is and what the check found, and offer h5p_preview.
 The author and the licence are what the person gave; otherwise the name you know them by, or "Unknown", and the licence "U". Say which you used.
@@ -29,6 +29,8 @@ To change a .h5p the person has, h5p_read it, change its source as asked, and h5
 const READ = `Reads a .h5p package back into its source, to change it and build it again with h5p_build: its type, title, language, licence, authors, and the params that differ from the defaults. Writes the source and the package's media into a new folder beside it, and answers with the source, each file named where it was written. Reads content made for the library pack's versions of its libraries.`
 
 const BUILD = `Builds a .h5p package from a source, its params holding only what differs from the type's defaults. A file is { "path": ... }, in a folder this server may use or at a web address. Writes the package and its source (.source.json) to output, or under a new name in the first folder it may use. A source with problems is refused, each problem named by its path. With verify (the default), plays the package in a headless browser and reports whether it works.`
+
+const MEDIA = `Says what a picture, a video or a recording is before a source names it: a picture's size in pixels, a video's length and whether it has sound, a Vimeo video's length as Vimeo gives it. Call it before writing an Interactive Video's times.`
 
 const PREVIEW = `Opens a .h5p package in the person's browser in the real player, served from this computer until its tab is closed. Answers with the address.`
 
@@ -64,7 +66,7 @@ function located(value, folder) {
 }
 
 /**
- * The server and its four tools. It holds no rules of its own: the build, the read, their checks
+ * The server and its five tools. It holds no rules of its own: the build, the read, their checks
  * and the confinement to folders are h5p-author's, the check and the preview h5p-verify's.
  * @param {ServerOptions} [options]
  */
@@ -203,6 +205,23 @@ export async function createServer(options = {}) {
       }
     }
     return { content: [{ type: /** @type {const} */ ('text'), text: lines.join('\n') }, ...images] }
+  })
+
+  server.registerTool('h5p_media', {
+    title: 'Look at media files',
+    description: MEDIA,
+    inputSchema: z.object({ files: z.array(z.string().regex(/\S/, 'a file name or an address, not blank')).min(1).max(20).describe('Each by its file name alone, its path in a folder this server may use, or its web address') }),
+    annotations: { readOnlyHint: true, openWorldHint: true }
+  }, async ({ files }) => {
+    const allowed = await folders()
+    if (!allowed.length) return refusal('This server has no folder to read in: start it with --allow <folder>, or give it a folder from the app.')
+    // Read as a build reads a source's files: a name alone from the first folder, a local file
+    // only in these folders, a web address only on the public internet.
+    const facts = await describeMedia(files, { base: allowed[0], within: allowed, fetch: publicFetch })
+    const lines = facts.map(mediaLine)
+    // Said with the folders, since a model cannot know them: the refusal names none.
+    if (lines.some((line) => /the folders this build may read/.test(line))) lines.push(whereFiles(allowed))
+    return facts.every(({ problem }) => problem) ? refusal(lines.join('\n')) : answer(lines.join('\n'))
   })
 
   server.registerTool('h5p_read', {

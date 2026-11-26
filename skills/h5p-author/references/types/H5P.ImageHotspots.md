@@ -3,7 +3,7 @@
 A picture with spots that open text, a picture, audio or video when clicked: a labelled diagram, a map to explore. Not scored.
 
 - `image` is the picture; `backgroundImageAltText` describes it.
-- Each item of `hotspots` sits at `position.x` and `position.y`, in percent of the picture's width and height from its top left. Look at the picture to place them; the preview shows where they landed.
+- Each item of `hotspots` has its centre at `position.x` and `position.y`, in percent of the picture's width and height from its top left (its top left, where a package read back has `legacyPositioning: true`). Look at the picture to place them; the preview shows where they landed.
 - A hotspot's `content` is a list of sub-content: H5P.Text, H5P.Image, H5P.Audio or H5P.Video. `header` titles its popup.
 
 ## Example

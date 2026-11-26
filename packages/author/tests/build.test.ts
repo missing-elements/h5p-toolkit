@@ -10,7 +10,7 @@ import { BlobReader, TextWriter, Uint8ArrayWriter, ZipReader } from '@zip.js/zip
 import { pack } from '@missing-elements/h5p-libraries'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { toJSONSchema } from 'zod/mini'
-import { buildPackage, coreApiLine, coreApiOf, librariesIn, missingForInstall, SourceError, sourceSchema } from '../lib/author.mjs'
+import { buildPackage, coreApiLine, coreApiOf, describeMedia, lengthLine, librariesIn, mediaLine, missingForInstall, SourceError, sourceSchema } from '../lib/author.mjs'
 import { readSource } from '../lib/build.mjs'
 import { LICENSES } from '../lib/metadata.mjs'
 import { MediaStore } from '../lib/media.mjs'
@@ -799,6 +799,8 @@ describe('media', () => {
       // A file's page on a wiki, at an address that ends as the file's name does (#218).
       else if (request.url === '/wiki/File:clip.mp4') response.writeHead(200, { 'content-type': 'text/html' }).end('<!DOCTYPE html><title>File:clip.mp4</title>')
       else if (request.url === '/odd%zz.png') response.writeHead(200, { 'content-type': 'image/png' }).end(png(20, 10))
+      // A recording at an address with no extension, its type the server's alone (#260).
+      else if (request.url === '/stream') response.writeHead(200, { 'content-type': 'audio/ogg' }).end(Buffer.concat([Buffer.from('OggS'), Buffer.alloc(60)]))
       else if (request.url === '/trickle.png') {
         // Slow, and never silent for long: eight pieces, 100 ms apart.
         const bytes = png(40, 30)
@@ -1052,6 +1054,136 @@ describe('media', () => {
     expect(await problems(source(['a stray line', text(500, 600)], []), { base: dir })).toEqual([
       expect.stringMatching(/^params\.interactiveVideo\.assets\.interactions\[0\]: expected an object/)
     ])
+  })
+
+  it('holds an Interactive Video\'s times to the length Vimeo gives for its video, and says the length it held them to (#260)', async () => {
+    await writeFile(join(dir, 'lesson.mp4'), mp4(true, { seconds: 30.0333, tracks: [['vide', 'avc1'], ['soun', 'mp4a']] }))
+    const text = (from: number, to: number) => ({ duration: { from, to }, label: 'Look', action: { library: 'H5P.Text', params: { text: 'Look' } } })
+    const source = (path: string, interactions: unknown[]) => ({ ...META, type: 'H5P.InteractiveVideo', params: { interactiveVideo: { video: { files: [{ path }] }, assets: { interactions } } } })
+    const film = 'https://vimeo.com/76979871'
+    // A file's length is its index's.
+    const fromFile = await build(source('lesson.mp4', [text(5, 10)]), { base: dir })
+    expect(fromFile.lengths).toEqual([{ file: 'lesson.mp4', seconds: 30.033 }])
+    expect(fromFile.lengths.map(lengthLine)).toEqual(['The video lesson.mp4 is 30.03 s long: keep every time within it.'])
+    // Vimeo's is its own answer's, in whole seconds: a time is past the end only a second beyond it.
+    const answers = (body: unknown, type = 'application/json') => async () => new Response(JSON.stringify(body), { headers: { 'content-type': type } })
+    const vimeo = answers({ type: 'video', provider_name: 'Vimeo', duration: 62, video_id: 76979871 })
+    const hosted = await build(source(film, [text(5, 10), text(62.9, 70)]), { fetch: vimeo })
+    expect(hosted.lengths).toEqual([{ file: film, seconds: 62, host: 'Vimeo' }])
+    expect(hosted.lengths.map(lengthLine)).toEqual([`The video ${film} is about 62 s long, as Vimeo says: keep every time within it.`])
+    expect(await problems(source(film, [text(5, 10), text(300, 310)]), { fetch: vimeo })).toEqual([
+      'params.interactiveVideo.assets.interactions[1].duration: starts at 300 s, after the video ends at about 62 s, as Vimeo says'
+    ])
+    // An answer that is not Vimeo's own for a video it has says no length, and holds no time:
+    // one that does not name it, a page, a video being made ready, what is no JSON, and one far
+    // longer than a host's answer, which is not read to its end.
+    const long = answers({ provider_name: 'Vimeo', duration: 62, html: 'x'.repeat(70_000) })
+    for (const fetch of [answers({ type: 'video', duration: 62 }), answers({ provider_name: 'Vimeo', duration: 62 }, 'text/html'), answers({ provider_name: 'Vimeo', duration: 0 }), long, async () => new Response('not an answer', { headers: { 'content-type': 'application/json' } })]) {
+      expect((await build(source(film, [text(300, 310)]), { fetch })).lengths).toEqual([])
+    }
+    // YouTube says none.
+    expect((await build(source('https://www.youtube.com/watch?v=dQw4w9WgXcQ', [text(300, 310)]), { fetch: answers({ type: 'video', provider_name: 'YouTube', duration: 62 }) })).lengths).toEqual([])
+    // The command line says it, for whoever changes the times next.
+    await writeFile(join(dir, 'lesson.json'), JSON.stringify(source('lesson.mp4', [text(5, 10)])))
+    const { stdout } = await exec(process.execPath, [bin, 'build', '--check', join(dir, 'lesson.json')])
+    expect(stdout).toContain('The video lesson.mp4 is 30.03 s long: keep every time within it.')
+  })
+
+  it('says what a source places or times by numbers alone, which only a look at the preview checks (#260)', async () => {
+    await writeFile(join(dir, 'delta.png'), png(40, 30))
+    await writeFile(join(dir, 'spring.mp4'), mp4(true, { seconds: 30, tracks: [['vide', 'avc1'], ['soun', 'mp4a']] }))
+    const noted = async (source: Record<string, unknown>) => (await build({ ...META, ...source }, { base: dir })).notes.filter(({ message }) => message.startsWith('holds ')).map(({ path, message }) => `${path}: ${message}`)
+    const spot = (x: number, y: number) => ({ position: { x, y }, header: 'Here', content: [{ library: 'H5P.Text', params: { text: 'Here.' } }] })
+    const hotspots = (spots: unknown[]) => ({ type: 'H5P.ImageHotspots', params: { image: { path: 'delta.png' }, backgroundImageAltText: 'A delta', hotspots: spots } })
+    expect(await noted(hotspots([spot(30, 40), spot(70, 65)]))).toEqual(['params.hotspots: holds 2 hotspots placed by numbers, which a build cannot hold to the picture: look at each in the preview'])
+    expect(await noted(hotspots([spot(30, 40)]))).toEqual(['params.hotspots: holds 1 hotspot placed by numbers, which a build cannot hold to the picture: look at it in the preview'])
+    const area = (x: number, correct: boolean) => ({ computedSettings: { x, y: 10, width: 20, height: 20, figure: 'circle' }, userSettings: { correct, feedbackText: 'There.' } })
+    expect(await noted({
+      type: 'H5P.ImageHotspotQuestion',
+      params: { imageHotspotQuestion: { backgroundImageSettings: { path: 'delta.png' }, hotspotSettings: { taskDescription: 'Click the mouth.', hotspot: [area(60, true), area(10, false)] } } }
+    })).toEqual(['params.imageHotspotQuestion.hotspotSettings.hotspot: holds 2 areas placed by numbers, which a build cannot hold to the picture: look at each in the preview'])
+    const stage = (label: string, x: number, more: Record<string, unknown> = {}) => ({
+      label, telemetry: { x, y: 40 }, contentsList: [{ contentType: { library: 'H5P.TrueFalse', params: { question: 'A river can begin at a glacier.', correct: 'true' } } }], ...more
+    })
+    expect(await noted({
+      type: 'H5P.GameMap',
+      params: { gamemapSteps: { backgroundImageSettings: { backgroundImage: { path: 'delta.png' } }, gamemap: { elements: [stage('Source', 15, { canBeStartStage: true, neighbors: ['Mouth'] }), stage('Mouth', 75)] } } }
+    })).toEqual(['params.gamemapSteps.gamemap.elements: holds 2 stages placed by numbers, which a build cannot hold to the map: look at each in the preview'])
+    // An Interactive Video's times, wherever the type is, by where the source has it; and none with nothing timed.
+    const video = (interactions: unknown[]) => ({ library: 'H5P.InteractiveVideo', params: { interactiveVideo: { video: { files: [{ path: 'spring.mp4' }] }, assets: { interactions } } } })
+    const text = { duration: { from: 2, to: 6 }, label: 'Look', action: { library: 'H5P.Text', params: { text: 'Look' } } }
+    expect(await noted({ type: 'H5P.Column', params: { content: [{ content: video([text, text, text]) }] } })).toEqual([
+      'params.content[0].content.params.interactiveVideo.assets.interactions: holds 3 interactions shown at the times written, which a build cannot hold to what the video shows then: play it through in the preview'
+    ])
+    expect(await noted({ type: 'H5P.Column', params: { content: [{ content: video([]) }] } })).toEqual([])
+  })
+
+  it('says what a file is before a source names it: a picture\'s size, a video\'s length, its host\'s word (#260)', async () => {
+    const both: [string, string][] = [['vide', 'avc1'], ['soun', 'mp4a']]
+    await writeFile(join(dir, 'wide.png'), png(1200, 800))
+    await writeFile(join(dir, 'photo.jpg'), jpeg(640, 480))
+    await writeFile(join(dir, 'talk.mp4'), mp4(true, { seconds: 12.5, tracks: both }))
+    await writeFile(join(dir, 'mute.mp4'), mp4(false, { seconds: 12.5, tracks: [['vide', 'hvc1']] }))
+    await writeFile(join(dir, 'voice.m4a'), mp4(true, { seconds: 3, tracks: [['soun', 'mp4a']] }))
+    await writeFile(join(dir, 'reel.webm'), Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+    await writeFile(join(dir, 'tune.mp3'), 'ID3 and then its frames')
+    await writeFile(join(dir, 'saved.mp4'), '<!DOCTYPE html><title>clip</title>')
+    await writeFile(join(dir, 'torn.png'), 'not a picture')
+    await writeFile(join(dir, 'plan.txt'), 'notes')
+    const film = 'https://vimeo.com/76979871'
+    const tube = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    const fetch = async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.startsWith(origin)) return globalThis.fetch(input)
+      if (url.includes('999999999')) return new Response('404 Not Found', { status: 404, headers: { 'content-type': 'text/html; charset=UTF-8' } })
+      return Response.json(url.startsWith('https://vimeo.com/') ? { type: 'video', provider_name: 'Vimeo', duration: 62 } : { type: 'video', provider_name: 'YouTube' })
+    }
+    const named = [
+      'wide.png', 'photo.jpg', 'talk.mp4', 'mute.mp4', 'voice.m4a', 'reel.webm', 'tune.mp3', `${origin}/pictures/map.png`, film, tube,
+      'https://video.example.edu/Panopto/Pages/Viewer.aspx?id=0b6d3a5e', 'saved.mp4', 'torn.png', 'plan.txt', 'gone.png', 'https://vimeo.com/999999999',
+      'https://www.youtube.com/playlist?list=PL0', `${origin}/page.html`, 'ftp://files.example/clip.mp4', `${origin}/stream`
+    ]
+    const facts = await describeMedia(named, { base: dir, fetch })
+    expect(facts.map(({ source }) => source)).toEqual(named)
+    expect(facts.map(mediaLine)).toEqual([
+      'wide.png: a PNG picture, 1200 by 800 pixels',
+      'photo.jpg: a JPEG picture, 640 by 480 pixels',
+      'talk.mp4: an MP4 video, 12.5 s long',
+      'mute.mp4: an MP4 video, 12.5 s long; it has no sound; it is HEVC (H.265), which not every browser plays; H.264 plays in all of them',
+      'voice.m4a: an MP4 recording, 3 s long',
+      'reel.webm: a WebM file, whose length a build does not read',
+      'tune.mp3: an MP3 recording, whose length a build does not read',
+      `${origin}/pictures/map.png: a PNG picture, 40 by 20 pixels`,
+      `${film}: a video on Vimeo, about 62 s long`,
+      `${tube}: a video on YouTube, which does not say how long it is`,
+      'https://video.example.edu/Panopto/Pages/Viewer.aspx?id=0b6d3a5e: a video on Panopto, which does not say how long it is',
+      'saved.mp4: it is a web page, not a video',
+      'torn.png is not a PNG image whose size can be read',
+      'plan.txt: only a picture, a video or a recording is read: .png, .jpg, .jpeg, .gif, .bmp, .mp3, .m4a, .wav, .ogg, .webm, .mp4',
+      `gone.png: no such file (${join(dir, 'gone.png')})`,
+      'https://vimeo.com/999999999: Vimeo has no video there that others can play: give https://vimeo.com/ and the number of a public video, or all of an unlisted video\'s link, which has more after the number (it answered 404)',
+      'https://www.youtube.com/playlist?list=PL0 is an address on YouTube that H5P.Video cannot play: give https://www.youtube.com/watch?v= and the video\'s id',
+      `${origin}/page.html is text/html: only a picture, a video or a recording is read: .png, .jpg, .jpeg, .gif, .bmp, .mp3, .m4a, .wav, .ogg, .webm, .mp4`,
+      'ftp://files.example/clip.mp4: expected a file or an http(s) address',
+      `${origin}/stream: an Ogg file, whose length a build does not read`
+    ])
+    expect(facts.slice(0, 3)).toEqual([
+      { source: 'wide.png', kind: 'image', format: 'PNG', width: 1200, height: 800, notes: [] },
+      { source: 'photo.jpg', kind: 'image', format: 'JPEG', width: 640, height: 480, notes: [] },
+      { source: 'talk.mp4', kind: 'video', format: 'MP4', seconds: 12.5, notes: [] }
+    ])
+    // Confined, a file outside the folders is refused before it is looked for, and no path is named.
+    expect((await describeMedia(['../wide.png', 'wide.png'], { base: dir, within: [dir] })).map(mediaLine)).toEqual([
+      '../wide.png: is outside the folders this build may read', 'wide.png: a PNG picture, 1200 by 800 pixels'
+    ])
+    await expect(describeMedia('wide.png' as unknown as string[])).rejects.toThrow('takes a list of paths or web addresses')
+    // The command: a line each, a problem on standard error, and a failing exit where there is one.
+    const { stdout } = await exec(process.execPath, [bin, 'media', 'wide.png', 'talk.mp4'], { cwd: dir })
+    expect(stdout).toBe('wide.png: a PNG picture, 1200 by 800 pixels\ntalk.mp4: an MP4 video, 12.5 s long\n')
+    const failed = await exec(process.execPath, [bin, 'media', 'wide.png', 'plan.txt'], { cwd: dir }).then(() => null, (error: { code: number, stdout: string, stderr: string }) => error)
+    expect(failed).toMatchObject({ code: 1, stdout: 'wide.png: a PNG picture, 1200 by 800 pixels\n', stderr: expect.stringContaining('plan.txt: only a picture, a video or a recording is read') })
+    await expect(exec(process.execPath, [bin, 'media'])).rejects.toMatchObject({ stderr: expect.stringContaining('media takes the files to look at') })
+    await expect(exec(process.execPath, [bin, 'media', 'wide.png', '--check'], { cwd: dir })).rejects.toMatchObject({ stderr: expect.stringContaining('media does not take --check') })
   })
 
   it('gives a download up once nothing has arrived for a while, however long a slow one takes', async () => {

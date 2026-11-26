@@ -14,11 +14,18 @@ below.
   `previewPackage`, `openBrowser`) are h5p-verify's. A rule a tool needs goes into those packages
   first, exported, so the author package and the verifier are published before a server that uses
   something new of theirs.
-- **Four tools, and the skill's flow as the instructions.** `h5p_types` lists the pack's content
+- **Five tools, and the skill's flow as the instructions.** `h5p_types` lists the pack's content
   types, those with a type file marked, and the skill's brief; given a type, read as a build reads
   one (`sourceType`, so "true false" works), it answers with the type's file, or with `schemaOf` for
   a type with none. `h5p_build` builds a source, `h5p_preview` opens a package, and `h5p_read`
-  reads one back into its source. The instructions are the flow in a few lines: the type is the one
+  reads one back into its source. `h5p_media` says what a file is before a source names it, an
+  mp4's or a Vimeo video's length first (`describeMedia`, author's #260): an app with no shell cannot read one
+  another way. It reads as a build reads a source's files, a name alone from the first folder, a
+  local file only in the folders, a web address only on the public internet, and answers in
+  words alone. Asked for an Interactive Video of a 10 s clip in the folder, Haiku in Claude Code
+  with these tools alone built twice in 3 of 3 runs without it, once after a refusal and twice
+  leaving a first package whose question started as the clip ended; with it, it asked the
+  length first and built once in 3 of 3 (2026-11-25). The instructions are the flow in a few lines: the type is the one
   question, its answer is read before the source is written, then the build, where the file is and
   what the check found, and the preview offered; a package the person has is read, its source
   changed, and built. Not `SKILL.md`, which is served as a skill instead (below): it is mostly
@@ -63,7 +70,8 @@ below.
   goes its source, `<name>.source.json`, which the build page opens to change and build again; it
   is made new, never written over or through a link, and where it cannot be, the answer says so.
 - **A build answers with the content, the check and a picture.** The build's line, the H5P core a
-  site needs (`coreApiLine`), its notes, the
+  site needs (`coreApiLine`), the length an Interactive Video's times were held to
+  (`lengthLine`), its notes, the
   outline (80 lines at most) and, with `verify`, the default, the verifier's summary of a check run
   in a temporary folder, with its screenshot as an image. Where neither Chrome, Edge nor
   Playwright's Chromium is found, the answer says "Not verified" and why. A source with problems
@@ -86,8 +94,8 @@ below.
 - **Tested as an app runs it.** `tests/server.test.ts` starts the command over standard input and
   output with the SDK's own client, given one folder, and calls each tool: the list, a type by a
   loose name and one with no file, a build checked in Chromium, a taken name and a link at one,
-  two builds at once, a source with a problem, an output outside the folder, a preview served and
-  one refused. Each test builds what it needs, so each runs alone. The test script first copies
+  two builds at once, a source with a problem, an output outside the folder, a file's facts and
+  one outside the folder, a preview served and one refused. Each test builds what it needs, so each runs alone. The test script first copies
   the skill's type files into the author package, as the author's `prepack` does.
 
 Not built yet: the MCP registry's `server.json` and Claude Desktop's one-click bundle.

@@ -125,6 +125,50 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   media goes through the normalizer's `normalizeArchive`, stored and laid out to stream. An addon
   whose pattern the text matches, H5P.MathDisplay for LaTeX, is carried as a site with it
   installed exports it.
+- **A file's facts are one command away, and what only eyes can check is a note** (#260). For five
+  types a source holds numbers that mean something only against a file: an Interactive Video's
+  times, and the places of Image Hotspots' hotspots, of Find the Hotspot's and Find Multiple
+  Hotspots' areas and of Game Map's stages.
+  - `h5p-author media <file or address>…`, `describeMedia` and the local MCP server's
+    `h5p_media` say what a file is before a source names it, by the build's own readers
+    (`MediaStore.describe`): a picture's size, a played file's container, an mp4's length and
+    what a build notes of its tracks, a hosted video's host and the length it says; a file at a
+    web address is downloaded as a check downloads it. `mediaLine` is each in a line. It needs
+    no pack. Measured on 2026-11-25 in Claude Code, a 10 s mp4 attached and nothing said of its
+    length: with the skill's "know the video's length" alone, Haiku and Sonnet each wrote an mp4
+    parser of their own before the source in 6 of 6 runs, over routes 1 to 3; with `media`
+    named in the skill, they ran it and wrote none in 4 of 4 on route 1.
+  - **Vimeo says a video's length, and an Interactive Video's times are held to it.** Its oEmbed
+    answer for a video it has carries `duration` in whole seconds (`length` in `HOSTED`);
+    YouTube's carries none, and Panopto and Echo360 are not asked. It counts only as JSON that
+    names Vimeo with a length above zero, so a box that answers 200 for the host says none. A
+    time is past such a video's end only a second beyond the length, for the rounding, and the
+    problem says whose word the length is.
+  - **A build says the length it held the times to.** A result's `lengths` has it for each
+    Interactive Video's video, by the name the source gives it, and the command line and both
+    servers say each (`lengthLine`), so that whoever changes the times next starts from it.
+  - **What is placed or timed by numbers alone is a note of the build's**, one for each list of
+    hotspots, areas, stages or an Interactive Video's interactions (not its bookmarks or end
+    screens), saying how many and to look at them in the preview (`byNumber` in `types.mjs`). It
+    is said whether or not a model looked at the file, since only a person's eyes check a place
+    or a moment; and by the build, not `checkContent`, so a check of saved content says none.
+    The skill passes a build's notes on. Its own sentence in the brief, to ask the user to check
+    them, reached the reply in 6 of 16 runs; with the note, in 8 of 8.
+  - Not built: the length of a WebM, an Ogg, a WAV or an MP3; asking the person for a video's
+    moments; a grid drawn over a picture. Shown a picture of five shapes 5 % of its width
+    across, Haiku and Sonnet placed a hotspot on each within one percent in 14 of 14 runs with
+    no grid, and opened a picture named only by its path in 5 of 5; other chats' models were not
+    measured.
+- **A chat's attachment is copied beside the source and named by its name** (#266). Measured on
+  2026-11-25 in Claude Code as a chat with a code sandbox, the attachment's folder said as a
+  chat's sandbox says it, with a picture for an Image Hotspots and a 10 s mp4 for an Interactive
+  Video, on routes 1 to 3, and with a picture named only by its path on route 2: Haiku and Sonnet built
+  in 16 of 16 runs, 14 at the first build, each
+  copying the file beside its source and naming it by its name alone, none by a path made up.
+  The build's line said "1 media file" in all, and the verifier, where npm answered, passed.
+  The two that lost a round: an Interactive Video's text written as H5P.AdvancedText, which its
+  field does not take, as the type file now says; and a bundle unzipped into `parts/`, leaving
+  the index at `parts/parts`.
 - **A build that acts on what a model wrote can be confined** (#220, for the local MCP server of
   #219). The command line reads any path a source names and fetches any address, which is right
   for a person's own command.
@@ -480,7 +524,7 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   `poolSize` is set, Memory Game draws pairs, at least 2, and Crossword keeps the words fixed on
   the grid and draws only among the rest. Not looked for: a select tied to the
   content, as Multiple Choice's single or multiple answers; Advanced Blanks' gaps against its
-  list and its snippets by name; a Game Map restriction's stage id; video times (#260).
+  list and its snippets by name; a Game Map restriction's stage id.
   Each says what to write. `lib/mistakes.mjs` runs in `checkContent`, so a build says them and so
   does a check of saved content, and every type file's example says none. Of the owner's 88 real
   packages, the 79 checked against their own libraries give 36 notes of a picture with no alt

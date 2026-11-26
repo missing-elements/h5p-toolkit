@@ -139,8 +139,12 @@ describe.concurrent('every type file', () => {
     for (const path of paths(source.params)) if (!/^https?:/.test(path)) await writeFile(join(folder, path), sample(path))
     const output = join(folder, 'example.h5p')
     const result = await buildPackage(source, output, { base: folder })
-    // The demo's clip, every video's sample, has no sound, and the build says so (#218).
-    expect(result.notes.filter(({ message }) => !/\.mp4 has no sound$/.test(message))).toEqual([])
+    // The demo's clip, every video's sample, has no sound, and the build says so (#218). And what
+    // an example places on its picture or times on its video by numbers alone is noted in every
+    // build, for whoever looks at the preview (#260).
+    const expected = (message: string) => /\.mp4 has no sound$/.test(message) ||
+      /^holds \d+ \w+ (?:placed by numbers, which a build cannot hold to the (?:picture|map): look at (?:it|each) in the preview|shown at the times written, which a build cannot hold to what the video shows then: play it through in the preview)$/.test(message)
+    expect(result.notes.filter(({ message }) => !expected(message))).toEqual([])
     await checksAsSaved(output)
     await playsBothWays(output)
   }, 180_000)
