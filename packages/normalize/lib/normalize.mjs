@@ -199,8 +199,13 @@ export async function normalizeArchive({ input, output, onEntry, last }) {
   if (typeof last === 'string') throw new TypeError('`last` takes a list of folder names, not one name')
   // Before the source is opened: a folder that is not there failed mid-write, as an entry's
   // fault (#290).
-  if (output && !(await stat(dirname(resolve(output))).catch(() => null))?.isDirectory()) {
-    throw new Error(`No such folder: ${dirname(output)}. Create it, or name an output in a folder that exists.`)
+  if (output) {
+    const folder = await stat(dirname(resolve(output))).catch((error) => {
+      if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') return null
+      throw new Error(`${dirname(output)} cannot be read: ${error?.message ?? error}`, { cause: error })
+    })
+    if (!folder) throw new Error(`No such folder: ${dirname(output)}. Create it, or name an output in a folder that exists.`)
+    if (!folder.isDirectory()) throw new Error(`${dirname(output)} is a file, not a folder. Name an output in a folder that exists.`)
   }
   const source = await open(input, 'r')
   /** @type {string | null} */

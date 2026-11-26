@@ -235,6 +235,8 @@ describe('the package', () => {
     await expect(buildScorm({ h5p: quiz, out: join(dir, 'nowhere', 'x.zip') })).rejects.toThrow(/No such folder: .*nowhere/)
     await expect(buildScorm({ h5p: quiz, out: join(dir, 'nowhere', 'x.zip') })).rejects.toThrow(EmbedError)
     expect(existsSync(join(dir, 'nowhere'))).toBe(false)
+    // A file where the folder should be is named as one.
+    await expect(buildScorm({ h5p: quiz, out: join(quiz, 'x.zip') })).rejects.toThrow(/is a file, not a folder/)
   })
 })
 

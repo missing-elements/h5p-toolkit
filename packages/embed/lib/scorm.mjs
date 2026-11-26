@@ -126,7 +126,12 @@ export async function buildScorm({ h5p, out, force = false, title: chosen, scorm
   if (targetInfo && !force) throw new EmbedError(`${out} exists. Pass --force to replace it.`)
   // Before any work: the zip is written beside its place, and a folder that is not there
   // failed late, uncaught (#290).
-  if (!(await stat(dirname(target)).catch(() => null))?.isDirectory()) throw new EmbedError(`No such folder: ${dirname(out)}. Create it, or name a zip in a folder that exists.`)
+  const folder = await stat(dirname(target)).catch((error) => {
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') return null
+    throw new EmbedError(`${dirname(out)} cannot be read: ${error?.message ?? error}`)
+  })
+  if (!folder) throw new EmbedError(`No such folder: ${dirname(out)}. Create it, or name a zip in a folder that exists.`)
+  if (!folder.isDirectory()) throw new EmbedError(`${dirname(out)} is a file, not a folder. Name a zip in a folder that exists.`)
 
   const packDir = dirname(installed('@missing-elements/h5p-libraries/parts/index.json', 'Reinstall this package.'))
   const pack = packLibraries(JSON.parse(await readFile(join(packDir, 'index.json'), 'utf8')), packDir)
