@@ -368,15 +368,8 @@ export async function verifyPackage(options) {
       if (!media.plays[audio ? 'audio' : 'video'] && /\.(?:mp4|m4v|m4a)$/i.test(name)) report.warnings.push(`${kind} not checked: ${name}: this browser plays no ${audio ? 'AAC' : 'H.264'}; Chrome or Edge does`)
       else report.warnings.push(`${kind} does not play: ${name}: ${MEDIA_ERRORS[code] ?? `media error ${code}`}`)
     }
-    if (timed?.seconds) {
-      // A host's player says the length before anything plays, as an estimate in whole seconds: a
-      // time is late only a second past it.
-      const length = Math.round(timed.seconds * 100) / 100
-      const end = timed.exact ? `the video ends at ${length} s` : `the video ends at about ${length} s, as its player says`
-      for (const { path, time, says } of timed.times) {
-        if (time > timed.seconds + (timed.exact ? 0 : 1)) report.warnings.push(`video time: ${path}: ${says} ${time} s, after ${end}`)
-      }
-    } else if (timed && !timed.failed) {
+    if (timed?.seconds) report.warnings.push(...lateTimes(timed.times, timed.seconds, timed.exact))
+    else if (timed && !timed.failed) {
       // A video the browser gave up on is already named, and that says why its times were not held to it.
       report.warnings.push("video times not checked: the video's player did not say its length")
     }
@@ -407,25 +400,67 @@ export async function verifyPackage(options) {
 }
 
 /**
- * An Interactive Video's times that have to be within its video: where each interaction starts,
- * each bookmark, and where the video itself starts. An interaction may end past the end, and shows
- * to it; an end screen past it the library moves to the end. h5p-author's build holds these to a
- * file's length, which it reads with no browser.
+ * An Interactive Video's times that have to be within its video: each interaction, from its start
+ * to its end, each bookmark, and where the video itself starts. An end screen past the end the
+ * library moves to the end. h5p-author's build holds these to a file's length, which it reads with
+ * no browser.
  * @internal
  * @param {any} params an Interactive Video's, as `content.json` holds them
- * @returns {{ path: string, time: number, says: 'starts at' | 'is' }[]} each by its JSON path, in seconds,
- *   with how a warning puts it
+ * @returns {({ path: string, from: number, to: number } | { path: string, time: number, says: 'starts at' | 'is' })[]}
+ *   each by its JSON path, in seconds: an interaction's start and end, or, for one with no end after
+ *   its start, its start; a bookmark's or the start's time
  */
 export function videoTimes(params) {
   const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
   const assets = params?.interactiveVideo?.assets
-  /** @type {{ path: string, time: unknown, says: 'starts at' | 'is' }[]} */
-  const times = [
-    ...list(assets?.interactions).map((interaction, i) => ({ path: `interactiveVideo.assets.interactions[${i}].duration`, time: interaction?.duration?.from, says: /** @type {const} */ ('starts at') })),
+  const number = (/** @type {unknown} */ value) => typeof value === 'number' && Number.isFinite(value)
+  /** @type {ReturnType<typeof videoTimes>} */
+  const interactions = list(assets?.interactions).flatMap((interaction, i) => {
+    const { from, to } = interaction?.duration ?? {}
+    const path = `interactiveVideo.assets.interactions[${i}].duration`
+    /** @type {ReturnType<typeof videoTimes>} */
+    const found =
+      number(from) && number(to) && from <= to
+        ? [{ path, from, to }]
+        : // No end after its start, so the library does not move it: it shows from its start, if ever.
+          number(from) && from > 0
+          ? [{ path, time: from, says: 'starts at' }]
+          : []
+    return found
+  })
+  /** @type {ReturnType<typeof videoTimes>} */
+  const marks = [
     ...list(assets?.bookmarks).map((bookmark, i) => ({ path: `interactiveVideo.assets.bookmarks[${i}].time`, time: bookmark?.time, says: /** @type {const} */ ('is') })),
-    { path: 'override.startVideoAt', time: params?.override?.startVideoAt, says: 'is' }
-  ]
-  return /** @type {ReturnType<typeof videoTimes>} */ (times.filter(({ time }) => typeof time === 'number' && time > 0))
+    { path: 'override.startVideoAt', time: params?.override?.startVideoAt, says: /** @type {const} */ ('is') }
+  ].filter(({ time }) => number(time) && time > 0)
+  return [...interactions, ...marks]
+}
+
+/**
+ * The warnings for an Interactive Video's times against its video's length, as its player says it.
+ * The library moves an interaction that ends past the video's last whole second as it loads
+ * (`loaded()` in H5P.InteractiveVideo 1.28), to end there and start as much earlier, so one that
+ * starts past the end shows before it; this is the number it counts from (#285). A bookmark or a
+ * start past the end is never reached; a host's player says its length before anything plays, as
+ * an estimate in whole seconds, so those are late only a second past it.
+ * @internal
+ * @param {ReturnType<typeof videoTimes>} times
+ * @param {number} seconds the video's length, from its player
+ * @param {boolean} exact whether that is a file's length, which the browser knows exactly
+ * @returns {string[]}
+ */
+export function lateTimes(times, seconds, exact) {
+  const length = Math.round(seconds * 100) / 100
+  const end = exact ? `the video ends at ${length} s` : `the video ends at about ${length} s, as its player says`
+  const last = Math.floor(seconds)
+  return times.flatMap((time) => {
+    if ('from' in time) {
+      if (time.to <= last) return []
+      const from = Math.max(0, Math.round((last - (time.to - time.from)) * 100) / 100)
+      return [`video time: ${time.path}: runs from ${time.from} to ${time.to} s, and ${end}: Interactive Video plays it from ${from} to ${last} s instead`]
+    }
+    return time.time > seconds + (exact ? 0 : 1) ? [`video time: ${time.path}: ${time.says} ${time.time} s, after ${end}`] : []
+  })
 }
 
 /**

@@ -209,16 +209,19 @@ delta.png: a PNG picture, 1200 by 800 pixels
 https://vimeo.com/76979871: a video on Vimeo, about 62 s long
 ```
 
-For whoever writes a source that names a file: an Interactive Video's starts have to be within its
+For whoever writes a source that names a file: an Interactive Video's times have to be within its
 video's length, and an agent with no way to learn it wrote a parser of its own, or guessed. Each
 file is read as a build reads it: a picture's size from its header, an mp4's length and whether it
 has sound from its index, a Vimeo video's length as Vimeo gives it, in whole seconds. A WebM's, an
 Ogg's, a WAV's or an MP3's length is not read, and YouTube says none. A file that no source can
 name is said on standard error, and the command then exits with 1. It needs no libraries.
 
-A build of an Interactive Video says the length it held the times to, and refuses a start, a
-bookmark or an end screen past it (for a Vimeo video, more than a second past the length Vimeo
-gives, which is whole seconds); an interaction may end past it. What a source places on a picture or times on a video by
+A build of an Interactive Video says the length it held the times to. An interaction's end is
+held to the video's last whole second, not to its exact length: Interactive Video moves an
+interaction that ends later so that it ends at that second, its start earlier by as much, keeping
+its length. The build refuses such an interaction and says where it would play. It refuses a bookmark, an end screen or a
+start past the end too (for a Vimeo video, more than a second past the length Vimeo gives, which
+is whole seconds). What a source places on a picture or times on a video by
 numbers alone, hotspots, areas, stages and interactions, it notes, since only a look at the preview
 says whether a hotspot sits on what it names.
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+import { existsSync } from 'node:fs'
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { buildPackage, coreApiLine, describeMedia, lengthLine, mediaLine, readPackage, schemaOf, SourceError, writeBundle, writeBundles } from '../lib/author.mjs'
-import { packVersion } from '../lib/node.mjs'
+import { packVersion, partsFolder } from '../lib/node.mjs'
 
 const USAGE = `Usage:
   h5p-author build <source.json> <output.h5p> [--libraries <parts folder>]
@@ -83,6 +84,19 @@ function parse(argv) {
 }
 
 /**
+ * The pack `--libraries` names. Where that folder holds none, neither in it nor in its `parts/`,
+ * and the `parts/` beside this command does, as the build archive unpacks (h5p-author.mjs with
+ * parts/ beside it), that one, by its path from here: in 5 of 31 lab runs the archive was unpacked
+ * into a folder of its own, `tool/` or `build/`, and the build named `parts` from another (#285).
+ * @param {string | undefined} named
+ */
+async function packNamed(named) {
+  if (!named || existsSync(join(partsFolder(named), 'index.json'))) return named
+  const beside = join(dirname(await realpath(process.argv[1])), 'parts')
+  return existsSync(join(beside, 'index.json')) ? relative(process.cwd(), beside) || '.' : named
+}
+
+/**
  * Whether two paths are one file, a link followed; false where either is not there.
  * @param {string} one
  * @param {string} other
@@ -95,6 +109,7 @@ async function sameFile(one, other) {
 try {
   const { positional, flags } = parse(process.argv.slice(2))
   const [command, ...rest] = positional
+  if (typeof flags.libraries === 'string') flags.libraries = await packNamed(flags.libraries) ?? flags.libraries
   if (flags.version) {
     console.log(`@missing-elements/h5p-author ${await ownVersion()}, library pack ${await packVersion()}`)
   } else if (flags.help || !command) {
@@ -147,7 +162,10 @@ try {
         }
       }
     }
-    const from = flags.libraries ? `the pack in ${flags.libraries}` : `the library pack ${await packVersion()}`
+    // The folder read, where it is the one inside the folder named (#285).
+    const named = /** @type {string | undefined} */ (flags.libraries)
+    const read = named && partsFolder(named) !== resolve(named) ? join(named, 'parts') : named
+    const from = read ? `the pack in ${read}` : `the library pack ${await packVersion()}`
     const install = result.install.length ? `, ${result.install.length} more for installing on an H5P site` : ''
     console.log(`${check ? 'Checked, no package written' : `Built ${result.output}`}: ${result.manifest.mainLibrary}, ${result.libraries.length} libraries from ${from}${install}${result.media.length ? `, ${result.media.length} media file${result.media.length === 1 ? '' : 's'}` : ''}.`)
     if (!check) console.log(coreApiLine(result.coreApi))
