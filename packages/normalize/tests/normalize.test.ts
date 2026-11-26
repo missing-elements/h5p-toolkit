@@ -186,6 +186,9 @@ describe('normalizeArchive', () => {
     expect(odd.entries.map((entry) => entry.name)).toEqual(plain.entries.map((entry) => entry.name))
     // One name is not a list: a string would be read as a folder per letter.
     await expect(normalizeArchive({ input: carried, last: 'H5PEditor.Foo-1.0' as unknown as string[] })).rejects.toThrow(/list of folder names/)
+    // An output in a folder that is not there is refused by name, before anything is read (#290).
+    await expect(normalizeArchive({ input: carried, output: join(dir, 'nowhere', 'x.h5p') })).rejects.toThrow(/No such folder: .*nowhere/)
+    await expect(stat(join(dir, 'nowhere'))).rejects.toThrow()
   })
 
   it('reports the same plan on a dry run and writes nothing', async () => {

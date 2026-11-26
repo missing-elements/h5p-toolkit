@@ -20,9 +20,9 @@
  * descriptor, and the normalizer always knows the sizes in advance.
  */
 import { createWriteStream, openAsBlob } from 'node:fs'
-import { mkdtemp, open, rm } from 'node:fs/promises'
+import { mkdtemp, open, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { Writable } from 'node:stream'
 import zlib from 'node:zlib'
 import { BlobReader, Uint8ArrayWriter, ZipReader, configure } from '@zip.js/zip.js'
@@ -197,6 +197,11 @@ export function orderEntries(entries, last = []) {
 export async function normalizeArchive({ input, output, onEntry, last }) {
   // A string is iterable, and would be read as one folder per letter.
   if (typeof last === 'string') throw new TypeError('`last` takes a list of folder names, not one name')
+  // Before the source is opened: a folder that is not there failed mid-write, as an entry's
+  // fault (#290).
+  if (output && !(await stat(dirname(resolve(output))).catch(() => null))?.isDirectory()) {
+    throw new Error(`No such folder: ${dirname(output)}. Create it, or name an output in a folder that exists.`)
+  }
   const source = await open(input, 'r')
   /** @type {string | null} */
   let tempDir = null
