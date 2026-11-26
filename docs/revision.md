@@ -11,8 +11,8 @@ them itself:
 ```
 
 `revision` is a SHA-256 over the archive's index: each entry's name, CRC, sizes and compression
-method, in archive order. Any change to the package gives a new value, and the same file always
-gives the same one. When `libraries` supplied libraries, what supplied them follows:
+method, in archive order. A change to any of those, or to the order, gives a new value; a change to an entry's date alone
+does not. The same file always gives the same one. When `libraries` supplied libraries, what supplied them follows:
 `sha256:…; libraries sha256:…`. That is a `.h5p` bundle's own index fingerprint, or, for the
 library pack, one SHA-256 over the fingerprints of the archives the package played with, one per
 library, sorted and a line each. So the libraries a package carries but played at the pack's newer

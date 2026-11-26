@@ -94,7 +94,7 @@ The package stays on this computer. The preview ends when its tab is closed, or 
 | `--preview` | check nothing: open the package in your browser, served from your computer, until its tab is closed |
 | `--no-open` | with `--preview`, print the address instead of opening a browser |
 | `--untrusted` | play it as a site plays a package it did not make, and report what the content check removed |
-| `--libraries <sources>` | where libraries come from, separated by spaces and tried in order: `pack` (the library pack), a bundle's URL, a bundle on disk, or a copy of the pack's `parts/` folder, which plays as `pack`. With the pack, a library the package carries plays at the pack's newer version, as on a site with the pack, and the summary lists each under `refreshed from the pack` |
+| `--libraries <sources>` | where libraries come from, tried in order; several go in one quoted value, as `--libraries "pack ./parts"`: `pack` (the library pack), a bundle's URL, a bundle on disk, or a copy of the pack's `parts/` folder, which plays as `pack`. With the pack, a library the package carries plays at the pack's newer version, as on a site with the pack, and the summary lists each under `refreshed from the pack` |
 | `--no-refresh-libraries` | play the libraries the package carries even where the pack has newer ones |
 | `--no-downgrade-libraries` | fail content made for a newer minor version of a library than any source has. Without it, such content plays at the newest older minor, as on a site with the player's defaults, with a warning for each library and the list in `report.downgraded` |
 | `--out <dir>` | where the report and screenshot go |

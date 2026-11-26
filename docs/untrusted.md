@@ -106,7 +106,8 @@ With or without `untrusted`:
 - **Media the content names.** A field that takes a URL, such as a video on YouTube or an image on
   another host, loads from that host in the learner's browser, in either mode: the frame's policy
   allows images, media and frames from anywhere, as content types need. Script requests stay on
-  your origin (`connect-src`), with the two exceptions in [The frame's CSP](frame-csp.md).
+  your origin (`connect-src`), with two exceptions: your `allow-origins`, and the record Vimeo's player reads before it starts
+  ([The frame's CSP](frame-csp.md)).
 - **Your origin.** `untrusted` keeps a package's code off your origin, but its content still plays
   there. For a site with signed-in users, [Embed](setup.md#embed) puts the player on a separate
   domain as well.

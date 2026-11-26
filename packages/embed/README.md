@@ -38,7 +38,7 @@ a subdomain shares your site's cookies.
 | `--default-libraries <sources>` | The `libraries` value for addresses that name none: `pack` or URLs, checked against `--packages`. Default: none, so exports without libraries are refused unless the address asks |
 | `--no-libraries` | Leave out the library pack (about 14 MB, `libraries/`). `libraries=pack` then fetches it from jsDelivr, which a `--packages` list must include as `https://cdn.jsdelivr.net`. The SCORM page then refuses a package that lacks its libraries |
 | `--force` | Write into a non-empty folder, replacing only this tool's files; with `--scorm`, replace the zip |
-| `--scorm <package.h5p> [zip]` | Write a SCORM zip of one `.h5p` instead of the site, with none of the options above. The zip defaults to `./<package>.scorm.zip`; its folder must exist |
+| `--scorm <package.h5p> [zip]` | Write a SCORM zip of one `.h5p` instead of the site, with none of the site's options above (`--force` still applies). The zip defaults to `./<package>.scorm.zip`; its folder must exist |
 | `--title`, `--scorm-version`, `--pass-mark`, `--completion-score` | With `--scorm` only: [Options of the zip](#options-of-the-zip) |
 | `-h`, `--help` / `-v`, `--version` | |
 
@@ -145,9 +145,10 @@ own code runs on the LMS's origin, as every SCORM package's does. The LMS record
   `completed` when it does not. The content's last result counts, as on an H5P site.
 - **Each question's answer**, as `cmi.interactions`, one per question, written over when it is
   answered again. In 1.2 the id is the question's number and first words, such as
-  `Q3_which_rivers_cross_germany`; with it go the type, `correct`, `wrong` or the marks, the marks
-  the question was worth, and the time it took. A fill-in or numeric answer also carries the
-  answer given and the right one, as plain text up to 255 characters (`stored, Range` where H5P
+  `Q3_which_rivers_cross_germany`; with it go the type, the result (`correct`, `wrong`, or the marks
+  for a partial answer), the marks the question was worth, and the time it took. A fill-in
+  answer, or a numeric one that is a number, also carries the answer given and the right one, as
+  plain text up to 255 characters (`stored, Range` where H5P
   writes `{case_matters=false}stored[,]Range`). A choice, true-false, matching or sequencing
   answer carries its result alone in 1.2, since LMSs read its form differently.
 - **The time** spent in each session.
@@ -177,7 +178,7 @@ takes an agent through it, from checking the package to the setting each LMS nee
 
 ### Options of the zip
 
-Each is off unless asked for; a zip written with none is the SCORM 1.2 zip above.
+A zip written with none of these is the SCORM 1.2 zip above, titled as its `h5p.json` is.
 
 - **`--title <text>`**: the title the LMS lists the package by. Default: the title in `h5p.json`.
 - **SCORM 2004 4th Edition** (`--scorm-version 2004`), checked in Moodle 4.5 and SCORM Cloud. The
@@ -288,8 +289,8 @@ startEmbed({ runtime, pack, defaultLibraries: 'pack' })
 
 The site sets no cookies and sends nothing anywhere of its own. Learners' browsers contact your
 player domain, the package hosts and, only for `pack` on a site built with `--no-libraries`,
-`cdn.jsdelivr.net`. A SCORM package contacts only the LMS it was uploaded to, plus any media
-address the content itself names; the LMS gets the score, the result, the time spent and the
+`cdn.jsdelivr.net`. A SCORM package contacts only the LMS it was uploaded to, plus any address
+its content names, such as a video host or the CDN an old library loads MathJax from; the LMS gets the score, the result, the time spent and the
 learner's saved state. For a privacy notice or a GDPR review:
 [Privacy and data protection](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/privacy.md).
 

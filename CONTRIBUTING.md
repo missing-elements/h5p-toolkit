@@ -25,8 +25,9 @@ git clone https://github.com/missing-elements/h5p-toolkit.git
 cd h5p-toolkit
 pnpm install --frozen-lockfile
 pnpm --filter @missing-elements/h5p-offline-player exec playwright install chromium
-pnpm dev    # the demo development server
 ```
+
+`pnpm dev` then starts the demo's development server.
 
 ## Checks
 

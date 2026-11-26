@@ -68,7 +68,7 @@ same skill builds with these tools wherever they are connected.
   guard against a mistaken or planted address, not against a hostile network.
 - **A video on YouTube, Vimeo, Panopto or Echo360 is not downloaded.** It stays an address, which
   the player loads wherever it points, as H5P does anywhere. A YouTube or Vimeo address is sent
-  to that site's oEmbed, to ask whether it has the video; Vimeo answers with its length.
+  to that site's oEmbed, to ask whether it has the video; Vimeo answers with its length where it has one.
 - **Nothing else.** Math is drawn by the package's own copy of MathJax, and the check and the
   preview play the package from your computer.
 
@@ -78,7 +78,8 @@ Your app sends your conversation to its model, as it does without this server.
 
 The package has a second command, `h5p-mcp-app`: an MCP server over HTTP for a chat app that shows
 a card in its reply, ChatGPT first. The person asks for an activity, the reply plays it, and its
-`.h5p` is saved from there. To run it:
+`.h5p` is saved from there. A chat app on the web reaches it only at a public https address, so
+host it where one is served; on your computer, to try it:
 
 ```sh
 npx -y -p @missing-elements/h5p-mcp h5p-mcp-app --port 8787
@@ -91,8 +92,8 @@ as above, and `h5p_play`, which checks an activity's source and shows the card.
 - **The card frames the play page** of
   [missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity
   in the person's browser and plays it there.
-- **Where a chat does not let a card frame a page**, the card asks the chat to open the same page
-  in a new tab, and shows the page's link to copy in case none opens.
+- **Where a chat does not let a card frame a page**, or gives the card no origin of its own, the
+  card asks the chat to open the same page in a new tab, and shows the page's link to copy in case none opens.
 - **A chat that draws no card** is answered with the way to the
   [build page](https://missing-elements.github.io/h5p/build/): the model gives the source, and the
   person pastes it there.

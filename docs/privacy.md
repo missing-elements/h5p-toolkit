@@ -73,7 +73,8 @@ The element emits each statement as an `xapi` event and keeps nothing.
   [`h5p-embed --scorm`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/embed#a-scorm-package-for-an-lms),
   no statement leaves the page. The LMS gets, under its own record of the learner, the score out
   of 100, `passed`, `failed` or `completed`, the time spent, each question's result in
-  `cmi.interactions` (with, for an answer the learner typed, the answer), and the content's saved
+  `cmi.interactions` (with the answer given: for a typed answer in SCORM 1.2, for every question
+  in 2004), and the content's saved
   state in `cmi.suspend_data`, which holds the answers given so far. That state is kept in the LMS,
   not on the device.
 

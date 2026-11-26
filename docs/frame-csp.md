@@ -9,7 +9,8 @@ any origin. Scripts and script requests are narrower:
 | Requests from script | Same origin, and by path the oEmbed record Vimeo's player reads before it can start | The same |
 
 The origins of your `runtime` or `assets-base`, `custom-js` and `custom-css` are added to the
-directives they load under. For any other origin the list cannot know about, such as a tenant's
+directives they load under; played `untrusted`, their scripts are allowed by exact URL, not by
+origin. For any other origin the list cannot know about, such as a tenant's
 Panopto or Echo360 server or an in-house CDN, `allow-origins` adds it to the script, style, font
 and connect directives:
 

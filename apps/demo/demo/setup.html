@@ -270,8 +270,8 @@ cp node_modules/@missing-elements/h5p-libraries/libraries.txt public/h5p-librari
       <h2>Listening to it</h2>
       <p>
         Everything the player learns arrives as a DOM event on the element. Statements are not
-        stored. The content's own saved state is kept, in the browser's storage on that device,
-        only when the <code>resume</code> attribute is set.
+        stored. The content's own saved state is kept in the browser's storage on that device
+        only with <code>resume="device"</code>; with <code>resume="host"</code> it is handed to your page.
         Every statement carries <code>context.revision</code>, a fingerprint of the package it
         came from, and <code>context.platform</code>, the player's version, so a completion can be
         matched to the build the learner played; <code>player.revision</code> holds the same value.

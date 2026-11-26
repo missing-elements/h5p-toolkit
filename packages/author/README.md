@@ -36,8 +36,9 @@ Not verified: run npx @missing-elements/h5p-verify@latest on it and look at its 
   each part checked against the pack's SHA-256 index. What the source leaves out comes from the
   libraries' own defaults, and their translation for the content's language.
 - **An H5P site takes it.** It carries the editor libraries a site's upload check asks for: a
-  Moodle 4.5.15 with no library installed accepted every type's example. They add 120 kB to a
-  Question Set and several MB to a Course Presentation. The site needs the H5P core that the
+  Moodle 4.5.15 with no library installed accepted every type's example (Moodle was the one
+  site tried; WordPress and Drupal run the same check). They add 120 kB to a Question Set and
+  several MB to a Course Presentation. The site needs the H5P core that the
   build's second line names.
 - **The source is written beside it**, as `rivers.source.json`, with one field more: `builtWith`,
   the content type's version. Keep it to change the package later. A build with a newer version
@@ -82,7 +83,8 @@ is the workflow around it.
   on.
 - **Times and places**: an Interactive Video's times are held to the video's length, where an
   mp4 or Vimeo gives one. An interaction that ends after the last whole second is refused, since
-  Interactive Video would move it earlier. Hotspots, areas, stages and interactions placed by
+  Interactive Video would play it earlier: ending at that second, its start moved by as much,
+  its length kept. Hotspots, areas, stages and interactions placed by
   numbers alone are noted: only a look at the preview says whether one sits on what it names.
 - **Interface texts** (Check, Retry…): leave them out. They come from the libraries'
   translations, and the build lists what stayed English. A source may still set one by name.
@@ -200,7 +202,8 @@ import { buildPackage, SourceError } from '@missing-elements/h5p-author'
 try {
   const { notes, outline } = await buildPackage(source, 'rivers.h5p', { base: process.cwd() })
 } catch (error) {
-  if (error instanceof SourceError) console.log(error.problems) // [{ path, message }]
+  if (!(error instanceof SourceError)) throw error
+  console.log(error.problems) // [{ path, message }]
 }
 ```
 

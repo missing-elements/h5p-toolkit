@@ -140,9 +140,10 @@ your site's cookies) and frame it:
 <script src="https://h5p-player.example.net/resizer.js"></script>
 ```
 
-`microphone` is for Audio Recorder and Speak the Words; `camera` is for AR Scavenger, which the
-player does not run ([Troubleshooting](troubleshooting.md)). A frame from another site gets
-neither unless the page allows it. The embed package's [README](../packages/embed#readme) has the
+`microphone` is for Audio Recorder and Speak the Words. `camera` is for content that films: no
+content type of the library pack that the player runs does (AR Scavenger does not run,
+[Troubleshooting](troubleshooting.md)), so leave it out unless a content type of your own needs
+it. A frame from another site gets neither unless the page allows it. The embed package's [README](../packages/embed#readme) has the
 page's query parameters, the policy files it writes for each kind of host, and the SCORM package
 it can write instead.
 

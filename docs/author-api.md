@@ -15,7 +15,8 @@ const folder = resolve('work')
 try {
   const { notes, outline } = await buildPackage(source, join(folder, 'rivers.h5p'), { base: folder, within: [folder], fetch: publicFetch })
 } catch (error) {
-  if (error instanceof SourceError) console.log(error.problems) // [{ path, message }]
+  if (!(error instanceof SourceError)) throw error // an existing output, a file outside `within`
+  console.log(error.problems) // [{ path, message }]
 }
 ```
 
@@ -57,7 +58,7 @@ Its result:
 | `translations` | For each library, the translation its interface texts came from, and what stayed English |
 | `notes` | The build's notes, each `{ path, message }`: what is almost surely a mistake, what was placed by numbers alone |
 | `media`, `unread` | The files copied in, and with `unread` the names judged unread |
-| `lengths` | The length each Interactive Video's times were held to: `{ file, seconds, host }` |
+| `lengths` | The length each Interactive Video's times were held to: `{ file, seconds, host }`, with `host` only for a hosted video |
 | `outline` | The content as plain lines for a review: what the author wrote, right answers marked, slides and questions numbered, interface texts left out |
 
 ## For a tool beside the build

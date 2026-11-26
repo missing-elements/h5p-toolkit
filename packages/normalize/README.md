@@ -4,8 +4,9 @@ Rewrites an `.h5p` package once, where it is published, so that it streams well 
 [h5p-offline-player](https://github.com/missing-elements/h5p-toolkit). Only the zip
 container changes: media is stored rather than deflated, an mp4 with its index at the end is
 remuxed (not re-encoded) to put it first, content media goes last, and stored text (scripts,
-styles, JSON, HTML) is deflated. Directory entries, duplicates and entries the player would refuse
-(a name like `../x`) are dropped. Everything else is copied byte for byte.
+styles, JSON, HTML) is deflated where that makes it smaller, up to 64 MiB an entry. Directory
+entries, duplicates and names the player would refuse (such as `../x`) are dropped, and an
+encrypted entry stops the run. Everything else is copied byte for byte.
 
 ## Usage
 

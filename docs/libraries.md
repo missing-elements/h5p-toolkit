@@ -2,7 +2,7 @@
 
 Exports from h5p.com and h5p.org often hold only `content/`. The player refuses such a package
 and names what is missing. `libraries` tells it where to look; without it (and without
-`untrusted`), a package plays as it is.
+`untrusted`), a package that carries its libraries plays as it is.
 
 ```html
 <h5p-player src="stripped.h5p" libraries="pack"></h5p-player>
@@ -61,7 +61,7 @@ that has it wins over an earlier one with an older version, and never across a m
 Most minor versions only add fields, which the older code ignores, so the content plays without
 what the newer version added. Some move or rename fields (of the 469 minor bumps in the history of
 the pack's libraries, 119 came with an upgrade step, which is how H5P marks such a change), and
-there a part can be missing or drawn wrong. Played `untrusted`, the content is still checked
+after such a change a part can be missing or drawn wrong. Played `untrusted`, the content is still checked
 against the older version's fields.
 
 `downgradedLibraries`, on the element and in the `ready` event's detail, lists each library

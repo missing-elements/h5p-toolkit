@@ -57,7 +57,7 @@ would refuse to fetch.
 ## Licences
 
 Each library keeps its own licence, named here word for word as `libraries.txt` names it: mostly
-MIT; also MPL (H5P.ImageJuxtaposition), MPL2 (TimelineJS), pd (H5P.TextUtilities and H5P.Timer),
+MIT; also MPL (H5P.ImageJuxtaposition), MPL2 (TimelineJS), pd, public domain (H5P.TextUtilities and H5P.Timer),
 GPL3 (H5P.MaterialDesignIcons) and GPL-3.0 (flowplayer). H5P.MathDisplay is MIT and bundles
 MathJax, Speech Rule Engine and mhchem, all Apache-2.0.
 [`libraries.txt`](libraries.txt) lists each one's version, licence and authors; serve it beside

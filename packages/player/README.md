@@ -77,7 +77,7 @@ carries its libraries plays as it is; one exported without them, as h5p.com expo
 Packages you did not make, or a site with signed-in users: play every package `untrusted`, or
 embed the player from a domain of its own, as
 [Which setup](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/setup.md#which-setup) explains.
-[Setting up the player](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/setup.md) also covers a page without a bundler, Rollup, esbuild and Lovable;
+[Setting up the player](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/setup.md) also covers a page without a bundler, Rollup and esbuild, and the one-prompt install on Lovable;
 [the element's API](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/api.md) lists every attribute, property and event.
 
 ## Documentation

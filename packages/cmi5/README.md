@@ -7,7 +7,8 @@ naming your page. No dependencies.
 
 Once launched it sends `initialized`, relays the player's statements to the LMS's LRS with the
 launch's actor, registration and context template, sends `passed` or `failed` and `completed` when
-the content finishes, and sends `terminated` on `session.exit()`.
+the content finishes (`completed` and `passed` once per registration), and sends `terminated` on
+`session.exit()`.
 
 ## Usage
 
