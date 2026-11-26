@@ -78,17 +78,15 @@ Your app sends your conversation to its model, as it does without this server.
 
 The package has a second command, `h5p-mcp-app`: an MCP server over HTTP for a chat app that shows
 a card in its reply, ChatGPT first. The person asks for an activity, the reply plays it, and its
-`.h5p` is saved from there. One runs at `https://mcp.embed-my.org/mcp`, with no sign-in
-([how it is hosted](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/mcp-worker.md)).
-To run your own:
+`.h5p` is saved from there. To run it:
 
 ```sh
 npx -y -p @missing-elements/h5p-mcp h5p-mcp-app --port 8787
 ```
 
-Its endpoint is `/mcp`. `--host` is the address it listens on, `127.0.0.1` by default, and
-`--site` the origin whose play page the card frames. It has two tools: `h5p_types`, as above, and
-`h5p_play`, which checks an activity's source and shows the card.
+Its endpoint is `/mcp`, with no sign-in. `--host` is the address it listens on, `127.0.0.1` by
+default, and `--site` the origin whose play page the card frames. It has two tools: `h5p_types`,
+as above, and `h5p_play`, which checks an activity's source and shows the card.
 
 - **The card frames the play page** of
   [missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity
