@@ -113,7 +113,10 @@ export async function startServer({ roots, packDir, port = PORTS, restricted = (
       }
       return false
     },
-    port
+    port,
+    // By its address, as before the verifier took the name `localhost` (#283): the origin is where
+    // VS Code keeps the player's worker and caches, and the name was not tried in a webview.
+    '127.0.0.1'
   )
 
   return {

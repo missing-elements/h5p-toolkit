@@ -60,6 +60,8 @@ Exit 2: the check could not run (no browser, no such file).
 | warning: `request failed: content/…` | a media file `content.json` references is not in the archive | add it or fix the path |
 | warning: `video does not play: <file>: …` (or `audio`) | the browser gave up on the file: not a video or a recording at all (a web page saved under its name), or one it cannot decode | open the file itself; replace it with the real one, a video as H.264 mp4 |
 | warning: `video not checked: … this browser plays no H.264`, or `audio not checked: … no AAC` | the browser the check ran in lacks the codec most mp4 and m4v videos (H.264) or m4a recordings (AAC) use | install Chrome or Edge, or pass `--browser`, and check again |
+| warning: `video time: <field>: starts at … s, after the video ends at … s` (or `is … s`) | an Interactive Video's interaction, bookmark or start is later than the video is long, so the interaction never shows; the length is the one the video's player gave, a YouTube video's too | move the time within the length, or name the video that was meant |
+| warning: `video times not checked: the video's player did not say its length` | an Interactive Video's video did not load in the check: its host does not have it, or the machine has no network | look at the screenshot; if the video is missing there, fix its address. Otherwise tell the user the times were not checked against the video's length |
 | warning: `blocked by the frame's CSP` | content loading from an outside origin | put the asset in the package |
 | warning: `content check: <field>: markup removed: …` (with `--untrusted`) | the field holds tags, attributes or styles its library does not allow; the site will strip them | write the field in what `semantics.json` allows for it (its `tags` and `font`), or accept the loss if the text still reads right |
 | warning: `content check: <field>: removed`, `… became …` | a field the semantics do not name, or a value outside its options or range; or the libraries' upgrade moved it, when the pack is newer than what the content was written for | match the field to `semantics.json`, or build against the pack's versions |
@@ -114,7 +116,7 @@ Download button beside the file's name saves a copy of the package.
 
 - `--no-open` prints the address instead of opening their default browser, for when you drive a
   browser yourself or none opens.
-- The address is `127.0.0.1` on the machine that runs the command. If that is not the user's
+- The address is `localhost` on the machine that runs the command. If that is not the user's
   computer, as in a cloud sandbox, they cannot reach it: hand over the file and the command for
   them to run.
 - A user who works in VS Code, Cursor or VSCodium can also keep the package open in the H5P

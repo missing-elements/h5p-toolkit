@@ -37,6 +37,8 @@ const MEDIA_ERRORS = /** @type {Record<number, string>} */ ({
   3: 'it could not be decoded',
   4: 'it is no format this browser plays'
 })
+/** How long past the settle a video's player is waited for to say its length: a hosted one loads the host's script first. */
+const LENGTH_WAIT = 5_000
 /** How the runtime's boot script begins the notes it writes to the frame's console after the content check. */
 const CHECK_NOTES = "<h5p-player>: the content was checked against its libraries' semantics"
 /** The header the Service Worker wants before it hands an untrusted package's `content.json` over as written. */
@@ -276,6 +278,7 @@ export async function verifyPackage(options) {
           }))
           .catch(() => ({ plays: { video: true, audio: true }, failed: [] }))
       : { plays: { video: true, audio: true }, failed: [] }
+    const timed = frame && collected.state === 'ready' ? await timedVideo(frame) : null
     /** @type {BlockedLoad[]} */
     const csp = frame ? await frame.evaluate(() => /** @type {PageWindow} */ (window).__csp ?? []).catch(() => []) : []
     // Untrusted, the package's `content.json` beside what the runtime was handed: the Service
@@ -365,6 +368,18 @@ export async function verifyPackage(options) {
       if (!media.plays[audio ? 'audio' : 'video'] && /\.(?:mp4|m4v|m4a)$/i.test(name)) report.warnings.push(`${kind} not checked: ${name}: this browser plays no ${audio ? 'AAC' : 'H.264'}; Chrome or Edge does`)
       else report.warnings.push(`${kind} does not play: ${name}: ${MEDIA_ERRORS[code] ?? `media error ${code}`}`)
     }
+    if (timed?.seconds) {
+      // A host's player says the length before anything plays, as an estimate in whole seconds: a
+      // time is late only a second past it.
+      const length = Math.round(timed.seconds * 100) / 100
+      const end = timed.exact ? `the video ends at ${length} s` : `the video ends at about ${length} s, as its player says`
+      for (const { path, time, says } of timed.times) {
+        if (time > timed.seconds + (timed.exact ? 0 : 1)) report.warnings.push(`video time: ${path}: ${says} ${time} s, after ${end}`)
+      }
+    } else if (timed && media.failed.length === 0) {
+      // A video that failed is already named, and that says why its times were not held to it.
+      report.warnings.push("video times not checked: the video's player did not say its length")
+    }
     for (const { url, status, error } of failedRequests) report.warnings.push(`request failed: ${url} (${status ?? error})`)
     for (const { directive, blocked } of csp) report.warnings.push(`blocked by the frame's CSP: ${blocked} (${directive})`)
     for (const text of report.console) report.warnings.push(`console error: ${text.slice(0, 200)}`)
@@ -389,6 +404,64 @@ export async function verifyPackage(options) {
     await browser.close()
     server.close()
   }
+}
+
+/**
+ * An Interactive Video's times that have to be within its video: where each interaction starts,
+ * each bookmark, and where the video itself starts. An interaction may end past the end, and shows
+ * to it; an end screen past it the library moves to the end. h5p-author's build holds these to a
+ * file's length, which it reads with no browser.
+ * @internal
+ * @param {any} params an Interactive Video's, as `content.json` holds them
+ * @returns {{ path: string, time: number, says: 'starts at' | 'is' }[]} each by its JSON path, in seconds,
+ *   with how a warning puts it
+ */
+export function videoTimes(params) {
+  const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : [])
+  const assets = params?.interactiveVideo?.assets
+  /** @type {{ path: string, time: unknown, says: 'starts at' | 'is' }[]} */
+  const times = [
+    ...list(assets?.interactions).map((interaction, i) => ({ path: `interactiveVideo.assets.interactions[${i}].duration`, time: interaction?.duration?.from, says: /** @type {const} */ ('starts at') })),
+    ...list(assets?.bookmarks).map((bookmark, i) => ({ path: `interactiveVideo.assets.bookmarks[${i}].time`, time: bookmark?.time, says: /** @type {const} */ ('is') })),
+    { path: 'override.startVideoAt', time: params?.override?.startVideoAt, says: 'is' }
+  ]
+  return /** @type {ReturnType<typeof videoTimes>} */ (times.filter(({ time }) => typeof time === 'number' && time > 0))
+}
+
+/**
+ * The times of an Interactive Video that is the content itself, and its video's length in seconds
+ * as its own player says it: a file's from the browser, a hosted video's from the host's player,
+ * which a build cannot ask (YouTube's answer to a build names no length, #283). A player still
+ * loading is waited for, a little. `null` for any other content, and where there are no times.
+ * @param {import('playwright-core').Frame} frame
+ * @returns {Promise<{ times: ReturnType<typeof videoTimes>, seconds: number | null, exact: boolean } | null>}
+ */
+async function timedVideo(frame) {
+  const read = () =>
+    frame
+      .evaluate(() => {
+        const page = /** @type {any} */ (window)
+        const video = page.H5P?.instances?.[0]?.libraryInfo?.machineName === 'H5P.InteractiveVideo' ? page.H5P.instances[0].video : null
+        if (typeof video?.getDuration !== 'function') return null
+        const seconds = video.getDuration()
+        const content = /** @type {any} */ (Object.values(page.H5PIntegration?.contents ?? {})[0])
+        return {
+          json: typeof content?.jsonContent === 'string' ? /** @type {string} */ (content.jsonContent) : null,
+          seconds: typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? seconds : null,
+          // H5P.Video names the handler it chose: a file's length is the browser's own, and exact.
+          exact: video.getHandlerName?.() === 'Html5',
+          failed: [...document.querySelectorAll('video')].some((element) => element.error !== null)
+        }
+      })
+      .catch(() => null)
+  let video = await read()
+  if (!video?.json) return null
+  const times = videoTimes(JSON.parse(video.json))
+  if (times.length === 0) return null
+  for (const until = Date.now() + LENGTH_WAIT; video && video.seconds === null && !video.failed && Date.now() < until; video = await read()) {
+    await frame.page().waitForTimeout(250)
+  }
+  return { times, seconds: video?.seconds ?? null, exact: video?.exact === true }
 }
 
 /**

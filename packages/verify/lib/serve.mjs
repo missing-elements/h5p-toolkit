@@ -119,9 +119,12 @@ export async function playerDist() {
  * @param {(path: string, request: IncomingMessage, response: ServerResponse) => boolean | Promise<boolean>} own
  * @param {number | number[]} [port] the port to take, or the ports to try in order; any free one when
  *   they are taken, or with 0
+ * @param {string} [host] the name the address goes by. `localhost`, since a site may refuse a page
+ *   opened at an IP address: YouTube's player answers "This video is unavailable" in one (#283).
+ *   The server listens on 127.0.0.1 whatever the name
  * @returns {Promise<{ url: string, close: () => void }>}
  */
-export function serve({ dist, runtime }, { files: bundles, packDir }, own, port = 0) {
+export function serve({ dist, runtime }, { files: bundles, packDir }, own, port = 0, host = 'localhost') {
   const ASSETS = '/frame-assets/'
   const server = createServer(async (request, response) => {
     try {
@@ -161,7 +164,7 @@ export function serve({ dist, runtime }, { files: bundles, packDir }, own, port 
     server.once('listening', () => {
       const { port: bound } = /** @type {import('node:net').AddressInfo} */ (server.address())
       resolveServer({
-        url: `http://127.0.0.1:${bound}`,
+        url: `http://${host}:${bound}`,
         // A connection left open — a browser's keep-alive, a preview tab's presence — would hold it.
         close: () => {
           server.closeAllConnections()
