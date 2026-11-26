@@ -188,6 +188,15 @@ describe('normalizeArchive', () => {
     await expect(normalizeArchive({ input: carried, last: 'H5PEditor.Foo-1.0' as unknown as string[] })).rejects.toThrow(/list of folder names/)
   })
 
+  it('refuses an output in a folder that is not there, or is a file, before opening the input (#290)', async () => {
+    // The input does not exist either: the folder's error coming first shows the order.
+    const absent = join(dir, 'absent.h5p')
+    await expect(normalizeArchive({ input: absent, output: join(dir, 'nowhere', 'x.h5p') })).rejects.toThrow(/No such folder: .*nowhere/)
+    await expect(stat(join(dir, 'nowhere'))).rejects.toThrow()
+    await writeFile(join(dir, 'a-file'), 'x')
+    await expect(normalizeArchive({ input: absent, output: join(dir, 'a-file', 'x.h5p') })).rejects.toThrow(/a-file is a file, not a folder/)
+  })
+
   it('reports the same plan on a dry run and writes nothing', async () => {
     const report = await normalizeArchive({ input })
     expect(report.bytesOut).toBeNull()

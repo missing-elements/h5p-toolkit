@@ -231,6 +231,12 @@ describe('the package', () => {
     await mkdir(join(dir, 'folder.zip'))
     await expect(buildScorm({ h5p: quiz, out: join(dir, 'folder.zip'), force: true })).rejects.toThrow(/is a folder/)
     await expect(buildScorm({ h5p: quiz, out: quiz, force: true })).rejects.toThrow(/is the package itself/)
+    // A folder that is not there is refused by name, before any work (#290).
+    await expect(buildScorm({ h5p: quiz, out: join(dir, 'nowhere', 'x.zip') })).rejects.toThrow(/No such folder: .*nowhere/)
+    await expect(buildScorm({ h5p: quiz, out: join(dir, 'nowhere', 'x.zip') })).rejects.toThrow(EmbedError)
+    expect(existsSync(join(dir, 'nowhere'))).toBe(false)
+    // A file where the folder should be is named as one.
+    await expect(buildScorm({ h5p: quiz, out: join(quiz, 'x.zip') })).rejects.toThrow(/is a file, not a folder/)
   })
 })
 
