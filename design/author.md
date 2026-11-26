@@ -188,12 +188,12 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   - Never a photograph or anything that passes for one, a real person, a brand or logo, a known
     character, or a named artist's style. A picture tool's web address is never a `path`: the
     build would download it, under that tool's terms.
-  - The copyright stays whatever the work's licence is, since the user did not make the picture,
-    and the reply offers no other. Told only the copyright, two of four replies offered to put the
-    picture under the user's CC BY; told "never offer", one of five; told the reply offers no other
-    licence, none of four.
-  - Drawn with what the sandbox has, nothing installed: one run with no Python drawing library
-    installed Pillow with pip, into the machine's own Python.
+  - The picture's copyright is `U` by "Generated with AI" whatever the work's licence, since the
+    user did not make the picture, and the reply offers no other. Told only the copyright, two of
+    four replies offered to put the picture under the user's CC BY; told "never offer", one of
+    five; told the reply offers no other licence, none of four.
+  - Drawn with what the sandbox has, nothing installed, since before the brief said so, one run
+    with no Python drawing library installed Pillow with pip, into the machine's own Python.
   - Looked at once before the build, where the chat can open a picture: before that line no run
     did, and one Image Hotspots had its stigma under a petal and a stamen's spot off the stamen;
     after it, every run that drew did.
@@ -205,8 +205,8 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     picture given, at $0.012 to $0.023 a run. On the final text, with matplotlib and Pillow the
     two drew in 2 of 2; with a Python that had neither, the presentation was left without a
     picture and said so, and the flower was drawn with Python's own `zlib`, nothing installed.
-    Every picture drawn on any version of the text was marked as above (12 of 12), with alt text
-    naming its parts, and every package passed the verifier.
+    Every picture drawn on any draft of this brief was marked as above (12 of 12), with alt text
+    naming its parts, and every package of those drafts passed the verifier.
 - **A build that acts on what a model wrote can be confined** (#220, for the local MCP server of
   #219). The command line reads any path a source names and fetches any address, which is right
   for a person's own command.
