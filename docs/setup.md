@@ -18,9 +18,6 @@ cookies, storage or page, and you get its results as relayed xAPI. `untrusted` p
 data, none of its own code running and its content checked, as an H5P plugin checks an author's
 upload: [Packages you did not make](untrusted.md).
 
-This page has each path in full: the library pack from your own site, loading from jsDelivr,
-caching and upgrades.
-
 ## Requirements
 
 - The page on `https://`, or `localhost` while developing: the player needs a Service Worker.
@@ -50,10 +47,11 @@ document.querySelector('h5p-player').runtime = runtime
 
 The bundler emits the Service Worker, the runtime and its fonts as assets; nothing to copy. The
 runtime is a separate package because it is GPL-3.0 (see the README's
-[Licence](../README.md#licence)). With a bundler that does not emit `new URL(…, import.meta.url)`
-assets, esbuild and Rollup among them, serve both packages' `dist/` and set `sw` and
-`assets-base`, as under *Install without a build step*. Rollup with
-`@web/rollup-plugin-import-meta-assets` stops at the element's default `frame-assets/` URL.
+[Licence](../README.md#licence)). A bundler that does not emit `new URL(…, import.meta.url)`
+assets, esbuild and Rollup among them, leaves the worker and runtime files behind: serve both
+packages' `dist/` as under *Install without a build step*, and set `sw` and `assets-base`.
+Rollup with `@web/rollup-plugin-import-meta-assets` stops at the element's default
+`frame-assets/` URL.
 
 For [`libraries="pack"`](libraries.md) served from your own site rather than jsDelivr, install
 `@missing-elements/h5p-libraries` too and hand over its `pack` export, which the bundler emits as
@@ -67,10 +65,10 @@ document.querySelector('h5p-player').pack = pack
 
 On an AI site builder, one prompt can make this install. Lovable did, from
 `Embed an H5P file using https://github.com/missing-elements/h5p-offline-player` and the `.h5p`
-file uploaded in the chat: on [the example it built](https://embed-h5p-file.lovable.app/), it
-bundled the element and its Service Worker, served the runtime from `public/h5p-runtime/` with
-`assets-base`, and set `libraries="pack"`. Its hosting answers `Range`, so the package is read in
-place. Other builders have not been tried yet.
+uploaded in the chat ([the example it built](https://embed-h5p-file.lovable.app/)): it bundled
+the element, served the runtime from `public/h5p-runtime/` with `assets-base`, and set
+`libraries="pack"`. Its hosting answers `Range`, so the package is read in place. Other builders
+have not been tried.
 
 ## Install without a build step
 
@@ -90,9 +88,8 @@ cp -r node_modules/@missing-elements/h5p-runtime/dist public/h5p-player/frame-as
 ```
 
 The element finds the Service Worker and the runtime beside its own script, so it needs no other
-attribute, and the worker is always the element's own version. For `libraries="pack"`, copy the
-library pack too, with the list of its libraries' licences, and name its folder with
-`pack-base="/h5p-libraries/"`:
+attribute. For `libraries="pack"`, copy the library pack too, with the list of its libraries'
+licences, and name its folder with `pack-base="/h5p-libraries/"`:
 
 ```bash
 npm install @missing-elements/h5p-libraries
@@ -102,8 +99,8 @@ cp node_modules/@missing-elements/h5p-libraries/libraries.txt public/h5p-librari
 
 To upgrade, delete the folders and copy them again. Serve them with `Cache-Control: no-cache`, or
 with no caching header at all: the file names stay the same from one version to the next, so a
-copy a browser kept from before an upgrade would run against the new Service Worker.
-[Single-worker hosts and upgrades](single-worker.md) has the rest.
+copy a browser kept would run against the new Service Worker
+([Upgrading](single-worker.md#upgrading)).
 
 ### From jsDelivr
 
@@ -143,17 +140,18 @@ your site's cookies) and frame it:
 <script src="https://h5p-player.example.net/resizer.js"></script>
 ```
 
-`microphone` and `camera` are for the content types that record or film: Audio Recorder, Speak the
-Words and AR Scavenger. A frame from another site gets neither unless the page allows it. The
-embed package's [README](../packages/embed#readme) has the page's query parameters, the policy
-files it writes for each kind of host, and the SCORM package it can write instead.
+`microphone` is for Audio Recorder and Speak the Words; `camera` is for AR Scavenger, which the
+player does not run ([Troubleshooting](troubleshooting.md)). A frame from another site gets
+neither unless the page allows it. The embed package's [README](../packages/embed#readme) has the
+page's query parameters, the policy files it writes for each kind of host, and the SCORM package
+it can write instead.
 
 ## A page in the demo's look
 
 The player ships the demo's page styles as `@missing-elements/h5p-offline-player/page.css`: its
 colours for light and dark, the bar, buttons, the status strip and the player's box while it
 loads; `dist/mark.svg` is the mark. `h5p-verify --preview` and the H5P Preview extension draw
-their pages with it, and a page of your own can, through a bundler that takes CSS (Vite, webpack 5
+their pages with it. A page of your own can, through a bundler that takes CSS (Vite, webpack 5
 with a CSS loader):
 
 ```js

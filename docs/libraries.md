@@ -1,7 +1,8 @@
 # Libraries: packages without them, and older than the pack
 
-Exports from h5p.com and h5p.org often contain only `content/`, without the libraries. The
-player refuses such a package and names what is missing. `libraries` tells it where to look:
+Exports from h5p.com and h5p.org often hold only `content/`. The player refuses such a package
+and names what is missing. `libraries` tells it where to look; without it (and without
+`untrusted`), a package plays as it is.
 
 ```html
 <h5p-player src="stripped.h5p" libraries="pack"></h5p-player>
@@ -12,31 +13,30 @@ player refuses such a package and names what is missing. `libraries` tells it wh
 `pack` is [`@missing-elements/h5p-libraries`](https://www.npmjs.com/package/@missing-elements/h5p-libraries):
 the H5P hub's runtime libraries for every content type it serves, each at the newest minor of its
 major, as one archive per library, 13.8 MB in all. The player downloads only the archives a
-package needs — for the demo's packages, 0.04 to 4 MB — and checks each against the SHA-256 the
-pack's index gives. An archive is kept on the device and shared by every package that uses it;
-once kept, it is used with no request, online or offline.
+package needs (for the demo's packages, 0.04 to 4 MB) and checks each against the SHA-256 in the
+pack's index. An archive is kept on the device and shared by every package that uses it; once
+kept, it is used with no request, online or offline.
 
-Each player release names one version of the pack, carries its index, and fetches its archives
-from jsDelivr. The pack is rebuilt from the hub weekly and released with the player.
+Each player release pins one version of the pack, carries its index, and fetches its archives
+from jsDelivr. The pack is rebuilt from the hub weekly.
 
 ## Newer versions of the libraries a package carries
 
 With `libraries="pack"`, a library a package carries plays at the pack's version when the pack
-has the same major at a higher version, minor first, then patch. An H5P site does both by its
-own means: it keeps one patch of each minor, the newest it has seen, and moves content to a newer
-minor with H5P's content upgrade, which an administrator starts. An old export then plays with
-the fixes and the look of current H5P.
+has the same major at a higher minor, or the same minor at a higher patch. An H5P site gets there
+by moving content to a newer minor with H5P's content upgrade, which an administrator starts. An
+old export then plays with the fixes and the look of current H5P.
 
-- Equal or older in the pack, or only another major there: the package's own, and nothing is
+- Equal or older in the pack, or only another major there: the package's own copy, and nothing is
   downloaded.
 - A library the pack does not have keeps the package's own copy, and runs against the pack's
   newer versions of the libraries it shares: H5P's rule is that a minor does not break what
   depends on it.
-- A library the package carries that its content never plays, an editor library or an older
-  minor kept for an H5P site's upload check, stays as it is, and nothing is downloaded for it.
+- A library the package carries that its content never plays (an editor library, or an older
+  minor kept for an H5P site's upload check) stays as it is, and nothing is downloaded for it.
 
 Content written for an older minor is upgraded before it starts: the player runs the steps each
-library ships in its `upgrades.js` on the content's parameters, as the H5P plugins do: a Question
+library ships in its `upgrades.js` on the content's parameters, as the H5P plugins do. A Question
 Set written for 1.20 keeps its background image under 1.21, which reads it from a new place. If a
 step fails, the content plays as written and the console says so.
 
@@ -59,10 +59,10 @@ only after every source in `libraries` has been tried for the version named, so 
 that has it wins over an earlier one with an older version, and never across a major.
 
 Most minor versions only add fields, which the older code ignores, so the content plays without
-what the newer version added. Some move or rename fields: of the 469 minor bumps in the history of
-the pack's libraries, 119 came with an upgrade step, which is how H5P marks such a change. There
-the older code does not find what moved, and a part can be missing or drawn wrong. Played
-`untrusted`, the content is still checked against the older version's fields.
+what the newer version added. Some move or rename fields (of the 469 minor bumps in the history of
+the pack's libraries, 119 came with an upgrade step, which is how H5P marks such a change), and
+there a part can be missing or drawn wrong. Played `untrusted`, the content is still checked
+against the older version's fields.
 
 `downgradedLibraries`, on the element and in the `ready` event's detail, lists each library
 played older, `{ library, from, to }`, and the console says so. `downgrade-libraries="off"`
@@ -91,54 +91,49 @@ The pack is found in one of three places:
   player.setAttribute('libraries', 'pack')
   ```
 
-Serve `libraries.txt` beside it: the list of each library's licence and authors, which those
-licences ask to travel with the code. The package also carries the whole pack as one file,
-`libraries.h5p`, which a `.h5p` URL in `libraries` takes like any bundle, downloaded whole, with
-no refresh. Since 1.1.0 it is 15.5 MB, 1.8 MB of them libraries an H5P site's upload check wants,
-which a player never reads; the archives above leave those out.
+Serve `libraries.txt` beside it: each library's licence and authors, which those licences ask to
+travel with the code. The package also carries the whole pack as one file, `libraries.h5p`
+(15.5 MB, 1.9 MB of it libraries an H5P site's upload check wants and a player never reads). A
+`.h5p` URL in `libraries` takes it like any bundle, downloaded whole, with no refresh.
 
 ## Several sources
 
 `libraries` takes several sources separated by spaces, tried in order, each asked only for what
 the ones before it lack. The pack refreshes wherever it is in the list, and supplies what is
 missing once the sources before it have been tried. A `.h5p` URL only supplies what is missing.
-Nothing is on by default: a package is played as it is unless `libraries` names a source.
 
 The H5P hub itself is not asked: the only hub host that answers a browser serves an outdated
-catalogue, so current exports could not get their libraries there anyway. Up to player 0.10,
-`hub` was read as `pack`; it is now a word like any other, a URL relative to the page.
+catalogue. `hub` was read as `pack` up to player 0.10; it is now a URL relative to the page.
 
 ## When a source cannot be reached
 
-The pack's archives kept before are used with no request, and a `pack-base` index is kept as last
-read. A refresh that cannot be had — an archive that will not download, or does not match its
-hash — is given up, and the package plays with its own libraries, as exported. A `.h5p` bundle
+Archives of the pack kept before are used with no request, and a `pack-base` index is kept as
+last read. A refresh that cannot be had (an archive that will not download, or does not match its
+hash) is given up, and the package plays with its own libraries, as exported. A `.h5p` bundle
 downloaded whole from the same URL before is used when that URL cannot be reached, so a stripped
 export plays offline once it has played online.
 
 ## Packages that are still refused
 
-A package that needs a library no source carries is still refused, with the missing libraries
-named: usually a library newer than the pack, which the next pack release will carry. The check
-follows each library's own dependencies too, as the runtime does, so an old export whose
-libraries ask for a version it does not carry gets that version from the sources as well.
+A package that needs a library no source carries is refused, with the missing libraries named:
+usually a library newer than the pack, which the next pack release will carry. The check follows
+each library's own dependencies too, as the runtime does, so an old export whose libraries ask
+for a version it does not carry gets that version from the sources as well.
 
 ## Addons
 
 The pack also carries `H5P.MathDisplay`, the addon the H5P plugins add to content whose text holds
-LaTeX — `\(…\)`, `\[…\]` or `$$…$$` — once an administrator has installed it. The player does the
-same when the pack supplies or refreshes anything, the pack standing in for a site's installed
-libraries, and with a `.h5p` bundle attached: it adds any addon there to the content its
-`library.json` names, so a content-only export shows its formulas. MathDisplay renders them with
-MathJax from its own folder, so they work offline. A package from a site that had it lists it
-among its dependencies, and played `untrusted` it needs the source to have it.
+LaTeX (`\(…\)`, `\[…\]` or `$$…$$`) once an administrator has installed it. The pack stands in for
+a site's installed libraries: the player adds the addon whenever the pack refreshes (the default)
+or supplies anything, and from an attached `.h5p` bundle that has it, to the content its
+`library.json` names. MathDisplay renders with MathJax from its own folder, so formulas work
+offline. Played `untrusted`, a package that lists it among its dependencies needs the source to
+have it.
 
 ## Untrusted
 
 With `untrusted`, a package's own library folders are ignored and its libraries come only from
 `libraries`, `pack` when that is not set: the archives it needs, nothing it carries. A package
-that needs a library the sources lack is refused, and when it carries that library itself, the
-error's `missingLibraries.carried` is `true`: playing it without `untrusted` would run its own
-copy, which is your decision to make. The content is then checked against the `semantics.json` of
-the libraries the sources serve; the pack has them. [Packages you did not make](untrusted.md) has
-the rest.
+that needs a library the sources lack is refused, and the content is checked against the
+`semantics.json` of the libraries the sources serve. [Packages you did not make](untrusted.md) has
+the rest, including `missingLibraries.carried`.

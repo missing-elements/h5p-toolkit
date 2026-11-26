@@ -35,32 +35,33 @@ within the range the player names as its optional peer dependency.
 The core is h5p-php-library's, the scripts and stylesheets an H5P site loads, at the commit
 `vendor/h5p-core/SOURCE.json` names, with the list of files and their order taken from
 `H5PCore::$scripts` and `H5PCore::$styles` at that commit. `pnpm core:sync master` in this package
-moves it to upstream's newest commit, `pnpm core:sync <sha>` to another, and the build joins the
-files as they are. The boot script builds the core's settings and loads each library's scripts and
-stylesheets in the order the player's Service Worker gives it, which is the order h5p-standalone
-loaded them in until this package dropped it.
+moves it to upstream's newest commit, `pnpm core:sync <sha>` to another; the build then joins the
+scripts into `frame.bundle.js` and the stylesheets into `h5p.css`. The boot script builds the
+core's settings and loads each library's scripts and stylesheets in the order the player's Service
+Worker gives it.
 
 ## Checking content
 
 For a package the element plays `untrusted`, the boot script checks the content against the
-`semantics.json` of the libraries served before the runtime reads it, as the H5P platforms check
-an author's content: every field held to its type, text stripped to the tags the field allows and
-plain text escaped, numbers to their range, sub-content to the libraries a field names, anything
-the semantics do not name removed. It is a port of h5p-php-library's `H5PContentValidator`, and
-on the same content it gives the same result. Content whose main library has no `semantics.json`
-does not play. The player serves such a package's `content.json` only to a boot script that
-checks it, so `untrusted` needs this package at 0.2 or later.
+`semantics.json` of the libraries served before the runtime reads it, as the H5P platforms do:
+every field held to its type, text stripped to the tags its field allows, plain text escaped,
+numbers held to their range, sub-content to the libraries a field names, anything else removed. It
+is a port of h5p-php-library's `H5PContentValidator`, stricter or forced where it departs (listed
+in
+[`src/content-check.ts`](https://github.com/missing-elements/h5p-toolkit/blob/main/packages/runtime/src/content-check.ts)).
+Content whose main library has no `semantics.json` does not play. The player serves such a
+package's `content.json` only to a boot script that checks it, so `untrusted` needs this package at
+0.2 or later.
 
 ## Languages
 
-`l10n.js` has the core's own strings — "Fullscreen", "Rights of use", the licence names, the
-"this content has changed" dialog — in more than fifty languages, taken from Moodle's language
-packs, where Moodle's translators keep them. The frame loads it when the element's `lang`, which
-the element inherits from the page like any other, is not English, and picks the language from
-it: `<html lang="de">` shows them in German, `de-AT` gets `de` and `nb` gets Norwegian. A string a
-language lacks stays English, and so does a language with none. The file is about 50 kB
-compressed, fetched once; a page in English never asks for it. `runtime.l10nJs` names it for a
-bundler.
+`l10n.js` has the core's own strings ("Fullscreen", "Rights of use", the licence names, the "this
+content has changed" dialog) in more than fifty languages, from Moodle's language packs. The
+frame's language is the one `h5p.json` names, else the element's `lang`, inherited from the page:
+`<html lang="de">` gives German to a package that names none. Unless it is English, the frame
+loads `l10n.js` and picks from it: `de-AT` gets `de` and `nb` gets Norwegian. A string a language
+lacks stays English, and so does a language with none. The file is about 50 kB compressed, fetched
+once; a page in English never asks for it. `runtime.l10nJs` names it for a bundler.
 
 `pnpm l10n` in this package takes the strings from Moodle again, and a weekly workflow does the
 same and opens a pull request when a translation changed. A language added or corrected is a

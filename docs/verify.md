@@ -1,6 +1,6 @@
 # Checking that a package plays
 
-[`@missing-elements/h5p-verify`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/verify)
+[`@missing-elements/h5p-verify`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/verify#readme)
 plays a package through the player in a headless browser and says whether it worked. It needs
 Node 22 or later:
 
@@ -9,15 +9,18 @@ npx @missing-elements/h5p-verify@latest course.h5p        # exit 0: it plays; 1:
 ```
 
 It names missing libraries, fails on an uncaught error while the runtime boots, and checks that
-the content drew something. With `--untrusted` it plays the package as a site that did not make
-it will, [untrusted](untrusted.md), against the library pack, and lists as warnings what the
-content check removes from each field: markup, attributes and styles by name, fields, values.
-With `--libraries pack`, or a copy of the pack's `parts/`, it plays a library the package carries
-at the pack's newer version, as a site with the pack will, and says which. Content made for a
-newer minor version than any source has plays at the newest older one, as the player does by
-default, with a warning for each library; `--no-downgrade-libraries` fails it instead. It is
-meant as the last step of a pipeline that generates or rewrites packages; the skill in
-`skills/h5p-verify/` tells an agent when to run it and how to read the result.
+the content drew something. It is meant as the last step of a pipeline that generates or rewrites
+packages; the skill in `skills/h5p-verify/` tells an agent when to run it and how to read the
+result. The package's README has every option.
+
+- `--untrusted` plays the package as a site that did not make it will,
+  [untrusted](untrusted.md), against the library pack, and lists as warnings what the content check
+  removes from each field: markup, attributes and styles by name, fields, values.
+- `--libraries pack`, or a copy of the pack's `parts/`, plays a library the package carries at the
+  pack's newer version, as a site with the pack will, and says which.
+- Content made for a newer minor version than any source has plays at the newest older one, as the
+  player does by default, with a warning for each library. `--no-downgrade-libraries` fails it
+  instead.
 
 The check cannot say whether the content is right; a person decides that by playing it.
 `--preview` checks nothing and opens the package in the real player in the person's own
@@ -31,16 +34,13 @@ npx @missing-elements/h5p-verify@latest course.h5p --preview
 
 In VS Code, Cursor or VSCodium, the
 [H5P Preview extension](https://marketplace.visualstudio.com/items?itemName=MissingElements.h5p-preview)
-does the same in an editor tab, and plays the file again whenever it is rewritten; it carries the
+does the same in an editor tab and plays the file again whenever it is rewritten. It carries the
 library pack, so an export without its libraries plays offline.
 
-For authoring, the
+To build a package, the
 [`h5p-author` skill](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-author)
-adds a prompt-to-package workflow for 28 content types, on
-[`@missing-elements/h5p-author`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/author#readme).
-It takes a short JSON source of only what differs from a type's defaults, fills the rest from the
-libraries' semantics and translations, includes their runtime dependencies, then requires this
-playback check and screenshot review, and opens the package in the preview for a person to work
-through. The source JSON remains editable; the `.h5p` and full revision from the verification
-report identify what was checked. Whether the content is right remains separate from the
+goes from a prompt to a package of any content type, on
+[`@missing-elements/h5p-author`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/author#readme)
+([its API](author-api.md)). It runs this check, reviews the screenshot, and opens the package in
+the preview for a person to work through. Whether the content is right stays separate from the
 verifier's startup verdict.

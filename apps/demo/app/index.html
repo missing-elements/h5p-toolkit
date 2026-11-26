@@ -130,8 +130,8 @@
       <section class="about" aria-labelledby="about-title">
         <h2 id="about-title">An H5P player that works offline</h2>
         <p>
-          H5P Offline Player by Missing Elements is a web app you install from the browser — a PWA — that plays
-          <code>.h5p</code> files without Moodle, WordPress, Lumi or any other server. Teachers hand
+          H5P Offline Player by Missing Elements is a web app (a PWA) you install from the browser. It
+          plays <code>.h5p</code> files without Moodle, WordPress, Lumi or an H5P server. Teachers hand
           out the files; learners open them here, at home or in class, with or without a connection.
         </p>
 
@@ -155,13 +155,13 @@
         <h3>What works offline</h3>
         <ul class="list">
           <li>The player, the H5P runtime and its fonts are stored on install.</li>
-          <li>The app carries the H5P libraries for every content type on the H5P hub, so a package exported without its own — what h5p.com and h5p.org do by default — plays offline too, and an older package plays the newer versions of its libraries. A package that needs a newer version of a library than the app carries says so; a later version of the app will play it.</li>
+          <li>The app carries the H5P libraries for every content type on the H5P hub, so a package exported without its own (as h5p.com and h5p.org do by default) plays offline too, and the libraries an older package carries play at the app's newer versions. A package made for a newer version than the app carries plays at the newest older one, without what the newer version added. One that needs a library the app lacks says so; a later version of the app will play it.</li>
           <li>Files are read on this device and never uploaded. Installed from Chrome or Edge on the desktop, the app opens a file from the list of recent files again from where it is on your disk. Anywhere else it keeps a copy of the file in this browser's storage, which opens with one tap, offline too.</li>
         </ul>
 
         <h3>What it keeps on this device, and what it does not</h3>
         <ul class="list">
-          <li>Where you were. When a file is open, the content saves its own state — the slide or chapter reached, the answers given so far, the position in a video, whatever that content type keeps — in this browser's storage, on this device only. Open the same file again (same name, size and date) and it picks up there; <strong>Start over</strong>, the circular arrow at the top, forgets it. On a shared device, the next person to open the file finds where the last one left it, so press Start over first. The app sends none of it anywhere. A package's own scripts can read it, though, including what other packages saved here, so the app asks before opening a package from another site's link; open only packages you trust.</li>
+          <li>Where you were. The content saves its own state (the slide or chapter reached, the answers so far, the position in a video) in this browser's storage, on this device only. Open the same file again (same name, size and date) and it picks up there. <strong>Start over</strong>, the circular arrow at the top, forgets it: press it first on a shared device, or the next person finds where the last one left off. The app sends none of it anywhere. A package's own scripts can read it, though, including what other packages saved here, so a package from another site's link plays without its own scripts, and the app asks before running them. Open only packages you trust.</li>
           <li>The files you opened. The list of recent files names each one and when it was opened, and unless the app was installed from Chrome or Edge on the desktop, it holds a copy of each file, its size beside it. Remove a file from the list, or clear the list, and the copy goes with it; on a shared device, clear it before you hand the device on. Like the saved state, it stays on this device, and a package's own scripts can read it.</li>
           <li>Not results. The scores and completions the content reports as xAPI statements are neither stored on this device nor sent anywhere, so nothing here is a record that a course was completed.</li>
           <li>For results that are recorded — a class, a course, a compliance record — wrap the file as a <a href="https://github.com/missing-elements/h5p-toolkit/tree/main/packages/embed#a-scorm-package-for-an-lms" rel="noopener">SCORM package</a> for your LMS, which Moodle, ILIAS, OpenOLAT and Chamilo grade, or use the <a href="/demo/setup.html">player component</a> on a site that sends its xAPI statements to an LRS or an LMS.</li>

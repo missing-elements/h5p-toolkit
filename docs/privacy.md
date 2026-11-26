@@ -22,7 +22,7 @@ setup, that is your player domain, kept separately for each site that frames it.
 
 | What | Where | Contains | Personal? |
 |---|---|---|---|
-| Extracted package files | Cache API, `h5p-pkg-v0-*` | The package's own files | No, unless the package contains personal data |
+| Extracted package files | Cache API, `h5p-pkg-v<major>-*` | The package's own files | No, unless the package contains personal data |
 | Package list | IndexedDB `h5p-player`, table `packages` | Each package's URL or picked file name, title, metadata, language tag, display options, last played time | Shows which content was played on this device |
 | Saved state | IndexedDB `h5p-player-userdata` | Only with `resume` (or `resume="device"`): the content's own state, such as the slide reached, the answers given and the position in a video, with the time it was saved | Yes: a learner's answers |
 
@@ -44,10 +44,11 @@ did not make, that is a reason to use the Embed setup on a domain of its own; se
 | Library bundle | The `.h5p` URL in `libraries` | A package without its own libraries, once per bundle |
 | MathJax | `cdn.jsdelivr.net` or `cdnjs.cloudflare.com` | Only a package carrying an old `H5P.MathDisplay` that loads MathJax from a CDN. The pack's MathDisplay renders from its own folder, and sends nothing |
 | Web fonts | `ajax.googleapis.com`, `fonts.googleapis.com`, `fonts.gstatic.com` (Google) | Only content types that load Google Fonts |
-| Video players | YouTube, Vimeo, Panopto | Only content that embeds them. These set their own cookies |
+| Video players | YouTube, Vimeo, Panopto, Echo360 | Only content that embeds them. These set their own cookies |
+| Timeline media | `*.wikipedia.org`, `vimeo.com`, `soundcloud.com`, `api.flickr.com` | Only Timeline content with a slide that names media from them |
 | Speech recognition | The browser's own service (Google, in Chrome) | Only content types that use speech input |
 
-Every one of these requests carries the learner's IP address to its host. The last four rows
+Every one of these requests carries the learner's IP address to its host. The last five rows
 depend on the content, not on the player: the frame's CSP allows those hosts so that the content
 types work, and blocks any other script, style or font source. Images, media and embedded frames
 may come from anywhere the content names, whether the package plays `untrusted` or not. List what your packages actually use in your privacy
@@ -71,9 +72,10 @@ The element emits each statement as an `xapi` event and keeps nothing.
 - In a SCORM package written by
   [`h5p-embed --scorm`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/embed#a-scorm-package-for-an-lms),
   no statement leaves the page. The LMS gets, under its own record of the learner, the score out
-  of 100, `passed`, `failed` or `completed`, the time spent, and the content's saved state in
-  `cmi.suspend_data`, which holds the answers given so far. That state is kept in the LMS, not on
-  the device.
+  of 100, `passed`, `failed` or `completed`, the time spent, each question's result in
+  `cmi.interactions` (with, for an answer the learner typed, the answer), and the content's saved
+  state in `cmi.suspend_data`, which holds the answers given so far. That state is kept in the LMS,
+  not on the device.
 
 ## Answering a data subject request
 

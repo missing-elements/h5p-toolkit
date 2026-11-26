@@ -9,12 +9,12 @@ packaging for an LMS) as static files, command-line tools and agent skills.
 [H5P to SCORM](https://h5p-offline-player.vercel.app/demo/scorm.html) ·
 [VS Code extension](https://marketplace.visualstudio.com/items?itemName=MissingElements.h5p-preview)
 
-The player and the packages around it are at version 1 since October 2026, and
+Every package is at version 1 since October 2026, except the author package, the MCP server and
+the VS Code extension, which are 0.x;
 [Compatibility](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/compatibility.md)
-says what a version number promises; the author package, the MCP server and the VS Code
-extension are 0.x. **Every week** a job rebuilds the library pack from the H5P hub and the
-interface strings from Moodle's translations, opens a pull request when either changed, and plays
-every content type in the pack, trusted and untrusted.
+says what a version number promises. **Every week**, jobs rebuild the library pack from the H5P hub
+and the interface strings from Moodle's translations, open a pull request when either changed, and
+play every content type in the pack, trusted and untrusted.
 
 ## What it does
 
@@ -41,12 +41,13 @@ every content type in the pack, trusted and untrusted.
 - **What a model builds is checked.** `h5p-author` writes a package that carries its libraries,
   which Moodle accepts as an upload, and `h5p-verify` plays it in the real H5P runtime in a
   headless browser before anyone hands it over.
-- **Nothing passes through a server of ours:** no account, cookies or telemetry, and the library
-  pack comes from jsDelivr unless you serve a copy
+- **Nothing you play passes through a server of ours:** the packages have no account, cookies or
+  telemetry (the hosted demo counts page views, with no cookies), and the library pack comes from
+  jsDelivr unless you serve a copy
   ([privacy](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/privacy.md)).
 
-It is not an editor: H5P's own editor is not here, so content comes from the tools above or from
-an H5P site. Nothing here stores results either: xAPI events go wherever your page sends them.
+It is not an editor, so content comes from the tools above or from an H5P site. Nothing here
+stores results either: xAPI events go wherever your page sends them.
 
 ## Quick start
 
@@ -109,9 +110,9 @@ npx @missing-elements/h5p-verify@latest course.h5p
 
 ## Agent skills
 
-Five skills for Claude Code and other agents that can read files and run commands, installed
-with [skills](https://skills.sh/); add `--skill <name>` for one of them. None needs a provider API
-key or an H5P server.
+Five skills for Claude Code and other agents that read files and run commands, installed with
+[skills](https://skills.sh/); add `--skill <name>` for one. None needs a provider API key or an
+H5P server.
 
 ```bash
 npx skills add missing-elements/h5p-toolkit
@@ -119,16 +120,15 @@ npx skills add missing-elements/h5p-toolkit
 
 | Skill | What it does |
 |---|---|
-| [`h5p-author`](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-author) | Turns a prompt or a lesson into H5P content of any of 28 types, chosen with you first, checks it in the real player and opens it for you to play |
+| [`h5p-author`](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-author) | Turns a prompt or a lesson into H5P content of any type, 28 with notes of their own, chosen with you first, checks it in the real player and opens it for you to play |
 | [`h5p-verify`](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-verify) | Checks that a package plays, and opens it in your browser for you to try |
 | [`h5p-to-scorm`](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-to-scorm) | Turns a package into a SCORM zip that an LMS plays, grades and resumes, and says what to set in yours |
 | [`h5p-player-setup`](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-player-setup) | Puts H5P on a website, from the player on the site itself or framed from a domain of your own |
 | [`h5p-normalize`](https://github.com/missing-elements/h5p-toolkit/tree/main/skills/h5p-normalize) | Rewrites a package whose video will not stream |
 
-A chat app takes `h5p-author` as a zip that you upload or attach. Download it from
+A chat app takes `h5p-author` as a zip to upload or attach: download it from
 [missing-elements.github.io/h5p/create-with-ai/#install](https://missing-elements.github.io/h5p/create-with-ai/#install),
-which says where it goes in each app. The zip holds the same h5p-author release as the site's
-build page runs.
+which says where it goes in each app. It holds the same h5p-author release as the build page runs.
 
 ## Documentation
 
@@ -141,6 +141,7 @@ build page runs.
   [Packages you did not make](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/untrusted.md) ·
   [Video that cannot stream](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/streaming-video.md) ·
   [Verifying a package](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/verify.md) ·
+  [h5p-author's API](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/author-api.md) ·
   [The frame's CSP](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/frame-csp.md)
 - **Results:** [Resume](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/resume.md) ·
   [Which build a learner completed](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/revision.md) ·

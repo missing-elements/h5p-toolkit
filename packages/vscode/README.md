@@ -19,7 +19,7 @@ H5P server and no account. It works offline, and the package never leaves your c
 
 ## Video and audio VS Code does not play
 
-VS Code plays media with a smaller set of codecs than a browser has. In VS Code 1.143 on macOS:
+VS Code plays media with fewer codecs than a browser. In VS Code 1.143 on macOS:
 
 - **MP4 video** plays its picture without sound.
 - **WebM video, M4A audio and YouTube** do not play at all.
@@ -39,11 +39,11 @@ A package carries JavaScript. By default the preview runs it, as it plays your o
   WordPress and Drupal check it.
 - **In Restricted Mode** every package plays untrusted. Trust the workspace to play packages with
   their own code.
-- **Newest libraries**, the other switch, plays the extension's newer version of a library a package
-  carries, as a site with up-to-date libraries would. Turn it off to see the package exactly as
-  exported.
+- **Newest libraries**, the other switch, plays the extension's newer version of a library a
+  package carries, as a site with up-to-date libraries would. Turn it off to see the package
+  exactly as exported.
 
-## Settings
+## Settings and commands
 
 | Setting | Default | |
 |---|---|---|
@@ -51,8 +51,6 @@ A package carries JavaScript. By default the preview runs it, as it plays your o
 | `h5pPreview.newestLibraries` | `true` | Play the newer versions of the libraries a package carries. |
 
 The switches above each preview override them for that tab.
-
-## Commands
 
 - **H5P Preview: Reload** plays the package again from the start. Also in the editor's title bar.
 - **H5P Preview: Open in Browser** plays it in your browser. Also in the title bar, and in the
@@ -68,9 +66,7 @@ the content asks for. Nothing is unpacked into your folders.
 In a remote or virtual workspace, the extension runs on this computer and copies the file to a
 temporary folder here before it plays.
 
-## Requirements
-
-VS Code 1.90 or later, on the desktop. VS Code for the Web cannot run the server.
+Needs VS Code 1.90 or later, on the desktop: VS Code for the Web cannot run the server.
 
 ## Related
 
