@@ -3,8 +3,10 @@
 Rewrites an `.h5p` package once, where it is published, so that it streams well through
 [h5p-offline-player](https://github.com/missing-elements/h5p-toolkit). Only the zip
 container changes: media is stored rather than deflated, an mp4 with its index at the end is
-remuxed (not re-encoded) to put it first, content media goes last, and stored scripts, styles and
-JSON are deflated. Everything else is copied byte for byte.
+remuxed (not re-encoded) to put it first, content media goes last, and stored text (scripts,
+styles, JSON, HTML) is deflated where that makes it smaller, up to 64 MiB an entry. Directory
+entries, duplicates and names the player would refuse (such as `../x`) are dropped, and an
+encrypted entry stops the run. Everything else is copied byte for byte.
 
 ## Usage
 
@@ -48,22 +50,22 @@ const report = await normalizeArchive({
 ```
 
 `last` names library folders a package carries and nothing reads as it plays, such as the editor
-libraries an H5P site's upload check asks for. They are written after the media, each whole, so a
-host that ignores `Range` does not wait for them before the frame boots; without `last`, every
-library folder comes before `content/`, as it always did. `content` is never moved, a name the
-archive has no folder for is ignored, and the command has no flag for it: only the package's author
-knows which folders those are.
+libraries an H5P site's upload check asks for. They are written whole after the media, so a host
+that ignores `Range` does not wait for them before the frame boots; without `last`, every library
+folder comes before `content/`. `content` is never moved, a name the archive has no folder for is
+ignored, and the command has no flag for it: only the package's author knows which folders those
+are.
 
 TypeScript declarations ship with the package: `Report` and `EntryResult` describe what it returns.
 
-`normalizeArchive()` is Node only, not a browser. `crc32(bytes, previous)` from `@missing-elements/h5p-normalize/crc32`
-is the CRC-32 it writes entries with, for code that writes zips beside it, in a page too: zlib's in
-Node, a table elsewhere.
+`normalizeArchive()` is Node only. `crc32(bytes, previous)` from
+`@missing-elements/h5p-normalize/crc32` is the CRC-32 it writes entries with, for code that writes
+zips beside it, in a page too: zlib's in Node 22.2 and later, a table elsewhere.
 
-`mp4Info(read, size)` from `@missing-elements/h5p-normalize/mp4` says what an mp4's index holds: its
-length in seconds, and each track's kind and codec. `read(offset, length)` gives the file's bytes,
-fewer at its end, so it runs on a file in Node or a `Blob` in a page. It reads atoms' headers and a
-few small atoms, never the media.
+`mp4Info(read, size)` from `@missing-elements/h5p-normalize/mp4` says what an mp4's index holds:
+its length in seconds, and each track's kind and codec (`null` for a file with no readable index).
+`read(offset, length)` gives the file's bytes, fewer at its end, so it runs on a file in Node or a
+`Blob` in a page. It reads atoms' headers and a few small atoms, never the media.
 
 `faststartPlan(read, size)`, from the same module, is how the normalizer moves an mp4's index in
 front of its media: `{ status, detail, pieces, size }`, `status` `moved`, `already` or `skipped`,

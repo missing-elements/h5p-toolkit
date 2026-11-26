@@ -29,13 +29,13 @@ changed, and plays every content type in the pack, trusted and untrusted.
   [build of the package](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/revision.md) they came from, and [resume](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/resume.md).
   With [`h5p-cmi5`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/cmi5#readme), a page holding the player is a
   [cmi5](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/cmi5.md) unit, and [`h5p-embed`](https://github.com/missing-elements/h5p-toolkit/tree/main/packages/embed#a-scorm-package-for-an-lms) writes a package as a SCORM zip:
-  SCORM 1.2, checked in Moodle, ILIAS, OpenOLAT, Chamilo, SCORM Cloud and Frappe LMS, or 2004,
-  checked in Moodle and SCORM Cloud.
+  1.2 (checked in Moodle, ILIAS, OpenOLAT, Chamilo, SCORM Cloud and Frappe LMS) or 2004 (Moodle and
+  SCORM Cloud).
 - **No tracking:** no account, cookies or telemetry, and nothing it stores leaves the learner's
   browser. The library pack comes from jsDelivr unless you serve a copy
   ([privacy](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/privacy.md)).
 - **Works offline, in the content's language:** an installable app, and H5P's own buttons in
-  English and 56 other languages.
+  English and more than fifty other languages.
 - **Tested in Chromium** on every change, in Firefox and WebKit every week and before each
   release, and in Safari on macOS and iOS by hand ([browsers](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/compatibility.md#browsers)).
 - **Part of a toolkit:** [H5P Toolkit by Missing Elements](https://github.com/missing-elements/h5p-toolkit#readme)
@@ -77,8 +77,7 @@ carries its libraries plays as it is; one exported without them, as h5p.com expo
 Packages you did not make, or a site with signed-in users: play every package `untrusted`, or
 embed the player from a domain of its own, as
 [Which setup](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/setup.md#which-setup) explains.
-[Setting up the player](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/setup.md) also covers a page without a bundler, Rollup and
-esbuild, and the one-prompt install on Lovable;
+[Setting up the player](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/setup.md) also covers a page without a bundler, Rollup and esbuild, and the one-prompt install on Lovable;
 [the element's API](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/api.md) lists every attribute, property and event.
 
 ## Documentation

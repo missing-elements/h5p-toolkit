@@ -2,7 +2,8 @@
 
 Plays an `.h5p` package in a headless browser through
 [h5p-offline-player](https://github.com/missing-elements/h5p-toolkit) and reports whether
-it works. Needs Node 22 or later; write `@latest`, since without it npm on an older Node quietly
+it works. Needs Node 22 or later and a Chromium-based browser (Chrome or Edge, else
+`npx playwright install chromium`). Write `@latest`, since without it npm on an older Node quietly
 installs the last version that supported it.
 
 ```bash
@@ -23,22 +24,25 @@ fail  course.h5p  state error
 Exit code 0: it plays (possibly with warnings); 1: it does not; 2: the check could not run.
 `report.json` and `screenshot.png` land in `<package>.verify/`.
 
-It checks that the archive indexes and carries the libraries it declares, that the runtime
-reaches `ready`, that nothing throws while booting (an error after `ready` is a warning), that the
-content drew something, and it lists failed requests, CSP blocks, a video or audio the browser
-could not play, and the build's `revision`. For an Interactive Video it reads the video's length
-from the player, a YouTube video's too. It warns of an interaction that runs past the end, which
-the player moves to end there and start earlier, and of a bookmark or a start placed after the
-end, or says that the player gave no length to hold them to. It does not judge
-correctness, suitability, accessibility or licensing: look at the screenshot.
+It checks that the archive indexes and carries the libraries it declares, that the runtime reaches
+`ready`, that nothing throws while booting (an error after `ready` is a warning) and that the
+content drew something. It lists failed requests, CSP blocks, a video or audio the browser could
+not play, and the build's `revision`.
+
+For an Interactive Video it reads the video's length from the player, a YouTube video's too. It
+warns of an interaction that runs past the end, which the player moves to end there and start
+earlier, and of a bookmark or a start placed after the end, or says that the player gave no length
+to hold them to.
+
+It does not judge correctness, suitability, accessibility or licensing: look at the screenshot.
 
 ## Played untrusted
 
 A site that plays packages it did not make plays them
-[`untrusted`](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/untrusted.md),
-as the H5P plugins treat an upload: none of the package's own code runs, its libraries come only
-from the site's pack, and its content is checked against each library's `semantics.json`.
-`--untrusted` plays it that way:
+[`untrusted`](https://github.com/missing-elements/h5p-toolkit/blob/main/docs/untrusted.md), as the
+H5P plugins treat an upload: none of the package's own code runs, its libraries come only from the
+site's pack, and its content is checked against each library's `semantics.json`. `--untrusted`
+plays it that way:
 
 ```bash
 npx @missing-elements/h5p-verify@latest course.h5p --untrusted
@@ -47,21 +51,20 @@ npx @missing-elements/h5p-verify@latest course.h5p --untrusted
 ```
 pass  course.h5p  ready in 0.83 s  revision sha256:c4fd49473b30cd97…
   warning: content check: content[2].content.params.text: markup removed: <form>, <label> ×2, <input> ×2, <button>
-  warning: content check: content[3].content.params.text: attributes removed: style; style removed: display, padding, border-radius, background-color, color, text-decoration
 ```
 
 Each warning is a field the content will lose on such a site, measured by comparing the package's
-`content.json` with what the runtime was handed. They are warnings because the content still plays.
-A package built against a library newer than the pack is refused, with what to do. The libraries
-come from the pack on jsDelivr unless `--libraries` names another; name a copy on disk, such as
-`node_modules/@missing-elements/h5p-libraries/parts`, to run the check offline.
+`content.json` with what the runtime was handed. They stay warnings because the content still
+plays. The first 20 are listed; `report.json` keeps all.
+
+The libraries come from the pack on jsDelivr unless `--libraries` names another. Name a copy on
+disk, such as `node_modules/@missing-elements/h5p-libraries/parts`, to run the check offline.
 
 ## Preview
 
-The check says whether a package starts. Whether it is right — the answers, a scenario's paths,
-what happens at a video's timestamps — is for a person to judge, by playing it. `--preview`
-checks nothing and opens the package in the real player in your browser, served from your
-computer:
+The check says whether a package starts. Whether it is right (the answers, a scenario's paths,
+what happens at a video's timestamps) is for a person to judge by playing it. `--preview` checks
+nothing and opens the package in the real player in your browser, served from your computer:
 
 ```bash
 npx @missing-elements/h5p-verify@latest course.h5p --preview
@@ -72,29 +75,26 @@ Previewing course.h5p at http://localhost:4645/
 The package stays on this computer. The preview ends when its tab is closed, or with Ctrl+C.
 ```
 
-It plays any content type the player plays, with the same player, runtime and library sources
-as the check, so `--untrusted`, `--libraries`, `--no-refresh-libraries` and
-`--no-downgrade-libraries` mean the same.
-
-The package is served with `Range`, as a static host serves it. The libraries take a few
-requests, and a video is read by the ranges the player asks for, so a large one starts at once
-and nothing is read whole or extracted to disk.
-
-The page has a Download button beside the package's name, so whoever reviews the package can
-keep the file they played.
-
-The preview ends a few seconds after its last tab closes, so an agent can start it in the
-background and leave it. `--no-open` prints the address instead of opening your default browser.
-Exit code 0 when it ends, 2 when it could not start.
+- Any content type the player plays, with the same player, runtime and library sources as the
+  check, so `--untrusted`, `--libraries`, `--no-refresh-libraries` and `--no-downgrade-libraries`
+  mean the same.
+- The package is served with `Range`, as a static host serves it: a video is read by the ranges
+  the player asks for, so a large one starts at once, and nothing is read whole or extracted to
+  disk.
+- A Download button beside the package's name lets a reviewer keep the file they played.
+- It ends 10 s after its last tab closes, or ten minutes after it starts if no tab opened, so an
+  agent can start it in the background and leave it. `--no-open` prints the address instead of
+  opening your default browser.
+- Exit code 0 when it ends, 2 when it could not start.
 
 ## Options
 
 | | |
 |---|---|
-| `--preview` | check nothing: open the package in the real player in your browser, served from your computer, until its tab is closed |
+| `--preview` | check nothing: open the package in your browser, served from your computer, until its tab is closed |
 | `--no-open` | with `--preview`, print the address instead of opening a browser |
 | `--untrusted` | play it as a site plays a package it did not make, and report what the content check removed |
-| `--libraries <sources>` | where libraries come from, tried in order: `pack` (the library pack), a bundle's URL, a bundle on disk, or a copy of the pack's `parts/` folder, which plays as `pack`; the verifier serves what is on disk itself. With the pack, a library the package carries plays at the pack's newer version, as on a site with the pack, and the summary lists each under `refreshed from the pack` |
+| `--libraries <sources>` | where libraries come from, tried in order; several go in one quoted value, as `--libraries "pack ./fallback.h5p"`: `pack` (the library pack), a bundle's URL, a bundle on disk, or a copy of the pack's `parts/` folder, which plays as `pack`. With the pack, a library the package carries plays at the pack's newer version, as on a site with the pack, and the summary lists each under `refreshed from the pack` |
 | `--no-refresh-libraries` | play the libraries the package carries even where the pack has newer ones |
 | `--no-downgrade-libraries` | fail content made for a newer minor version of a library than any source has. Without it, such content plays at the newest older minor, as on a site with the player's defaults, with a warning for each library and the list in `report.downgraded` |
 | `--out <dir>` | where the report and screenshot go |
@@ -104,9 +104,6 @@ Exit code 0 when it ends, 2 when it could not start.
 | `--json` | the report as JSON on stdout |
 | `-q`, `--quiet` | the verdict line only |
 | `-h`, `--help` | |
-
-Needs Node 22 or later and a Chromium-based browser; without Chrome or Edge, run
-`npx playwright install chromium`.
 
 ## From code
 

@@ -111,7 +111,7 @@
       </p>
 
       <h2 id="bundler">Install with a bundler</h2>
-      <p>Vite, webpack 5 and Rollup. Install it, import it once, use the element.</p>
+      <p>Vite and webpack 5. Install it, import it once, use the element.</p>
       <div class="code-tabs">
         <pre class="code" data-lang="sh" data-tab="npm">npm i @missing-elements/h5p-offline-player @missing-elements/h5p-runtime</pre>
         <pre class="code" data-lang="sh" data-tab="pnpm">pnpm add @missing-elements/h5p-offline-player @missing-elements/h5p-runtime</pre>
@@ -145,7 +145,7 @@ document.querySelector('h5p-player').runtime = runtime</pre>
         Other builders have not been tried yet.
       </p>
       <p>
-        A bundler that does not follow that pattern, esbuild among them, leaves the files behind.
+        A bundler that does not follow that pattern, esbuild and Rollup among them, leaves the files behind.
         Then serve both packages' <code>dist/</code> folders from static paths and say where they are:
       </p>
       <pre class="code" data-lang="html">&lt;h5p-player src="…"
@@ -217,10 +217,10 @@ cp node_modules/@missing-elements/h5p-libraries/libraries.txt public/h5p-librari
             assets-base="https://cdn.jsdelivr.net/npm/@missing-elements/h5p-runtime@1.0.2/dist/"&gt;&lt;/h5p-player&gt;</pre>
       <p>
         Download <code>dist/h5p-sw.js</code> from the same CDN path, place it on your site, and point
-        <code>sw</code> at it. The runtime loads from the CDN, from its own package, which
-        <code>assets-base</code> names. Putting the worker at the
-        root is safe: its scope becomes <code>/h5p/</code>, not <code>/</code>. The element warns in
-        the console when the worker and the element are different versions, so pin the version and copy the worker again whenever you change it.
+        <code>sw</code> at it. Putting the worker at the root is safe: its scope becomes
+        <code>/h5p/</code>, not <code>/</code>. The element warns in the console when the worker and
+        the element are different versions, so pin the version and copy the worker again whenever
+        you change it.
       </p>
 
       <h2 id="embed">Embed</h2>
@@ -247,9 +247,9 @@ cp node_modules/@missing-elements/h5p-libraries/libraries.txt public/h5p-librari
 &lt;script src="https://h5p-player.example.net/resizer.js"&gt;&lt;/script&gt;</pre>
       <p>
         The page sizes itself through H5P's own resizer protocol and relays xAPI statements to
-        your page on request. <code>microphone</code> and <code>camera</code> are for Audio
-        Recorder, Speak the Words and AR Scavenger: a frame from another site gets neither unless
-        the page allows it. The address also takes <code>libraries</code>,
+        your page on request. <code>microphone</code> is for Audio Recorder and Speak the Words: a
+        frame from another site gets it only if the page allows it. <code>camera</code> is for AR
+        Scavenger, which this player does not run, so you can leave it out. The address also takes <code>libraries</code>,
         <code>preload=auto</code> and the element's display options by their attribute names:
         <code>frame</code>, <code>copyright</code>, <code>export</code>, <code>icon</code>,
         <code>fullscreen=off</code>, <code>reporting</code>, <code>activity-id</code> and
@@ -269,9 +269,9 @@ cp node_modules/@missing-elements/h5p-libraries/libraries.txt public/h5p-librari
 
       <h2>Listening to it</h2>
       <p>
-        Everything the player learns arrives as a DOM event on the element. Nothing is stored
-        unless the <code>resume</code> attribute is set, and then only the content's own saved
-        state, in the browser's storage on that device.
+        Everything the player learns arrives as a DOM event on the element. Statements are not
+        stored. The content's own saved state is kept in the browser's storage on that device
+        only with <code>resume="device"</code>; with <code>resume="host"</code> it is handed to your page.
         Every statement carries <code>context.revision</code>, a fingerprint of the package it
         came from, and <code>context.platform</code>, the player's version, so a completion can be
         matched to the build the learner played; <code>player.revision</code> holds the same value.
@@ -299,11 +299,12 @@ input.addEventListener('change', () =&gt; { player.file = input.files[0] })</pre
           <tr><td><code>libraries</code></td><td>Where a package's libraries come from: <code>pack</code> for <a href="https://www.npmjs.com/package/@missing-elements/h5p-libraries" rel="noopener"><code>@missing-elements/h5p-libraries</code></a>, every H5P hub content type's libraries, one archive per library, of which only those a package needs are downloaded, from jsDelivr, and whose newer versions play in place of those a package carries; or the URL of a <code>.h5p</code> that carries library folders, which only fills gaps; or several separated by spaces, tried in order. Downloaded once and cached. Default: a package plays as it is, and one without its libraries is refused, with the missing libraries named.</td></tr>
           <tr><td><code>pack-base</code></td><td>The folder of your own copy of the pack's <code>parts/</code>, with its <code>libraries.txt</code> of licences beside it, for <code>pack</code> to come from instead of jsDelivr. With a bundler, set the <code>pack</code> property to the package's <code>pack</code> export instead.</td></tr>
           <tr><td><code>refresh-libraries</code></td><td><code>off</code> plays the libraries a package carries as exported; <code>pack</code> then only fills gaps.</td></tr>
+          <tr><td><code>downgrade-libraries</code></td><td><code>off</code> refuses content made for a newer minor version of a library than any source has. By default the newest older minor plays it, and <code>downgradedLibraries</code> says which.</td></tr>
           <tr><td><code>preload</code></td><td><code>auto</code> pulls large compressed media once the content is up, instead of when the learner presses play.</td></tr>
           <tr><td><code>untrusted</code></td><td>Plays a package you did not make as data: none of its own code runs. Its library folders are ignored and the libraries come from <code>libraries</code>, <code>pack</code> when that is not set; <code>content/</code> serves only H5P's own file types; the frame's script policy names exact paths instead of your origin; the content is checked against each library's <code>semantics.json</code>, as the H5P CMS plugins check it. A package that needs its own copy of a library is refused, and the error's <code>missingLibraries.carried</code> says so.</td></tr>
           <tr><td><code>allow-origins</code></td><td>Extra origins the frame's Content Security Policy should permit, space separated: a tenant's video host, an in-house CDN.</td></tr>
           <tr><td><code>resume</code></td><td>Keep the content's own saved state &mdash; the slide reached, the answers so far, the position in a video &mdash; in the browser's storage on that device, and pick up there on the next load of the package. <code>host</code> keeps nothing on the device: the page gets a <code>userdata</code> event on every save and hands the state back through <code>userData</code> before the next load. Default: off, nothing is kept. Nothing is sent in either case.</td></tr>
-          <tr><td><code>save-interval</code></td><td>Seconds between saves while the content runs, with <code>resume</code>. The content is also saved shortly after each completion and as the page closes. Default: 10; the H5P plugins use 30, which suits a host that sends each save to a server.</td></tr>
+          <tr><td><code>save-interval</code></td><td>Seconds between saves while the content runs, with <code>resume</code>. The content is also saved shortly after a completed or progressed statement and as the page closes. Default: 10; the H5P plugins use 30, which suits a host that sends each save to a server.</td></tr>
         </tbody>
       </table>
 
