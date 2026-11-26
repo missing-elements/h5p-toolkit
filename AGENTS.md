@@ -69,7 +69,8 @@ The player, by area:
 - [Untrusted packages and security](design/security.md): entry names, `untrusted`, the content check, the frame's policy and messages.
 
 Across the repository: build shape, types, publishing and Node versions (22 LTS or 24 LTS) in
-[`design/build.md`](design/build.md); tests and CI in [`design/testing.md`](design/testing.md);
+[`design/build.md`](design/build.md), with the two rules for writing: **a comment is two lines at
+most, and says why** (`pnpm comments` checks it), and **a doc is short, and true to the code**; tests and CI in [`design/testing.md`](design/testing.md);
 licensing and names in [`design/licensing.md`](design/licensing.md), where the player is MIT and
 carries no GPL code, reaching `@missing-elements/h5p-runtime` only over HTTP and `postMessage`; what
 is not built yet in [`design/scope.md`](design/scope.md).

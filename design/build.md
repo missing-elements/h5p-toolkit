@@ -156,6 +156,13 @@ line comment a tool reads, such as `@ts-expect-error` or `v8 ignore`, is not cou
 reads tracked code, styles, pages and workflows, and skips vendored code, build output and
 hand-written `.d.ts` files, whose comments are what an editor shows.
 
+## Docs
+
+**A doc is short, and true to the code** (#289). The READMEs, `docs/` and the demo's pages are for
+people integrating the packages: what to do and what happens, with no history and no retelling of
+this folder. Every claim is checked by running the command or reading the source; where a doc looks
+wrong, the code settles it, never a comment or this folder's account of it.
+
 ## Publishing and Node versions
 
 **The packages are published from CI, by trusted publishing** (#246). `publish.yml` is run by hand
