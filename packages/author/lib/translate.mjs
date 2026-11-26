@@ -19,12 +19,8 @@ function scriptOf(/** @type {string} */ tag) {
 }
 
 /**
- * Which of a library's translation files serve a language tag, best first: RFC 4647 lookup over
- * the files' names, so `de-AT` takes `de.json` and `pt-BR` `pt-br.json`. A shorter tag written in
- * another script is passed over: `sr.json` is Cyrillic, so `sr-Latn` takes none. Names are compared
- * in canonical form, since H5P names Northern Sami `sme`, which is `se` as a tag. Two exceptions
- * follow H5P's own naming. Norwegian Bokmål is `nb`. Chinese goes by script and never to a bare
- * `zh.json`, which is Traditional in Question Set 1.21 where the tag means Simplified.
+ * Which translation files serve a language tag, best first: RFC 4647 lookup, never across scripts
+ * (`sr-Latn` skips Cyrillic `sr.json`) nor to a bare `zh.json`, Traditional in Question Set 1.21.
  * @param {string[]} files the files' names, without `.json`
  * @param {string} language
  * @internal
@@ -46,11 +42,8 @@ export function translationFiles(files, language) {
 const PLACEHOLDER = /[:@%][A-Za-z]+/g
 
 /**
- * A translation file's `semantics` laid over a library's, position by position, as an H5P editor
- * lays it (h5peditor.js, `loadLibrary`): the text defaults it replaces, and those that stay
- * English. Only a text field's default is replaced, never a select's value. The English stays
- * where the translation has no text, the same text, or text without a placeholder the library
- * fills in, which a learner would otherwise meet as `@finals`.
+ * A translation file's `semantics` laid over a library's as an H5P editor does: a text field's
+ * default is replaced, English staying where the translation has no text or lacks a placeholder.
  * @param {any[]} fields
  * @param {unknown} translation
  * @internal
@@ -80,10 +73,8 @@ export function translateDefaults(fields, translation) {
 }
 
 /**
- * Every plain text default stored as the platforms store it, escaped: a default is what an author
- * would have left in the field, and the server escapes it on saving like anything typed there. The
- * editor puts a default in as it stands, not escaped as its text box escapes typing, so a default in
- * a field that lists `tags` is left to the server's filter, which keeps it, in a plain text box too.
+ * Every plain text default stored as the platforms store it, escaped, as the server escapes typing.
+ * The editor puts a default in unescaped, so one in a `tags` field is left to the server's filter.
  * @param {any[]} fields
  */
 function escapeDefaults(fields) {
@@ -99,11 +90,8 @@ function escapeDefaults(fields) {
  */
 
 /**
- * A library's semantics with its interface texts in a language, from the first of its own
- * translations that translates any. An H5P editor fills new content's defaults from these files
- * (h5peditor.js, `loadLibrary` and `updateCommonFieldsDefault`): every field from the translation
- * for the editor's own language, then the fields a library marks `common` from the one for the
- * content's. With no editor here, the content's language fills all.
+ * A library's semantics with its interface texts in a language, from its first translation that
+ * translates any. With no editor here, the content's language is used, and English stays wherever no translation text applies.
  * @param {any[]} semantics the library's, left as it is
  * @param {{ name: string, read: () => Promise<unknown> }[]} files its translations that serve the language, best first
  * @param {string} label the library as `H5P.Blanks 1.14`, for the report

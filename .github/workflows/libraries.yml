@@ -1,8 +1,7 @@
 name: Library pack
 
 # Rebuilds packages/libraries from the H5P hub every week and opens a pull request when a library
-# changed, saying whether every content type and h5p-author's examples play against it. The pack is
-# built deterministically, in any time zone, so an unchanged hub leaves the tree clean.
+# changed, saying whether every content type and h5p-author's examples play against it.
 
 on:
   schedule:
@@ -43,17 +42,14 @@ jobs:
           # Every library's line, `<folder>  <version>  <licence>`, FontAwesome and jQuery.ui among them.
           changes=$(git diff -U0 -- packages/libraries/libraries.txt | grep -E '^[-+][A-Za-z][^ ]*-[0-9]+\.[0-9]+  ' | sort -k1.2 || true)
           if [ -z "$changes" ]; then
-            # The files changed and no library's version, licence or authors did: the build is not
-            # deterministic, as it was once in the builder's time zone (#51), or the hub changed a
-            # library's files without a new version. Either way a pull request would say the hub
-            # changed when no library did.
+            # Files changed but no library did: the build is not deterministic (it once varied by
+            # time zone, #51), or the hub changed files without a new version.
             echo "::error::The pack's files changed, but no library in libraries.txt did. Rebuild with pnpm libraries and compare the archives' entries before releasing anything."
             git status --short -- packages/libraries | head -20
             exit 1
           fi
-          # The same for one part: a part whose library did not change is written as it was, so a
-          # new hash would make every browser download it again and give every package played
-          # with it a new revision, for no library's sake (#116).
+          # The same for a part: one whose library did not change must stay as it was, or browsers
+          # download it again and every package played with it gets a new revision (#116).
           stray=""
           for part in $(git diff --name-only -- packages/libraries/parts | sed -n 's|^packages/libraries/parts/\(.*\)\.h5p$|\1|p'); do
             case "$changes" in
@@ -89,10 +85,8 @@ jobs:
           fi
           report=$(cat "$RUNNER_TEMP/sweep/report.md" 2>/dev/null || tail -n 30 "$RUNNER_TEMP/sweep.log")
 
-          # h5p-author against the new pack, for the same reason: its own tests, then every type
-          # file's example built and played, untrusted and trusted (apps/skills), which is where a
-          # library's renamed, new or hidden field shows. The playback test drives Playwright's
-          # Chromium.
+          # h5p-author against the new pack, for the same reason: its tests and every type file's
+          # example played (apps/skills, in Playwright's Chromium), where a renamed field shows.
           pnpm --filter @missing-elements/h5p-offline-player exec playwright install chromium > /dev/null
           author_ok=true
           NO_COLOR=1 pnpm --filter @missing-elements/h5p-author test > "$RUNNER_TEMP/author.log" 2>&1 || author_ok=false

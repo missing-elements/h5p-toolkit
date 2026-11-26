@@ -10,12 +10,8 @@ import { sliceStream } from '../../src/shared/stream-utils'
 import type { ByteRange } from '../../src/shared/range'
 
 /**
- * How zip.js is allowed to read a source.
- *
- * Left to itself zip.js walks an entry in 64 kB steps through `readUint8Array`. Over a picked
- * `File` each step is a free `slice()`, which is why a large package plays fine from disk; over
- * HTTP each one is a request, and a 218 MB video meant about 3,500 round trips to the origin.
- * Providing `createReadable` is what collapses that into one.
+ * How zip.js may read a source: left alone it walks an entry in 64 kB steps, free `slice()`s over a
+ * `File` but a request each over HTTP (218 MB: about 3,500). `createReadable` makes it one.
  */
 function fakeHandle(size: number) {
   const bytes = new Uint8Array(size)
@@ -117,10 +113,8 @@ describe('sliceStream', () => {
 })
 
 /**
- * A handle that synthesises bytes per range and streams them in pieces, under the test's control
- * when it asks for it: `hold()` stops every stream at its next piece until `release(n)` lets that
- * many through, `flow()` lets everything through. It records which ranges were opened, in order,
- * how many downloads were in flight at once, and how many were cancelled.
+ * A handle that synthesises bytes per range and streams them in pieces: `hold()` stops each stream
+ * until `release(n)`, `flow()` lets all through. It records ranges, concurrency and cancellations.
  */
 function pieceHandle(size: number, type: 'range-http' | 'file' = 'range-http', piece = 64 * 1024) {
   const opened: ByteRange[] = []

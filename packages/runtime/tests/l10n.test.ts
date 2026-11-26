@@ -5,9 +5,8 @@ import { coreStrings, packTag, translationProblem } from '../scripts/l10n-rules.
 import { LANGUAGE_TAG, coreTranslations, matchLanguage } from '../src/l10n'
 
 /**
- * The committed translations in `l10n/`, held to what `scripts/build-l10n.mjs` promises, so that a
- * hand edit, a weekly refresh or a core whose strings changed under them is caught here rather
- * than in a frame; and the boot script's choice of language for a tag.
+ * The committed translations in `l10n/`, held to what `build-l10n.mjs` promises, so a hand edit or
+ * changed core strings is caught here, not in a frame; and the boot script's language choice.
  */
 
 const dir = resolve(import.meta.dirname, '..', 'l10n')

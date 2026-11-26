@@ -4,19 +4,13 @@ import { librarySources, serve } from '../../verify/lib/serve.mjs'
 import { viewPage } from './page.mjs'
 
 /**
- * The window's preview server: the player, the runtime and the library pack the extension
- * carries, a page for each package open in a preview, and the package itself as a static host with
- * `Range` serves it. It is the verifier's server (`serve`, `sendArchive`), from this checkout and
- * bundled, because a webview's own origin cannot register a Service Worker — the spec takes
- * `http` and `https` script URLs only — while a page it frames from 127.0.0.1 can.
+ * The window's preview server, the verifier's (`serve`, `sendArchive`) bundled, for player, pack
+ * and packages. A webview's origin cannot register a Service Worker; a page from 127.0.0.1 can.
  */
 
 /**
- * The ports the server tries, in order, before any free one. Each is an origin, and VS Code keeps
- * the player's worker and caches for each origin it has framed, so the address has to be the same
- * from one session to the next: the first window takes 4646, a second the next free one, and so
- * on, where any free port would be a new origin each time a window's server starts. Not the
- * command's 4645, which Open in Browser's preview takes.
+ * The ports tried in order before any free one: VS Code keeps the player's worker and caches per
+ * origin, so a window prefers the same address each session. Not the command's 4645, Open in Browser's.
  */
 export const PORTS = Array.from({ length: 10 }, (_, index) => 4646 + index)
 
@@ -24,9 +18,8 @@ export const PORTS = Array.from({ length: 10 }, (_, index) => 4646 + index)
 const ID = /^[0-9a-f]{16}$/
 
 /**
- * The id a package is served under: a hash of its URI, so that the same file has the same address
- * — and the element its caches — from one session to the next, and a changed file is a new
- * package to it by its validator, the file's size and time.
+ * The id a package is served under: a hash of its URI, so a file keeps its address and the element
+ * its caches across sessions; a changed file is new to it by its validator, its size and time.
  * @param {string} key the package's URI
  */
 export function packageId(key) {
@@ -90,9 +83,8 @@ export async function startServer({ roots, packDir, port = PORTS, restricted = (
           name: entry.name,
           src: `/__package/${view[1]}/${encodeURIComponent(entry.name)}`,
           packBase: sources.packBase,
-          // Restricted Mode is the server's to keep, not the address's: an untrusted package's
-          // content keeps its links, and one to its own page without the flag, clicked, would
-          // otherwise play it trusted. The tab's switch in a trusted workspace is the address's.
+          // Restricted Mode is the server's to keep, not the address's: an untrusted package may
+          // link to its own page without the flag, which would play it trusted.
           untrusted: restricted() || query.get('untrusted') === '1',
           newest: query.get('newest') !== '0',
           lang: languageTag(query.get('lang')),

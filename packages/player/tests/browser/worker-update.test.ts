@@ -4,11 +4,8 @@ import { MAJOR_VERSION, VERSION } from '../../src/shared/constants'
 import { FIXTURES, createPlayer, frameFetch, play, waitForSettled } from './utils'
 
 /**
- * The first load after a player update. Registering again with an unchanged script URL returns
- * the existing registration without fetching the script, so before the element checked, that load
- * booted against the old worker and the browser swapped the new one in about a second into the
- * boot. `/versioned/h5p-sw.js` is the real worker reporting whatever version the dev server is
- * told, at one URL, which is what an update looks like to the browser.
+ * The first load after a player update: registering again with an unchanged script URL returns the
+ * existing registration without fetching the script, so that load booted on the old worker.
  */
 const SW = '/versioned/h5p-sw.js'
 const SCOPE = new URL('/versioned/h5p/', location.href).href
@@ -92,9 +89,8 @@ describe('a player update', () => {
   }, 60_000)
 
   it('holds a load that starts while the update is still on its way', async () => {
-    // The element keeps its routes before it asks the worker's version, and a load that began
-    // during the wait — a visitor choosing another package while the first still loads — took
-    // them as kept and went ahead with the worker of the major before.
+    // The element keeps its routes before asking the worker's version, so a load begun during the
+    // wait (another package chosen meanwhile) went ahead with the old major's worker.
     await installVersion(`${MAJOR_VERSION - 1}.99.0`)
     await serveVersion('', 4_000)
     vi.spyOn(console, 'warn').mockImplementation(() => {})

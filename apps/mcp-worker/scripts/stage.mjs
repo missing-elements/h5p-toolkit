@@ -1,8 +1,5 @@
-// Gathers what the Worker carries beside its code into staged/, which wrangler.jsonc attaches
-// to it as modules: the library pack's parts, the h5p-author skill as the author package ships it
-// (SKILL.md, LICENSE and references/, with the brief and the type files the server answers from,
-// copied into that package from the skill first, by this package's `stage` script), and the card.
-// Only what the server reads; the folder is written anew each time and is not in git.
+// Gathers what the Worker reads as it runs into staged/, which wrangler.jsonc attaches as modules.
+// The skill is the author package's copy, which this package's `stage` script makes just before.
 import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'

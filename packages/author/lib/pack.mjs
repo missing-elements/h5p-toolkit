@@ -1,13 +1,8 @@
 import { TextWriter, Uint8ArrayReader, ZipReader } from '@zip.js/zip.js'
 
 /**
- * The library pack a build takes its libraries from: by default, in Node, the one this package was
- * released with, `@missing-elements/h5p-libraries` at the version it pins; a copy of its `parts/`
- * folder; or, in a page, the parts the page can reach. Its index says each library's version,
- * dependencies and part; a part is opened only when a build needs that library, read whole and
- * checked against the index's SHA-256 first, so a damaged or altered part is never read, let alone
- * copied into a package. How a part's bytes are reached is the environment's: `node.mjs` reads them
- * from disk, `browser.mjs` fetches them. The largest part, MathDisplay's, is 2.8 MB.
+ * The pack a build takes its libraries from: the one this package pins, a copy of its `parts/`, or
+ * in a page the parts it can reach. A part is read whole and checked against the index's SHA-256.
  */
 
 /**
@@ -21,8 +16,7 @@ import { TextWriter, Uint8ArrayReader, ZipReader } from '@zip.js/zip.js'
 
 /**
  * A library whose part has been opened: what the generator reads (`folder`, `library`,
- * `semantics`), its record in the index, and the names of its translation files, which
- * `translation` reads. The part's bytes stay inside the pack, which copies from them for a build.
+ * `semantics`), its index record and translation file names. The part's bytes stay in the pack.
  * @typedef {{ folder: string, library: any, semantics: any[] | null, index: IndexEntry, translations: string[] }} PartLibrary
  */
 

@@ -1,8 +1,6 @@
 /**
- * What the demo's pages share. The player page, the cmi5 page and the installable app each show
- * a message, keep a log, decide whether a package comes from another site and ask before playing
- * one with its own code; each once carried its own copy, and a fix to the trust decision reached
- * one page in three.
+ * What the demo's pages share: a message box, a log, whether a package is from another site, and
+ * the question before it plays with its own code. A fix once reached one page in three.
  */
 
 /** How much of a page's log is kept, newest first. */
@@ -22,14 +20,8 @@ export const logInto = (log) => (line) => {
 }
 
 /**
- * The host of a package on another site, or `null` for this site's own and for what is not a URL
- * (which the caller then reports). A package's libraries are JavaScript and the frame is
- * same-origin by design, so a package's own code runs with this origin's storage — with `resume`
- * on, the saved state of every file opened here, answers included, and the chunk store and the
- * list of what was played. A file the visitor picked, or an address they typed, is their choice;
- * a link's `?src=` is whoever wrote the link's, so one on another site plays `untrusted`, as
- * data, with the site's own libraries and none of its own, and asks for a click that names the
- * host only when it cannot play without its own code.
+ * The host of a package on another site, or `null` for this site's own or a non-URL. A package's
+ * own code runs with this origin's storage, so a link's `?src=` on another site plays `untrusted`.
  */
 export const foreignHost = (src) => {
   try {
@@ -42,10 +34,8 @@ export const foreignHost = (src) => {
 }
 
 /**
- * A package's address as the element is given it: resolved against this page, and only when it
- * is `http` or `https`. `null` for anything else, a `javascript:` or `data:` URL or text that is
- * not a URL, which the caller reports. The element gets the parsed URL's `href`, never the text,
- * so `src` holds what was checked.
+ * A package's address for the element: resolved against this page, only `http` or `https`, else
+ * `null`. The element gets the parsed `href`, never the text, so `src` holds what was checked.
  */
 export const packageUrl = (src) => {
   try {
@@ -57,10 +47,8 @@ export const packageUrl = (src) => {
 }
 
 /**
- * The question before a package from another site plays with its own code. `ask(host, go)` shows
- * the box naming the host and runs `go` on the one click; a later `ask` replaces what was
- * pending, and `dismiss()` hides the box for a load that makes the question moot. One listener,
- * however often it is asked.
+ * The question before another site's package plays with its own code: `ask(host, go)` runs `go` on
+ * the one click, a later `ask` replaces it, `dismiss()` hides the box when moot.
  */
 export const trustPrompt = (confirmBox, confirmButton) => {
   let pending = null

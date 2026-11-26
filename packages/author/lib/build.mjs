@@ -16,12 +16,8 @@ import { byNumber, LAYOUTS, placesOf, videoTimes } from './types.mjs'
 export { SourceError }
 
 /**
- * A source made a package: validated, filled in from the pack's semantics and translations,
- * its media copied and described, checked as saved content is and laid out, and written with the
- * libraries it needs, each part checked against the pack's index. Nothing is written unless all of
- * it is right: every problem the source has is listed at once, each by its path, so a fix takes one
- * round. All of it but where the files are and where the package goes is the same in Node
- * (`node.mjs`) and in a page (`browser.mjs`), and is here.
+ * The build `node.mjs` and `browser.mjs` share, but for where the files are and the package goes:
+ * a source made a package. Nothing is written unless all is right: every problem comes at once.
  */
 
 /**
@@ -50,20 +46,8 @@ const OWN = FIELDS.filter((name) => name !== 'type' && name !== 'params' && name
 export const typeNames = (pack) => [...new Set(pack.libraries.filter((entry) => !entry.installOnly).map((entry) => entry.machineName))]
 
 /**
- * A source read for a build: its own fields checked, and what it plainly means taken where it is
- * written another way, so that its content is checked in the same build (#174). A chat with no
- * skill beside it writes a source's outer shape its own way, and each of these cost it a round in
- * which nothing inside was looked at:
- *
- * - the content type under another key, `contentType` or `library`, or named loosely as `type`,
- *   "interactive-book", which only `names` can tell;
- * - the title, language, licence and authors in `metadata`, where H5P keeps them;
- * - the content's fields beside `type`, with no `params` around them.
- *
- * Each is a problem, said once with what to write. `typed` is whether the content type is known,
- * and so whether the content can be checked: `source` then stands for the source as it would be
- * written right, with a stand-in for what is missing, and is not for building while `problems`
- * has any.
+ * A source read for a build: its fields checked, and a chat's own outer shape taken as meant (#174)
+ * so the content is checked in one round. While `problems` has any, `source` is not for building.
  * @param {unknown} input
  * @param {string[]} [names] the machine names `type` may be, to tell a name written loosely
  * @returns {{ source: Source, problems: Problem[], typed: boolean }}
@@ -149,9 +133,8 @@ export function sourceOf(input, names) {
   const source = { type: typed ? String(given.type).trim() : '', title: '', language: 'en', license: 'U', authors: [], params: {} }
   if (holds(field.title, given.title, at.title, report)) source.title = given.title
   if (holds(field.language, given.language, at.language, report)) source.language = given.language
-  // A licence written with its version, "CC BY 4.0", as it is spoken of: H5P keeps the version in
-  // a field of its own. The names alone, which this problem used to list, had a chat drop the
-  // version to fit them.
+  // A licence written with its version, "CC BY 4.0", as it is spoken of: H5P keeps the version in a
+  // field of its own, and listing the names alone had a chat drop the version to fit one.
   const versioned = typeof given.license === 'string' ? /^CC[ -](BY(?:-(?:NC-SA|NC-ND|NC|ND|SA))?)[ -]v?(\d\.\d)$/i.exec(given.license.trim()) : null
   const license = versioned ? `CC ${versioned[1].toUpperCase()}` : given.license
   if (versioned) {
@@ -189,11 +172,8 @@ export function readSource(input) {
 }
 
 /**
- * The libraries a package carries: what the content names, what those need in turn, and the addons
- * the pack has whose pattern its text matches, as a site with the addon installed exports it. It is
- * the player's own plan (`planPack`) for a package that carries nothing yet, so that a package
- * carries the parts the player would take from the pack for it. The plan leaves out what the pack
- * cannot supply, which a package would then miss as it played, so that is checked.
+ * The libraries a package carries: what the content names, what those need and the addons whose
+ * pattern its text matches, by the player's own plan (`planPack`); what the pack lacks is checked.
  * @param {import('./pack.mjs').Pack} pack
  * @param {any} main the content type's `library.json`
  * @param {Record<string, unknown>} content
@@ -209,10 +189,8 @@ async function closure(pack, main, content) {
   for (const dependency of [...roots, ...planned.flatMap((entry) => entry.preloadedDependencies ?? [])]) {
     if (!supplied(dependency)) throw new Error(`The library pack cannot supply ${dependency.machineName} ${dependency.majorVersion}.${dependency.minorVersion}`)
   }
-  // Listed as the build has always listed them, depth first from the content type with each
-  // library's dependencies after it, the addons last: the runtime sorts libraries by their
-  // dependencies and keeps this order between two that do not depend on each other, which decides
-  // whose stylesheet comes later.
+  // Depth first, dependencies after each library, the addons last: the runtime keeps this order
+  // between libraries that do not depend on each other, and it sets whose stylesheet comes later.
   const byLibrary = new Map(planned.map((entry) => [`${entry.machineName} ${entry.majorVersion}`, entry]))
   /** @type {Map<string, import('./pack.mjs').IndexEntry>} */
   const ordered = new Map()
@@ -235,9 +213,8 @@ async function closure(pack, main, content) {
 }
 
 /**
- * A source naming what it was built with, the content type and the pack's version of it, beside
- * its `type`: what a build hands back to be kept with the package (#219), so that a build of it
- * with a later pack can say the type has moved.
+ * A source naming what it was built with, the content type and the pack's version, beside `type`:
+ * kept with the package (#219), so a build with a later pack can say the type has moved.
  * @param {Source} source
  * @param {string} builtWith as `libraryString` writes it, "H5P.Blanks 1.14"
  * @returns {Source}
@@ -249,8 +226,7 @@ function stamped(source, builtWith) {
 
 /**
  * A source made what a package holds, its media resolved through `media`: the manifest, the content,
- * the libraries' parts in the order the package lists them, and what is worth telling. Nothing is
- * written: the caller writes the package (`writePackage`) and its media.
+ * the libraries' parts and what is worth telling. Nothing is written: the caller writes it.
  * @template F
  * @param {Source} source as `readSource` returned it, or `sourceOf` with its content type known
  * @param {import('./pack.mjs').Pack} pack
@@ -258,11 +234,7 @@ function stamped(source, builtWith) {
  * @param {Problem[]} [said] the problems `sourceOf` found in the source's own fields, which come
  *   first among the content's: all of them in one round (#174)
  * @returns {Promise<{ source: Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>, selected: Map<string, import('./pack.mjs').PartLibrary>, install: Map<string, import('./pack.mjs').PartLibrary>, coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], lengths: import('./media.mjs').MediaLength[], outline: string }>}
- *   `selected`, the libraries the package plays with; `install`, those an H5P site's upload check wants with them; `coreApi`, the
- *   newest H5P core any of them asks for (`coreApiOf`); `outline`, the
- *   content as text for a review (`outlineOf`), made when it is first read; `builtWith`, the
- *   content type and the version the pack has of it, and `source`, the source naming it (`stamped`);
- *   `lengths`, the length of each video an Interactive Video's times were held to (#260)
+ *   `selected`, the libraries it plays with; `install`, those an H5P site's upload check wants
  * @internal
  */
 export async function composePackage(source, pack, media, said = []) {
@@ -310,16 +282,8 @@ export async function composePackage(source, pack, media, said = []) {
     Object.assign(value, resolved)
   }
 
-  // Checked last as saved content is, as a tool that changes a package checks it: the layouts set
-  // what the editor's widgets set and check what they would not let pass. Where the source has a
-  // problem already, the check finds the same one again, or the gap it left: a value missing
-  // where the generator refused what was written inside it. Only what it finds elsewhere is added.
-  // Since #172 it is named by where the source has it, which is another place than the content's
-  // for what the generator moved to its field; such a move is a problem of the source's, but
-  // nothing was refused there, so what the check finds inside it is added like any other. And
-  // what it says of a list an item of which was refused, or of anything in one, is left out: the
-  // list it counted is shorter than the one written, its items at other indices, so a book whose
-  // chapters were all refused had "0 items" besides.
+  // Checked last as saved content is. Only what it finds beyond the source's problems is added
+  // (#172), not what it says of a list with a refused item: its count and indices are off.
   const checked = checkContent({ entries, main: mainLibrary, translations }, { type: libraryString(mainLibrary.library), params: generated })
   const fromSource = [...problems]
   const moves = new Set(generator.moved.map(({ from }) => from))
@@ -394,12 +358,8 @@ export async function composePackage(source, pack, media, said = []) {
 }
 
 /**
- * What a package holds but its media, in the order a package streams in: its manifest, the
- * libraries it plays with, each part's own files copied as they are, the content, the media
- * `media` writes, then the libraries an H5P site's upload check wants, which nothing reads as the
- * package plays: on a host without `Range` the frame boots and the media arrive before them. A
- * page's build writes the package once, so the order is this one; Node's has the normalizer keep
- * it (`last`) as it moves an mp4's index first.
+ * What a package holds but its media, in the order it streams: manifest, playing libraries,
+ * content, media, then the libraries for an upload check, which nothing reads as it plays.
  * @param {import('@zip.js/zip.js').ZipWriter<unknown>} writer
  * @param {{ manifest: Record<string, unknown>, content: Record<string, unknown>, selected: Map<string, import('./pack.mjs').PartLibrary>, install: Map<string, import('./pack.mjs').PartLibrary> }} built
  * @param {import('./pack.mjs').Pack} pack

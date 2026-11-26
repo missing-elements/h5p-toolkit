@@ -88,17 +88,14 @@ describe('playing a package', () => {
     const oldRevision = player.revision!
     const oldButton = frameDocument(player).querySelector<HTMLButtonElement>('.h5p-offline-test-complete')!
 
-    // Hold the next load's probe open, so the old document is still in the frame and the new
-    // package has no id yet — the window a straggler slips through.
-    // A host of its own (`host=`): the stalling-host tests run in parallel with outages of theirs.
+    // Hold the next load's probe open: the old document is still in the frame and the new package
+    // has no id yet (a straggler's window). Own `host=`, as other files run in parallel.
     await fetch('/stalling/__outage?ms=3000&mode=silent&host=straggler', { cache: 'no-store' })
     try {
       const xapi = waitForEvent<{ statement: { context?: { revision?: string } } }>(player, 'xapi', 2_500)
       player.setAttribute('src', '/stalling/streamed.h5p?host=straggler')
-      // A learner's last click in the old content is still a statement about the old package.
-      // Removing the iframe's src takes it to about:blank in Chromium, so the statement may well
-      // arrive after the document that sent it has gone, with no `event.source`: run alone,
-      // this test caught exactly that 14 times in 15 before the element accepted it.
+      // A learner's last click is still about the old package, but the frame is at about:blank in
+      // Chromium, so it may lack `event.source` (14 runs in 15 before the element accepted it).
       oldButton.click()
       expect((await xapi).detail.statement.context?.revision).toBe(oldRevision)
     } finally {
@@ -180,10 +177,8 @@ describe('playing a package', () => {
   })
 
   it('leaves the page’s history alone, package after package and when emptied', async () => {
-    // Setting the frame's `src` for every package added two Back steps per switch and one per
-    // clear, which walked the frame through old packages before the page itself. Counted from
-    // before the first package. WebKit added a step for that one too, from setting `src` — only in
-    // a top-level page, not in this runner's frame, so the demo app's tests are what catch it.
+    // Setting the frame's `src` per package added two Back steps per switch, one per clear. WebKit
+    // added one more, only in a top-level page, so the demo app's tests are what catch that.
     const before = history.length
     const player = await play(FIXTURES.basic)
     expect(history.length).toBe(before)
@@ -215,9 +210,8 @@ describe('playing a package', () => {
   })
 
   it('plays a package whose library folders carry no version', async () => {
-    // Older packages are built this way. Each library is looked for under the versioned name
-    // first, and the 404 it gets is what sends the lookup to the bare one, so that 404 has to be a
-    // clean 404 rather than an error.
+    // Older packages are built this way: the versioned lookup's 404 sends it to the bare name, so
+    // that 404 must be a clean one rather than an error.
     const player = await play(FIXTURES.unversioned)
 
     expect(player.state).toBe('ready')
@@ -263,9 +257,8 @@ describe('playing a package', () => {
     const player = await play(FIXTURES.basic)
     const frame = frameDocument(player)
 
-    // The faces are out of the core sheet so that a bundler can emit each file; the document
-    // declares them against the URLs the element resolved. Nothing is fetched until a face is
-    // used, so load one the way a theme would, and check the browser got it.
+    // The document declares the faces against the URLs the element resolved; nothing is fetched
+    // until a face is used, so load one as a theme would and check the browser got it.
     const faces = [...frame.fonts].filter((face) => face.family.replace(/["']/g, '') === 'Inter')
     expect(faces).toHaveLength(6)
     const loaded = await frame.fonts.load('600 16px Inter')
@@ -288,9 +281,8 @@ describe('playing a package', () => {
 
   it('completes the resizer handshake, which is what frees the content to size itself', async () => {
     const player = await play(FIXTURES.basic)
-    // The core sends `prepareResize` only after the element's `hello` reply, and the boot script
-    // posts `ready` right after `H5P.init()`, so the first `resize` always follows `ready`; a
-    // handshake that broke would show below as a document still at full height.
+    // The core sends `prepareResize` only after the element's `hello` reply and `ready` follows
+    // `H5P.init()`, so the first `resize` follows `ready`; a broken handshake shows as full height.
     await waitForEvent(player, 'resize').catch(() => undefined)
 
     // H5P sets these on its document only once the embedder has answered its `hello`.
@@ -322,9 +314,8 @@ describe('playing a package', () => {
     const content = () => Math.round(doc.getElementById('h5p-root')!.getBoundingClientRect().height)
     const before = content()
 
-    // A face the text asks for before it has loaded, three times the fallback's size once it has:
-    // nothing in the content raises a resize when it arrives. Its file is one the frame declares,
-    // so the frame's policy lets it through, with a query that keeps it from any cache.
+    // A late face at three times the fallback's size, which nothing resizes for. Its file is one
+    // the frame declares, so the policy passes it; the query keeps it from any cache.
     const inter = [...doc.styleSheets]
       .flatMap((sheet) => [...sheet.cssRules])
       .find((rule): rule is CSSFontFaceRule => rule instanceof view.CSSFontFaceRule && rule.style.getPropertyValue('font-family').replace(/["']/g, '') === 'Inter')!

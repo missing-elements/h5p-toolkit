@@ -1,9 +1,6 @@
 /**
- * The demo's `/demo/scorm.html`: the SCORM page `@missing-elements/h5p-embed` writes into a player
- * domain, run with the demo's own copies — the pack's parts as Vite emits them, the launch page,
- * the bridge, the stylesheet and the pack's licence list as strings — and the player's files from
- * the site root, where the build puts them. One script for both, so what the demo offers is what
- * a host's own site offers.
+ * The demo's `/demo/scorm.html`: the SCORM page `@missing-elements/h5p-embed` writes, run with the
+ * demo's own pack, launch page and bridge, so the demo shows what a host gets.
  */
 
 import { startScormPage } from '@missing-elements/h5p-embed/scorm-page.js'

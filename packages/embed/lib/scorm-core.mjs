@@ -4,11 +4,8 @@ import { dependenciesIn, indexLibraryFolders, librariesNamedIn, ownLibraries, pl
 import { EmbedError, PLAYER_FILES } from './shared.mjs'
 
 /**
- * What the SCORM package is, wherever it is written. The command's `buildScorm` in Node and the
- * page's `buildScormInPage` in a browser read the package and plan its parts here, lay out the
- * same entries and write them the same way, and differ only in where the bytes come from and
- * where the zip goes: so a zip built in a browser is the zip the command writes, which is what
- * the LMSs were checked with. No Node import, so the page's bundle carries this as it is.
+ * What the SCORM package is, wherever it is written: Node's `buildScorm` and the page's
+ * `buildScormInPage` share this, so both write the zip the LMSs were checked with. No Node import.
  */
 
 /** What the zip calls the package; the launch page plays it by this name. */
@@ -17,9 +14,8 @@ export const PACKAGE = 'package.h5p'
 export const LIBRARIES = 'libraries'
 
 /**
- * The runtime's `dist/` as a page has to name it, since a folder on a server cannot be listed:
- * every file but the fonts, which `MANIFEST.json` names. Node lists the folder instead, and the
- * test of the page's build holds the two to each other, so a file the runtime adds shows up there.
+ * The runtime's `dist/` as a page has to name it, as a server's folder cannot be listed: every file
+ * but the font files, which `MANIFEST.json` names. The page build's test holds Node's list to it.
  */
 export const RUNTIME_FILES = ['frame.bundle.js', 'frame-boot.js', 'h5p.css', 'l10n.js', 'LICENSE.txt', 'NOTICE.txt', 'MANIFEST.json', 'fonts/Inter-LICENSE.txt', 'fonts/OpenSans-OFL.txt']
 
@@ -55,10 +51,8 @@ function languageTag(value) {
 }
 
 /**
- * What a zip is written as: the SCORM version, 1.2 unless 2004 4th Edition is asked for; a pass
- * mark out of 100, or `null` for the content's own result; and whether content that finishes
- * without a score counts as 100. Each is off unless asked for, and a zip written with none is
- * the one written before any existed.
+ * What a zip is written as: the SCORM version (1.2 or 2004), a pass mark out of 100 or `null`, and
+ * whether a finish without a score counts as 100. None set, the zip is as before they existed.
  * @typedef {{ scormVersion: '1.2' | '2004', passMark: number | null, completionScore: boolean }} ScormOptions
  */
 
@@ -79,10 +73,8 @@ export function scormOptions({ scormVersion, passMark, completionScore } = {}) {
 }
 
 /**
- * The manifest: one organisation with one item, played by one SCO, the launch page. Every file is
- * listed, which Moodle does not need and some LMSs do. SCORM 1.2's, the pass mark as the item's
- * mastery score; or SCORM 2004 4th Edition's, the pass mark as its primary objective's least
- * measure, satisfied by the score, from which the LMS sets `cmi.scaled_passing_score`.
+ * The manifest: one item, one SCO (the launch page), every file listed as some LMSs need. The pass
+ * mark is the mastery score in 1.2 and the primary objective's least measure in 2004.
  * @param {{ identifier: string, title: string, files: string[], options: ScormOptions }} manifest
  */
 function manifestXml({ identifier, title, files, options: { scormVersion, passMark } }) {
@@ -227,9 +219,8 @@ export async function sha256Hex(data) {
 }
 
 /**
- * The build stamp a learner's saved place is kept against: the package's SHA-256, or, with parts
- * of the pack, one over its and theirs, so a zip written with other libraries starts learners
- * over, as a refreshed package does in the player; its first 16 hex digits.
+ * The build stamp a learner's saved place is kept against: the first 16 hex digits of the package's
+ * SHA-256, or with pack parts one over theirs too, so other libraries start learners over.
  * @param {string} packageSha256 the package's, as hex
  * @param {PackPart[]} parts
  */
@@ -240,10 +231,8 @@ export async function buildStamp(packageSha256, parts) {
 }
 
 /**
- * The package's title, as the LMS lists it: the one chosen for the zip, by `--title` or on the
- * page, else `h5p.json`'s, else the file's name; with the control characters XML refuses read as
- * spaces, since a title pasted in can carry one. A chosen title that is empty, or only spaces,
- * leaves the default.
+ * The package's title as the LMS lists it: the one chosen, else `h5p.json`'s, else the file's name.
+ * An empty one leaves the default, and control characters, which XML refuses, read as spaces.
  * @param {unknown} manifest `h5p.json`, parsed
  * @param {string} fallback the file's name without its extension
  * @param {unknown} [chosen] the title chosen for the zip
@@ -255,9 +244,8 @@ export function scormTitle(manifest, fallback, chosen) {
 }
 
 /**
- * The package's main library, as `h5p.json` names it, with the version its
- * `preloadedDependencies` give it; `null` when it names none, and no version when the
- * dependencies do not list it.
+ * The package's main library, as `h5p.json` names it, with the version its `preloadedDependencies`
+ * give it; `null` when it names none, and no version when they do not list it.
  * @param {unknown} manifest `h5p.json`, parsed
  * @returns {{ machineName: string, majorVersion?: number, minorVersion?: number } | null}
  */
@@ -271,9 +259,8 @@ export function mainLibraryOf(manifest) {
 }
 
 /**
- * What the package declares and carries, and what the pack adds, read before anything is
- * written: `h5p.json`, and the parts of the pack the zip carries, by the player's own plan.
- * Refuses a package that needs a library neither it nor the pack has.
+ * What the package declares and carries, and what the pack adds, read before anything is written,
+ * by the player's own plan. Refuses a package that needs a library neither it nor the pack has.
  *
  * @param {Blob} blob the package
  * @param {string} name what to call it in a message
@@ -358,16 +345,13 @@ export async function readPackage(blob, name, pack, { useWebWorkers = false } = 
  */
 
 /**
- * What the zip is made of, gathered by whoever has the files: the launch page's template and
- * the bridge and stylesheet beside it; the player's files by name; the runtime's by path under
- * `frame-assets/`; the package; the parts of the pack by folder; and the pack's licence list,
- * when parts are carried.
+ * What the zip is made of, gathered by whoever has the files: the launch files, the player's and
+ * the runtime's, the package, and the pack's parts and licence list when parts are carried.
  * @typedef {object} ScormFiles
  * @property {string} launch the launch page's template, `scorm/index.html`
  * @property {Blob} bridge `scorm/scorm.js`
- * @property {Blob | null} lz `scorm/lz-string.js`, which the bridge compresses the saved state
- *   with; without it the launch page names none, and the state is written plain, as embed 1.4
- *   wrote it
+ * @property {Blob | null} lz `scorm/lz-string.js`, which the bridge packs the saved state with;
+ *   without it the state is written plain, as embed 1.4 did
  * @property {Blob} css `embed.css`
  * @property {Map<string, Blob>} player the player's files, by name
  * @property {Map<string, Blob>} runtime the runtime's files, by path under `frame-assets/`
@@ -377,9 +361,8 @@ export async function readPackage(blob, name, pack, { useWebWorkers = false } = 
  */
 
 /**
- * Everything the zip holds, in the order it is written, with the manifest that lists it: the
- * launch page filled in with the content's language, the title and the build, and naming the
- * zip's own copy of the pack when it carries one.
+ * Everything the zip holds, in the order it is written, with the manifest that lists it; the launch
+ * page is filled in with the language, title and build, and names the zip's own pack copy if any.
  *
  * @param {object} input
  * @param {any} input.manifest `h5p.json`, parsed
@@ -442,10 +425,8 @@ export function scormEntries({ manifest, source, title, build, version, packVers
 }
 
 /**
- * Adds a file that is compressed already as a stored entry. Written into a stream, an entry gets a
- * data descriptor, and a Java ZipInputStream refuses a stored entry that has one: SCORM Cloud
- * refused exactly those (#92). Passed through with its size and CRC, it gets a complete local
- * header instead, and is still streamed, not held.
+ * Adds a compressed file as a stored entry. Streamed, a stored entry gets a data descriptor, which
+ * SCORM Cloud's Java ZipInputStream refuses (#92); passed through with size and CRC it gets none.
  * @param {import('@zip.js/zip.js').ZipWriter<unknown>} zip
  * @param {string} name
  * @param {Blob} blob

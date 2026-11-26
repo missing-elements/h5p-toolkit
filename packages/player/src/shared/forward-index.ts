@@ -1,27 +1,6 @@
 /**
- * A forward index of a zip: the entries readable from its local headers alone, in the order the
- * bytes arrive, without the central directory that sits at the end of the file.
- *
- * A host that ignores `Range` forces the whole archive down before the central directory can be
- * read, and with it every entry — including the ones that arrived in the first second. Walking
- * the local headers as they stream in recovers those entries early, so a package laid out
- * libraries-first (the PHP exporter's order) can boot while its media is still downloading.
- *
- * Two things the format does that a forward walk has to survive:
- *
- * - **Data descriptors** (general-purpose bit 3). A writer that streams cannot know an entry's
- *   compressed size before it has written the data, so it writes zeros in the local header and the
- *   real sizes *after* the data. h5p.com's exporter does this for every entry. There is no length
- *   to skip by, so the data is scanned for the descriptor signature and a candidate is accepted
- *   only when the compressed size it carries equals the number of bytes seen since the data began
- *   — a 64-bit coincidence for a false positive. A writer that omits the optional signature leaves
- *   the entry unresolvable; the scanner then stops and the central directory decides at the end.
- * - **zip64**. Sizes of `0xFFFFFFFF` in the header defer to the zip64 extra field, and an entry
- *   whose header carries that field writes 8-byte sizes in its descriptor.
- *
- * Nothing here is trusted further than the central directory would be: names go through the same
- * normalisation as everything else, and the snapshot is replaced by the real index once the whole
- * archive is present.
+ * A forward index of a zip: the entries readable from local headers alone, as bytes arrive, so a
+ * `Range`-less download can boot before the central directory. Names are normalised like any other.
  */
 import { LOCAL_HEADER_FIXED_SIZE, LOCAL_HEADER_SIGNATURE } from './local-header.js'
 
@@ -211,7 +190,8 @@ export class LocalHeaderScanner {
     this.consume(headerLength)
 
     if (flags & FLAG_DESCRIPTOR) {
-      // Sizes come after the data. Nothing to skip by, so the data is scanned for them.
+      // Sizes come after the data (h5p.com's exporter does this), so it is scanned for them.
+      // Without the optional signature the scan runs to the end of input, then the central directory decides.
       this.state = { kind: 'descriptor', entry }
       return true
     }
@@ -221,11 +201,8 @@ export class LocalHeaderScanner {
   }
 
   /**
-   * Looks for the descriptor that ends `entry`. Returns false when more bytes are needed.
-   *
-   * A candidate is the signature followed by a compressed size equal to the bytes seen since the
-   * data began. Bytes that cannot start a candidate that fits are consumed; the last few are kept,
-   * since a descriptor can straddle two chunks.
+   * Looks for the descriptor that ends `entry`; false when more bytes are needed. A candidate is
+   * the signature plus a compressed size equal to the bytes seen (a false hit is a 64-bit chance).
    */
   private findDescriptor(entry: HeaderFields): boolean {
     const { buffer } = this

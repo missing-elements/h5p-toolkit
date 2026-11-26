@@ -8,11 +8,8 @@ import { busyPackages } from '../../src/shared/locks'
 import { FIXTURES, clearPackageCaches, createPlayer, frameFetch, play, settle, virtualUrl, waitFor, waitForEvent, waitForSettled } from '../browser/utils'
 
 /**
- * The player against a browser that has no room left. The quota is the real one, capped through
- * the same DevTools override as "simulate custom storage quota", so the writes that fail are the
- * ones that would fail on a full disk — in the Service Worker and in the Jobs worker, where a
- * test page cannot reach. Its own Vitest project, because the override is per browser profile
- * and would otherwise land on whatever other test file happened to be running.
+ * The player against a browser with no room left: the real quota, capped as DevTools' "simulate
+ * custom storage quota" does, so the writes that fail, in both workers, are a full disk's.
  */
 
 const setQuota = (quotaSize?: number) =>

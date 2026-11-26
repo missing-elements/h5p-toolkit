@@ -1,20 +1,6 @@
 /**
- * The installable app's Service Worker, scope `/app/`. One worker does two jobs, in this order:
- *
- * 1. The player's routes. `mountH5P` answers `/app/h5p/…` — the virtual file server and the
- *    frame documents — and leaves every other request alone. This is the setup the player's
- *    guide describes for a host that allows one worker per origin, and here it is required, not
- *    chosen: the frame is a client of whichever worker serves it, so the frame's own requests for
- *    the runtime, its stylesheet and its fonts come to this worker, and only this worker can
- *    answer them from the precache when there is no network. A second worker beside ours would
- *    never see them.
- * 2. The app shell. Everything the app needs to start with no network — this page, its scripts
- *    and styles, the element, the runtime and the fonts — is cached on install and served from
- *    the cache first. The list is written in by `scripts/build-demo.mjs` from what the build
- *    produced; in dev it is empty, and everything goes to the dev server.
- *
- * `mountH5P` calls `skipWaiting` on install and `clients.claim` on activate, so a new version
- * takes over at once, and the page that was open picks up the new shell on its next load.
+ * The app's Service Worker, scope `/app/`: the player's routes (`mountH5P`), then the shell from
+ * the precache. One worker: the frame's requests come to it, so only it can answer them offline.
  */
 import { configure } from '@zip.js/zip.js'
 import { mountH5P } from '@missing-elements/h5p-offline-player/sw'
@@ -22,6 +8,7 @@ import { mountH5P } from '@missing-elements/h5p-offline-player/sw'
 // A Service Worker cannot spawn a nested Worker, so zip.js has to inflate in place.
 configure({ useWebWorkers: false })
 
+// Calls `skipWaiting` on install and `clients.claim` on activate: a new version takes over at once.
 mountH5P(self)
 
 /* global __APP_PRECACHE__ */

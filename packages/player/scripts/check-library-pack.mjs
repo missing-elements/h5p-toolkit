@@ -1,10 +1,6 @@
 /**
- * Refuses to publish a player whose `libraries="pack"` names a library pack that is not on npm,
- * or one published with another index than this checkout's. The version is stamped from
- * packages/libraries, which the weekly refresh bumps on a branch; a player released after merging
- * that branch but before publishing the pack would send every stripped export to a 404. And the
- * worker carries this checkout's `parts/index.json` (`PACK_INDEX`) and refuses a part whose hash
- * it does not name, so a pack published from other bytes would be refused part by part.
+ * Refuses a player whose pack version is not on npm (the weekly bump can merge before its publish,
+ * a 404) or was published from another index than the worker's `PACK_INDEX`: it checks every hash.
  */
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

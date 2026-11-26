@@ -4,11 +4,8 @@ import type { H5PPlayerElement } from '../../src/h5p-offline-player'
 import { FIXTURES, frameDocument, frameWindow, play } from './utils'
 
 /**
- * Content written for an older minor than the one served. The library pack keeps one minor per
- * major, so a stripped export written before the pack's versions plays against newer code, and a
- * library's code assumes its `upgrades.js` steps have run on the parameters: the platforms run
- * them when they install a newer minor. The frame runs them before the runtime starts. The
- * fixture's steps append their version to the text they change, so the text says which ran.
+ * Content for an older minor: newer code assumes its `upgrades.js` steps ran on the parameters, so
+ * the frame runs them first. The fixture's steps append their version to the text.
  */
 describe('content written for an older minor', () => {
   interface Instance {

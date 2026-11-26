@@ -1,10 +1,7 @@
 name: Content types
 
-# Plays every content type in the library pack — its content generated from its semantics and
-# apps/demo/sweep/ — untrusted and trusted, and fails when one does not boot or does not end with
-# the `finished` its file expects. Every Monday after the pack's refresh, and by hand; the refresh
-# runs it on its own pull request too. The report is the run's summary; the packages and
-# screenshots are an artifact.
+# Plays every content type in the library pack, untrusted and trusted, and fails when one does not
+# reach `ready` or errors while booting. Runs after the pack's refresh, which runs it too.
 
 on:
   schedule:

@@ -121,10 +121,8 @@
           Choose file
           <input type="file" id="file" accept=".h5p,application/zip" />
         </label>
-        <!-- The element's two modes, for whatever the visitor plays next; whether a library the
-             package carries plays at the pack's newer version; and whether content made for a
-             newer version than the pack has plays at its older one: changing any of them plays
-             the current package again. See demo/player-page.js. -->
+        <!-- The mode, whether a carried library plays at the pack's newer version, and whether
+             newer content plays at an older one: changing any replays the package. -->
         <div class="mode-row">
           <div class="mode" role="radiogroup" aria-label="How to play the package" aria-describedby="mode-note">
             <label><input type="radio" name="mode" value="trusted" checked />Trusted</label>
@@ -159,9 +157,8 @@
         <span class="mode-tag" id="mode-tag" hidden></span>
       </div>
 
-      <!-- The live region is on the page from the start and the message is put into it, which is
-           what screen readers announce reliably; a region that appears with its text already
-           in it may be read or may not. -->
+      <!-- The live region is on the page from the start and the message is put into it: screen
+           readers announce that reliably, not a region that appears with its text in it. -->
       <div role="status" aria-live="polite">
         <p class="message" id="message" hidden></p>
       </div>
@@ -175,13 +172,11 @@
       </p>
 
       <!-- H5P's own action bar under the content: Reuse downloads the package, Rights of use shows
-           the licences from its h5p.json and its media, Embed offers this site's /embed around it (the code is set per load in demo/player-page.js, since
-           it names the package URL). -->
+           its licences, Embed offers this site's /embed (set per load in demo/player-page.js). -->
       <h5p-player preload="auto" frame copyright export embed></h5p-player>
 
-      <!-- Once something has been played: GitHub's bug report form, filled in from this page's log,
-           for the visitor to read and send. Nothing leaves the page on its own; see reportUrl in
-           demo/player-page.js. -->
+      <!-- Once something has been played: GitHub's bug report form, filled in from this page's log.
+           Nothing leaves the page on its own; see reportUrl in demo/player-page.js. -->
       <p class="report" id="report-row" hidden>
         <button type="button" id="report" aria-describedby="report-note">My file does not play</button>
         <span id="report-note">Opens a bug report on GitHub, filled in from the events below, for you to check and

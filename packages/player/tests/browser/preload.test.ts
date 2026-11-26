@@ -4,16 +4,8 @@ import type { H5PPlayerElement, PlayerProgressDetail } from '../../src/h5p-offli
 import { FIXTURES, clearPackageCaches, createPlayer, waitForEvent, waitForSettled } from './utils'
 
 /**
- * Pulling large deflated media before the content asks for it.
- *
- * The lever exists because a deflate stream has no restart points: the runtime asking for the
- * tail of a big entry — where a non-faststart mp4 keeps the index it cannot decode without —
- * waits for the entire extraction. Nothing shortens that wait, so the only thing left is to
- * start it while the learner is still reading the first slide.
- *
- * `content/media/unused.bin` in the fixture is referenced by nothing, so an extraction of it can
- * only have been started ahead of demand. `content/media/big.bin`, which the content does render
- * as a video, cannot tell the two apart and is deliberately not asserted on.
+ * Pulling deflated media before the content asks: a deflate stream cannot restart, so a tail read
+ * waits for it all. `unused.bin` is unreferenced, so its extraction can only be a prefetch.
  */
 
 const UNREFERENCED = 'content/media/unused.bin'

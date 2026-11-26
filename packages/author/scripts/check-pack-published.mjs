@@ -1,15 +1,6 @@
 /**
- * Refuses to publish the author package while what it pins is not on npm. Both pins are
- * `workspace:*`, which pnpm publishes as the exact version the workspace has. The library pack:
- * after the weekly refresh bumps it, a release made before the pack is published would not
- * install, and one built against other parts would check them against an index npm does not
- * serve. The player, whose `./plan` the build imports: a release made before the player's would
- * not install either, and one pinned to a player published before `./plan` existed would install
- * and fail on its first import, so the version on npm has to export it. And the normalizer, a
- * range from the version packages/normalize has, whose `./crc32` the page's build imports (#108):
- * that version has to be on npm with it, or a page's build fails on its first import. The page's
- * build also imports `faststartPlan` from its `./mp4` (#218), which npm's record of a version does
- * not list, so the version itself is held to the first that has it.
+ * Refuses to publish while what the package pins is not on npm (the library pack, the player's `./plan`, the
+ * normalizer's `./crc32`: #108), else it fails to install; `./mp4` is only a version floor, `NORMALIZER_FLOOR` (#218).
  */
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

@@ -3,35 +3,8 @@ import { addonPatterns, dependenciesIn, textMatches } from '../shared/content-li
 import { parseLibraryFolder } from '../shared/library-folders.js'
 
 /**
- * Which parts of the library pack a package needs, and which of its own library folders the
- * pack's newer versions replace. Pure, so the rules are tested in Node; the worker gathers what a
- * package carries and what its content names, and attaches what this returns.
- *
- * - **Refresh.** A library the package carries plays at the pack's version when the pack has the
- *   same major at a higher version, minor first, then patch, as an H5P site keeps one patch of
- *   each minor, the newest it has seen, and moves content to a newer minor with H5P's content
- *   upgrade. Equal or older in the pack, or only another major there: the package's own. The
- *   own folder is withheld and requests for it resolve to the part's, so a folder is always
- *   served whole from one archive, and the frame upgrades the content to the version served.
- *   Only a library whose patch is known is refreshed, one whose `library.json` was read, and the
- *   reader reads those the content reaches: a library nothing plays, such as an editor library
- *   carried for an H5P site's upload check, stays as it is (#148).
- * - **Fill.** What the package needs and does not carry comes from the pack: what `h5p.json`
- *   declares, the sub-content its parameters name, and what each library's `library.json` asks
- *   for in turn. Off while a source listed before the pack is still to be tried.
- * - **What a part needs** always comes from the pack, fill or not: a part is useless without it.
- *   Where the package carries an older minor of such a library, the part's version replaces it.
- * - **Addons**, as the platforms add them when content is saved: a library whose `addTo` pattern
- *   matches a string in the parameters, H5P.MathDisplay for LaTeX. Added when the pack refreshes
- *   or fills anything, the pack standing in for the platform's installed libraries; a package
- *   played as exported, with nothing from the pack, gets none, as on a site without the addon.
- * - **Downgrade**, once the load asks for it: what the content names at a newer minor than the
- *   pack has comes from the pack's older one, unless the package carries, or a source already
- *   provides, a version at least as new as the pack's (#85). The reader then serves the newest of
- *   them for the version named.
- *
- * Taking the newest version of each library satisfies every dependency on both sides, since each
- * side's requests are already met by its own versions: the pack's index is complete in itself.
+ * Which parts of the library pack a package needs, and which of its own library folders the pack's
+ * newer version of the same major replaces. Pure, so Node tests the rules; the worker feeds it.
  */
 
 /** A library folder the package carries, as its `library.json` says, when that was read. */
@@ -59,17 +32,8 @@ export interface ProvidedLibrary {
 }
 
 /**
- * What a package carries of its libraries, for the plan, from its library folders: the top-level
- * folders holding a `library.json`. With `read`, each folder's `library.json` gives the version,
- * patch included, and the dependencies; without it — a `library.json` read is two ranged requests
- * over HTTP until the warm has cached it — the folder's name gives the version and the rest is
- * left unknown, which leaves the library as it is and its dependencies to the next look; a folder
- * whose name gives no version, an unversioned one, is the library at a version unknown, which is
- * how the runtime takes it too, falling back to the bare name. A `library.json` that does not
- * parse, or a folder named for another library, is left out. `readable`, when given, says which
- * folders `read` is for; the others are taken by their names, as without it.
- * `PackageReader.ownLibraries` reads only the folders the content reaches (#148), and the SCORM
- * writer every one (#109).
+ * What a package carries of its libraries, from its top-level folders holding a `library.json`: read
+ * where `read` is given and `readable` allows, else by folder name (cheaper). A bad or mismatched `library.json` drops it.
  */
 export async function ownLibraries(
   folders: Iterable<string>,
@@ -160,13 +124,12 @@ export function planPack(input: PlanInput): PackPlan | null {
 
   if (input.refresh) {
     for (const library of input.own) {
+      // Only a library read from its `library.json` has a patch: one nothing plays stays (#148).
       if (library.patch === null || library.major === null) continue
       const candidate = byLibrary.get(libraryKey(library.machineName, library.major))
       if (!candidate || !newer(candidate, library)) continue
-      // A bundle listed before the pack has this major already, and would answer for the folder
-      // withheld: under the part's own folder name, which then is never planned, or at a lower
-      // minor, the first a request resolves to. The package keeps its own, as a bundle there
-      // fills gaps only, rather than playing the bundle's version reported as the pack's (#58).
+      // A bundle listed before the pack with this major would answer for the withheld folder: the
+      // package keeps its own, as a bundle fills gaps only and must not pass for the pack's (#58).
       if (input.provided.some((each) => each.machineName === library.machineName && each.major === library.major)) continue
       supersede(library, candidate)
       queue.push(...plan(candidate))
@@ -225,6 +188,8 @@ export function planPack(input: PlanInput): PackPlan | null {
   queue.push(...input.roots.map((dependency) => ({ dependency, fromContent: true })))
   resolve()
 
+  // Addons, as platforms add them on save, when refreshing or when a part is planned: a package
+  // played as exported, with nothing from the pack, gets none.
   if (input.refresh || planned.size > 0) {
     for (const addon of served) {
       if (addon.addTo === undefined) continue

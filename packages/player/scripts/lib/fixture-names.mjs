@@ -1,7 +1,6 @@
 /**
- * The archives `build-fixtures.mjs` generates, and so the only ones it clears and the only ones
- * the demo build ships. `public/fixtures/` may hold real packages dropped in to try against the
- * dev server; those are neither wiped nor deployed.
+ * The archives `build-fixtures.mjs` generates: the only ones it clears and the demo build ships.
+ * Real packages dropped into `public/fixtures/` to try are neither wiped nor deployed.
  */
 /** The size of the large media entry in the large fixtures: enough to take the slice and chunk paths. */
 export const LARGE_ENTRY_SIZE = 20 * 1024 * 1024

@@ -3,20 +3,8 @@ import { dirname, posix, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 /**
- * Vendors the H5P core from h5p/h5p-php-library at a commit, into `vendor/h5p-core/`, which is
- * committed: `pnpm core:sync master` moves it to upstream's newest commit, `pnpm core:sync <sha>`
- * to that one, and `pnpm core:sync` alone fetches the commit already recorded again, which leaves
- * the tree as it was unless something upstream was rewritten.
- *
- * What is taken, and in what order, is upstream's own word rather than a list kept here: the
- * scripts and stylesheets a player loads are `H5PCore::$scripts` and `H5PCore::$styles` in
- * `h5p.classes.php` at that commit, the fonts and images are the ones those stylesheets reference,
- * and the core's English strings are the player's part of `H5PCore::getLocalization()`, which
- * `scripts/build.mjs` gives the frame as its defaults and `scripts/build-l10n.mjs` translates.
- * The commit, its date and those lists go into `SOURCE.json`, which the build reads.
- *
- * Until 2026-10-18 the core came through h5p-standalone, which copies it about once a year and
- * records no revision; issue #37.
+ * Vendors the H5P core at a commit into `vendor/h5p-core/` (`pnpm core:sync [master|sha]`). What is
+ * taken is upstream's own word (`H5PCore::$scripts`, `$styles`), not a list kept here.
  */
 
 const REPOSITORY = 'h5p/h5p-php-library'
@@ -24,9 +12,8 @@ const rootDir = resolve(import.meta.dirname, '..')
 export const CORE_DIR = resolve(rootDir, 'vendor', 'h5p-core')
 
 /**
- * `getLocalization()` lists the player's strings and then, from `mainTitle` on, the strings of the
- * hub's sharing wizard, which only an editor shows. The player's are taken: the keys a frame's
- * `H5PIntegration.l10n.H5P` has always had, and the ones Moodle's packs translate.
+ * `getLocalization()` lists the player's strings, then from `mainTitle` the hub sharing wizard's,
+ * which only an editor shows; only the player's are taken.
  */
 const FIRST_EDITOR_STRING = 'mainTitle'
 

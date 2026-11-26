@@ -1,6 +1,5 @@
-// Runs in the extension host of the VS Code that screenshot.mjs starts, as the suite does: opens the
-// quiz in the preview, where VS Code has the extension's editor registered, and keeps the window
-// open, since VS Code closes it once this returns; the script closes it when it has the picture.
+// Runs in the extension host of the VS Code that screenshot.mjs starts: opens the quiz in the
+// preview and keeps the window open, as VS Code closes it once this returns; the script closes it.
 const vscode = require('vscode')
 
 exports.run = async function run() {

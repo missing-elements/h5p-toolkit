@@ -1,24 +1,17 @@
-/* The hosted player page and the example pages share this sheet, on top of the player's
-   page.css: the colours, the bar, the buttons, the status strip, the player's box, cards and
-   messages are there, the same for every page that holds the player. What is here is this site's
-   own. Deliberately a plain stylesheet: everything in it is the host page's job, not the
-   element's, and the point of the demo is to show where that boundary sits. */
+/* The player page and the example pages share this sheet, on top of the player's page.css. A plain
+   stylesheet: all of it is the host page's job, not the element's, which is the demo's point. */
 @import "@missing-elements/h5p-offline-player/page.css";
 
-/* A link to a heading lands below the sticky bar, not under it: the bar's height at each width,
-   plus a breath. One row from 64rem; the links on their own row below; two rows of them under
-   40rem (measured 60, 102 and 129 px, 2026-10-18). */
+/* A link to a heading lands below the sticky bar and a breath: it is 60 px high from 64rem (one row),
+   102 from 40rem (links on a second row), 129 under it (two rows of links), measured 2026-10-18. */
 html { scroll-padding-top: 9.75rem; }
 @media (min-width: 40rem) { html { scroll-padding-top: 8rem; } }
 @media (min-width: 64rem) { html { scroll-padding-top: 5.25rem; } }
 
 /* ---------------------------------------------------------------- shell */
 
-/* The repository, drawn as GitHub's own Star button is: the mark, the word, and the count behind
-   a star, so it reads as an invitation to star rather than one more icon. The count is drawn from
-   `--star-count`, which stars.js puts on <html> before the first paint, and the slot stays out
-   until there is one. Narrower, the word goes first and then the count, and the mark alone keeps
-   the brand and the icons on one line; the label still says Star. */
+/* Drawn as GitHub's Star button, so it invites a star. The count is `--star-count` (stars.js);
+   narrower, the word goes first, then the count, so the brand and icons keep one line. */
 .star-button {
   display: inline-flex;
   align-items: center;
@@ -101,14 +94,11 @@ h2 {
 
 p.lede { max-width: 48rem; margin: 0 0 1.75rem; color: var(--muted); font-size: 1.05em; }
 
-/* The front page's account of the player: what it does as a list, and where to go next in a row
-   of its own, so that neither reads as part of the other. Until 2026-10-17 it was one paragraph
-   with the links in the middle of the sentences. */
+/* The front page's account of the player: what it does as a list, and where to go next in a row of
+   its own, so that neither reads as part of the other. */
 p.lede:has(+ .features) { margin-bottom: 1.25rem; }
-/* The four are cards: in a row on a desktop, and below that in one row that scrolls sideways,
-   the next card showing at the edge to say so. Stacked, or two by two, they took a phone's or a
-   tablet's screen and pushed the player below it. The scrolling row runs past main's gutter to
-   the screen's edges and stops on each card. */
+/* The four are cards: a row on a desktop, below that one row that scrolls sideways, the next card
+   showing at the edge. Stacked, they took a phone's screen and pushed the player below it. */
 .features {
   display: flex;
   gap: 0.75rem;
@@ -219,9 +209,8 @@ p.lede:has(+ .features) { margin-bottom: 1.25rem; }
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* The element's two modes, on a row of their own at the foot of the form: a two-part switch and
-   what the chosen mode does. The radios stay real radios, out of sight, so arrows move between
-   them and the label is the click target. */
+/* The element's two modes, on a row of their own at the foot of the form. The radios stay real
+   radios, out of sight, so arrows move between them and the label is the click target. */
 .mode-row { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: start; gap: 0.5rem 0.875rem; }
 .mode {
   display: inline-flex;
@@ -268,9 +257,8 @@ p.lede:has(+ .features) { margin-bottom: 1.25rem; }
 /* ---------------------------------------------------------------- status */
 
 /*
- * A readout, not another chip: a flat strip whose left edge takes the state's colour, with the
- * state as a small capital label, the progress bar, and the clock on the right. The sample
- * buttons above it are pills; nothing here is.
+ * A readout, not another chip: a flat strip, its left edge in the state's colour, with a capital
+ * label, the progress bar and the clock. The sample buttons above are pills; nothing here is.
  */
 /* Which mode the content up now plays in, at the end of the line. */
 .mode-tag { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
@@ -334,8 +322,7 @@ progress[hidden] { display: none; }
 .step-hint { color: var(--muted); font-size: 0.925rem; }
 
 /* A file's row in the review: its name, size and a button to take it out; what its zip will hold,
-   or why none can be written, in a strip whose left edge takes the state's colour as the status
-   strip's does; its title in the LMS; and, with several files, its own zip. */
+   or why none can be written; its title in the LMS; and, with several files, its own zip. */
 .scorm-rows { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
 .scorm-row {
   padding: 0.85rem 1rem;
@@ -427,9 +414,8 @@ button.scorm-row-remove { min-height: 2rem; margin-left: auto; padding: 0.2rem 0
 
 /* ---------------------------------------------------------------- code and logs */
 
-/* A page writes `<pre class="code" data-lang>`; scripts/lib/code-blocks.mjs turns it into this
-   figure when the page is served or built, highlighted with classes rather than `style`
-   attributes, which the site's CSP refuses. demo/code-blocks.js works the tabs and Copy. */
+/* `scripts/lib/code-blocks.mjs` turns `<pre class="code">` into this figure when served or built,
+   highlighted by classes, as the CSP refuses `style`. Tabs and Copy: `demo/code-blocks.js`. */
 .code-block {
   margin: 1.25rem 0;
   border: 1px solid var(--code-border);
@@ -622,9 +608,8 @@ footer .credit {
 
 /* ---------------------------------------------------------------- the normalize page's diagram */
 
-/* Three archives drawn as bars, with the part that has to cross the network shaded. Classes
-   only, no inline styles: the demo's CSP is `style-src 'self'`, which refuses a style attribute
-   as it does a <style> block. The widths are proportions, not measurements. */
+/* Three archives as bars, the part that has to cross the network shaded. Classes only: the CSP's
+   `style-src 'self'` refuses inline styles. Widths are proportions, not measurements. */
 
 .lanes { display: grid; gap: 1.25rem; margin: 1.5rem 0 1.75rem; padding: 0; }
 .lane { display: grid; gap: 0.45rem; }

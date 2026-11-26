@@ -7,19 +7,8 @@ import type { WarmSpan } from '../shared/protocol.js'
 import type { SourceHandle } from '../shared/source.js'
 
 /**
- * Warming: pulls the spans the index named whole, one ranged request each, and lands every entry
- * in them in the cache as the bytes pass — the same inline entries the virtual server would
- * otherwise inflate one request at a time while the frame boots.
- *
- * The walk is driven by the central directory, not by the bytes: each entry's local header is
- * expected exactly where the index says, read for its name and extra lengths, and followed by the
- * compressed size the index gave. Nothing is guessed, so a header that is not where it should
- * be abandons the span rather than resynchronising — positions can no longer be trusted — and
- * the virtual server serves the rest on demand, as it did before warming existed.
- *
- * It never fails a load. Out of room: stop, the store is full and the server serves around it.
- * A span that stops flowing: give up on it. A corrupt entry: skip it, the server will report it
- * when asked. Only a warm that landed everything writes the marker that spares the next load.
+ * Warming: pulls the spans the index named, one ranged request each, into the cache. A header off
+ * the index's position throws and ends the warm (later offsets can't be trusted); only a full warm writes the marker.
  */
 
 export interface WarmProgress {
@@ -102,9 +91,8 @@ function bodyOf(compressed: Uint8Array<ArrayBuffer>, method: number): ReadableSt
 }
 
 /**
- * Sequential access over a stream: take n bytes, skip n bytes. Holds at most one chunk beyond
- * what was asked for. A read that produces nothing for `WARM_STALL_MS` ends the stream, and an
- * abort cancels it.
+ * Sequential access over a stream: take n bytes, skip n bytes, holding at most one extra chunk.
+ * A read silent for `WARM_STALL_MS` ends the stream, and an abort cancels it.
  */
 class ByteCursor {
   private readonly reader: ReadableStreamDefaultReader<Uint8Array>

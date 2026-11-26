@@ -1,10 +1,6 @@
 /*
- * The code blocks' tabs and copy buttons. The blocks are highlighted when the page is built
- * (scripts/lib/code-blocks.mjs), the first tab already selected, so this only adds what needs a
- * click.
- *
- * A tab is one choice for the whole site: pnpm picked in one block is picked in every block that
- * offers it, on this page and on the next one, remembered in this browser.
+ * The code blocks' tabs and copy buttons; the blocks are highlighted at build
+ * (`scripts/lib/code-blocks.mjs`). A tab is one choice for the whole site, kept in this browser.
  */
 
 const STORAGE_KEY = 'h5p-demo-code-tab'

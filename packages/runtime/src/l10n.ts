@@ -1,23 +1,17 @@
 /**
- * Which of this package's translations of the core's strings a frame gets. `dist/l10n.js` leaves
- * every language on `window.H5PRuntimeL10n`, with the aliases `scripts/build-l10n.mjs` derived;
- * the boot script picks one for the frame document's `lang`, which the player's worker writes
- * from the content's language, or the element's for a package that names none. The player knows
- * no list of languages: what is here, and which tag gets which, is this package's alone, so a
- * language added is a release of this package only.
+ * Which core translations a frame gets: `dist/l10n.js` sets `window.H5PRuntimeL10n` and the boot
+ * script picks one for the frame's `lang`; the player knows no language list.
  */
 
 /**
- * A language tag, as the player's `shared/language.ts` accepts one — keep the two in step, and
+ * A language tag, as the player's `shared/language.ts` accepts one: keep the two in step, and
  * `scripts/build.mjs`'s copy, which cannot import this file.
  */
 export const LANGUAGE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/
 
 /**
- * The language for a declared tag, by the lookup of RFC 4647: the tag as given, then with its
- * last subtag taken off, and so on — `de-AT` gets `de`, `pt-BR` its own — each tried as written
- * and through the aliases, case aside. `undefined` for a tag that is not one, and for a language
- * with no strings here, English among them, which is the core's own.
+ * The language for a declared tag, by the RFC 4647 lookup: the tag, then its last subtag cut (`de-AT`
+ * gets `de`), as written and via aliases. `undefined` for a missing or invalid tag, or none here (English).
  */
 export function matchLanguage(tag: string | undefined, languages: readonly string[], aliases: Record<string, string> = {}): string | undefined {
   if (!tag || !LANGUAGE_TAG.test(tag)) return undefined
@@ -41,9 +35,8 @@ export function matchLanguage(tag: string | undefined, languages: readonly strin
 }
 
 /**
- * The strings laid over the core's English for a frame whose language is `tag`, from the table
- * `dist/l10n.js` left: the matched language's strings, and nothing that is not a string. `undefined`
- * without a table — an English frame loads none — or without a language for the tag in it.
+ * The strings laid over the core's English for a frame in `tag`, from the table in `dist/l10n.js`.
+ * `undefined` without a table (an English frame loads none) or a language for the tag.
  */
 export function coreTranslations(table: unknown, tag: string | undefined): { H5P: Record<string, string> } | undefined {
   if (!table || typeof table !== 'object') return undefined

@@ -1,9 +1,7 @@
 // Written by scripts/parts.mjs. Do not edit; run `pnpm parts` in packages/libraries.
 
-// Vite's dev server pre-bundles dependencies into `node_modules/.vite/deps/`, which rewrites
-// these URLs to files that were never put there. The package's own copy is still served at its
-// real path, so a URL that landed in the pre-bundle directory is pointed back at it. A Vite
-// build, Rollup and webpack never produce such a URL.
+// Only Vite's dev server pre-bundles into `node_modules/.vite/deps/`, which points these URLs at files
+// never put there; the package's own copy stays at its real path, so such a URL is pointed back at it.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIR = "/node_modules/@missing-elements/h5p-libraries/"
 
@@ -20,10 +18,7 @@ import { pack as played } from './index.js'
 
 /**
  * The whole pack, for a page that writes packages with `@missing-elements/h5p-author/browser`:
- * the libraries the player serves, then the ones an H5P site's upload check wants with them
- * (`installOnly`): the editor libraries, and an older minor of a library that another names
- * exactly. A bundler emits every part named here, about 1.9 MB more than `index.js`'s,
- * so a page that only plays imports that one.
+ * plus the `installOnly` ones, about 1.9 MB more than `index.js`, which a player page imports.
  */
 export const pack = {
   libraries: [

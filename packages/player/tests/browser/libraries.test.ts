@@ -4,13 +4,8 @@ import type { ReadyDetail } from '../../src/h5p-offline-player'
 import { FIXTURES, clearPackageCaches, createPlayer, frameFetch, frameWindow, messageOf, play, settle, virtualUrl, waitForSettled } from './utils'
 
 /**
- * Filling in the libraries an export left behind.
- *
- * Exports from h5p.com and h5p.org carry `content/` and nothing else — no library folders, and a
- * `preloadedDependencies` list cut down to the main library. Pointing `libraries` at an archive
- * that has them makes such a package playable: entries are resolved against the content archive
- * first and the bundle second, and the two manifests are merged so the runtime still loads the
- * interaction types the content actually uses.
+ * Filling in libraries an export left behind (h5p.com and h5p.org keep `content/` only): entries
+ * resolve against the content archive, then the bundle, and the manifests merge so all types load.
  */
 describe('supplying missing libraries', () => {
   const playWithLibraries = (src: string, libraries: string) => play(src, { libraries })
@@ -28,8 +23,7 @@ describe('supplying missing libraries', () => {
 
   it('takes several sources in order, asking the next only for what the one before left absent', async () => {
     // The first "bundle" is a content-only export, which supplies nothing; the second has the
-    // libraries: a fixture standing in for a bundle that lacks what the package needs, then one
-    // that has it.
+    // libraries.
     const player = await playWithLibraries(FIXTURES.needsLibraries, `${FIXTURES.contentOnly} ${FIXTURES.libraries}`)
 
     expect(player.state).toBe('ready')
@@ -91,16 +85,13 @@ describe('supplying missing libraries', () => {
     expect((frameWindow(player) as unknown as { h5pOfflineExtraLoaded?: boolean }).h5pOfflineExtraLoaded).toBe(true)
   })
 
-  // Paced, a host without `Range` is still sending the package's media when its libraries have
-  // arrived, and the frame boots early from the forward index if it may. Before the dependency
-  // walk was part of that decision it did, and the runtime asked for the missing library before
-  // the download ended and the bundle was attached: a 404, read as JSON.
+  // Paced, a host without `Range` is still sending media when its libraries arrive, and the frame
+  // boots early if it may. It once did, before the bundle was attached: a 404 read as JSON.
   const pacedNoRange = (tag: string) => `${FIXTURES.needsDependencyNoRange}?throttle=131072&case=${tag}`
 
   it("refuses a package whose libraries need one it does not carry, by name, rather than fail on a 404 read as JSON", async () => {
-    // Everything h5p.json names is in the package; the content type's own library.json asks for
-    // H5P.OfflineExtra, which is not. The runtime follows that list, and ended its boot on
-    // "Unexpected end of JSON input".
+    // h5p.json's libraries are all there, but the content type's own library.json asks for
+    // H5P.OfflineExtra, which is missing: boot once ended on "Unexpected end of JSON input".
     for (const src of [FIXTURES.needsDependency, pacedNoRange('refused')]) {
       const { result } = await settle(src)
       if (result.ok) expect.fail(`expected ${src} to be refused`)
@@ -110,11 +101,8 @@ describe('supplying missing libraries', () => {
   })
 
   it("plays a package at its own older minor where nothing has the one it names, and says so with no bundle attached (#85)", async () => {
-    // Its h5p.json names the content type at 1.1 and its folder is 1.0, as an export whose manifest
-    // and folders disagree. Nothing supplied anything, so `libraryBundle` stays null: the list is
-    // the load's. It once rode on the bundle, and such a package played with only the console
-    // saying so, and passed the verifier without a warning where it had failed before. On a host
-    // without Range the frame waits for the whole download, since a partial index never downgrades.
+    // h5p.json names 1.1, the folder is 1.0, no bundle: `libraryBundle` stays null, the load keeps
+    // the list. Without Range the frame waits: a partial index never downgrades.
     for (const src of [`${FIXTURES.olderOwn}?case=own`, `/no-range/older-own.h5p?case=own-${Date.now()}`]) {
       let detail: ReadyDetail | undefined
       const { player, result } = await settle(src, {}, (element) =>
@@ -142,13 +130,8 @@ describe('supplying missing libraries', () => {
     }
   })
 
-  // Unpaced, the download is whole before the frame could boot from the forward index, and the
-  // last progress report's index is answered from the central directory: no `ready`, and no
-  // dependency walk, which is the final index's. The element once booted on that answer, every
-  // time, so the runtime raced the bundle's attachment for the missing library and in WebKit
-  // sometimes lost: a 404 read as JSON. Now it stops when the download ends (`indexing`), the
-  // bundle is downloaded (`downloading` again) and attached, and only then does the frame boot.
-  // Booted early, the bundle's `downloading` ran on from the package's, with no `indexing` between.
+  // Unpaced, the download ends before the frame could boot early. It once booted anyway, racing the
+  // bundle for a missing library (a WebKit 404 read as JSON): now `indexing`, bundle, then boot.
   it('boots a whole download only after the final index has supplied what its libraries need', async () => {
     const player = createPlayer({ libraries: FIXTURES.libraries })
     const states: string[] = []
@@ -184,11 +167,8 @@ describe('supplying missing libraries', () => {
 })
 
 /**
- * A library source that cannot be reached — no network, or the hub down — when a bundle was
- * downloaded from it before. `/stalling/` in `reset` mode answers every request `503`, which is
- * what the probe meets. Each play uses a content URL of its own: the worker keeps a package's
- * reader with its bundle attached, and a replay of the same package would never need the
- * libraries again, so it would never reach the fallback.
+ * A library source that cannot be reached (`/stalling/` in `reset` mode, 503) after a bundle came
+ * from it. Each play has its own content URL: a replay keeps its reader and needs no libraries.
  */
 describe('a library source that cannot be reached', () => {
   // A host of its own (`host=`): an outage here must not cut the stalling-host tests' transfers.

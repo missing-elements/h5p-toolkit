@@ -4,12 +4,8 @@ import type { H5PPlayerElement } from '../../src/h5p-offline-player'
 import { FIXTURES, frameDocument, play, waitForEvent } from './utils'
 
 /**
- * `finished` is the content's result: a `completed` or `answered` statement from the content
- * itself, never one from a part inside it — H5P's own rule, the one the CMS plugins record through
- * `setFinished`, and a part the core marks as sub-content without naming a parent besides.
- * `finished.h5p` is the fixture content type with an Answer button, which reports `answered` the
- * way a single question does, a child of itself run as sub-content, whose Complete reports
- * `completed` with the parent named, and another child run without a parent.
+ * `finished` is a `completed` or `answered` statement from the content itself, never from a part
+ * inside it (H5P's `setFinished` rule); `finished.h5p` has parts with a parent and without.
  */
 
 type Detail = {

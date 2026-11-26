@@ -1,7 +1,6 @@
 /**
- * The fixture content type's upgrade steps, written the way a real library writes them. Each step
- * appends its version to the message, so the text says which steps ran and in what order; content
- * that sets `failUpgrade` makes the first one throw, for the case that has to fall back.
+ * The fixture's upgrade steps, written as a real library's are. Each appends its version to the
+ * message, so the text says which ran; `failUpgrade` makes the first throw, for the fallback.
  */
 var H5PUpgrades = H5PUpgrades || {};
 

@@ -4,12 +4,8 @@ import { BLOCK_SIZE } from '../../src/shared/constants'
 import { FIXTURES, play } from './utils'
 
 /**
- * What a load costs a host that honours `Range`, counted by the host itself: `/counted/` writes
- * down every request it answers. zip.js reads an index in small pieces — the tail, the central
- * directory, each entry's local header and then its data — and every piece was a request; the
- * reader the Service Worker builds again once libraries are attached asked for all of them again.
- * A 1.5 MB quiz paid thirteen requests before it booted (#133). The block cache under small reads
- * is what keeps the count down, and this keeps it from creeping back.
+ * What a load costs a host that honours `Range`, counted by `/counted/`: zip.js reads in small
+ * pieces, each a request (a 1.5 MB quiz paid thirteen, #133); the block cache keeps that down.
  */
 async function rangesOf(fixture: string, attributes: Record<string, string> = {}): Promise<string[]> {
   const log = crypto.randomUUID()
@@ -62,11 +58,8 @@ describe('the requests a load costs', () => {
   })
 
   it('asks for none of a run after the content that the boot never reads (#146, #148)', async () => {
-    // h5p-author's layout: after the content, the libraries an H5P site's upload check wants,
-    // 200 kB here, most of it past the index's first block. The probe, the tail, the head, and the
-    // warm, which stops where the run begins, since `h5p.json` does not declare those folders.
-    // What it pulls, `h5p.json`, the content type and the content, lies in the head's block, which
-    // the Jobs worker asks for again: its block cache is its own.
+    // h5p-author's layout: unread libraries 200 kB past the index's first block. Four requests: the
+    // probe, tail, head and the warm (stopping at that run); the Jobs worker asks the head again.
     const ranges = await rangesOf('installable.h5p')
     expect(ranges).toHaveLength(4)
     expect(ranges.filter((range) => range === `bytes=0-${BLOCK_SIZE - 1}`)).toHaveLength(2)
@@ -74,9 +67,8 @@ describe('the requests a load costs', () => {
   })
 
   it('asks for none of it with the pack offered either: the plan reads only what the content reaches (#148)', async () => {
-    // The pack's newer version of the content type replaces the package's own, which the plan
-    // learns from the library.json files it reads after the warm: the content type's from the
-    // cache, and none of the run's, each of which would be a request.
+    // The pack's newer content type replaces the package's own, learned from `library.json`s read
+    // after the warm: the type's from cache, none of the run's (a request each).
     const ranges = await rangesOf('installable.h5p', { libraries: 'pack', 'pack-base': '/fixtures/pack/' })
     expect(ranges).toHaveLength(4)
     expect(ranges.filter((range) => probes.some((probe) => covers(range, probe)))).toEqual([])

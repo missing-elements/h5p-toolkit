@@ -1,19 +1,6 @@
 /**
- * The demo pages' code blocks, highlighted when a page is served or built, so no highlighter
- * ships to a visitor. A page writes a block as
- *
- *   <pre class="code" data-lang="sh">npm i @missing-elements/h5p-offline-player</pre>
- *
- * with `data-lang` one of `sh`, `js`, `html`, `xml` or `text`, and `data-title` to name it other
- * than by its language. Blocks inside `<div class="code-tabs">` that each carry `data-tab` are
- * alternatives, shown as tabs: npm, pnpm and yarn for one install. Each becomes a `<figure
- * class="code-block">` with a head — the label, the tabs, a copy button — over the highlighted
- * code; `demo/code-blocks.js` makes the buttons work.
- *
- * Shiki highlights with a theme of our own whose colours are role names (`var(--tk-string)`),
- * and every colour leaves the output as a class (`tk-string`), never a `style` attribute: the
- * site's policy is `style-src 'self'`, which refuses those, and Shiki's own themes write one on
- * every token. The roles are coloured in `demo/player-page.css`.
+ * The demo pages' code blocks, highlighted when a page is served or built, so no highlighter ships.
+ * Colours leave as classes (`tk-*`), never `style`, which the site's `style-src 'self'` refuses.
  */
 import { createHighlighter } from 'shiki'
 
@@ -30,9 +17,8 @@ const LANGUAGES = {
 const role = (name) => `var(--tk-${name})`
 
 /**
- * The scopes the four grammars give the parts a reader tells apart. A more specific scope wins
- * over a shorter one, as in any TextMate theme: `punctuation.definition.string` takes the
- * string's colour, `keyword.operator` the punctuation's.
+ * The scopes the four grammars give the parts a reader tells apart; a more specific scope wins, as
+ * in any TextMate theme: `punctuation.definition.string` takes the string's colour.
  */
 const THEME = {
   name: 'h5p-demo',

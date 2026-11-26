@@ -11,10 +11,8 @@ import type { LibraryDependency } from '../../src/shared/content-libraries'
 import { ownLibraries } from '../../src/sw/pack-plan'
 
 /**
- * H5P's compatibility rule: a library satisfies a dependency when the machine name and major
- * version match and the minor is at least as high. Platforms install one version per major and
- * content authored against an older minor keeps working — which is what makes libraries from a
- * hub bundle usable by a package that asks for older ones.
+ * H5P's compatibility rule: a library satisfies a dependency when machine name and major match and
+ * the minor is at least as high, so a hub bundle serves a package asking for older ones.
  */
 describe('parseLibraryFolder', () => {
   it('splits a versioned folder', () => {
@@ -119,9 +117,8 @@ describe('findMissingLibraries with compatible versions', () => {
 })
 
 describe('reachableFolder', () => {
-  // The SCORM writer's own `servingFolder` until #109, now the one rule it and the reader share:
-  // the folder as named or the bare name, else the lowest newer minor of the same major, never
-  // another major, and with `downgrade` the newest older minor.
+  // Until #109 the SCORM writer's own `servingFolder`, now shared with the reader: the named or
+  // bare folder, else the lowest newer minor of the same major, with `downgrade` the newest older.
   const names = new Set(['H5P.Text-1.3/library.json', 'H5P.Text-1.5/library.json', 'H5P.Text-2.0/library.json', 'Bare/library.json'])
   const available = indexLibraryFolders(names)
 

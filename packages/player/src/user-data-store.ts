@@ -1,20 +1,8 @@
 import { USER_DATA_DB_NAME, USER_DATA_STORE } from './shared/constants.js'
 
 /**
- * The learner's saved state on this device, one row per value the runtime saved: what H5P core
- * posts to its `contentUserData` endpoint on a site, kept here in the page's own IndexedDB.
- *
- * Keyed by the package and stamped with the build it was saved against — the same `revision`
- * every xAPI statement carries — so a state saved against one version of a package is never
- * handed to another; the element turns a mismatch into the runtime's own "content has changed,
- * starting over" dialog. The revision is `null` when the state was saved before the index had
- * said what the build was, which happens on a host that ignores `Range`, where the frame boots
- * from the forward index; `adoptRevision` fills it in once the index answers.
- *
- * Opened per call and closed after it. The page is the only client, a save is one small write
- * every few seconds at most, and a handle that is never held cannot be left dangling by a
- * "clear site data" underneath it. Never touched by eviction: it lives in a database of its own
- * that the Service Worker does not open, and it is small and not reproducible.
+ * The learner's saved state on this device, a row per value, stamped with its `revision` (`null`
+ * until the index says: `adoptRevision`). Opened per call: clearing site data strands no handle.
  */
 export interface UserDataRow {
   /** `<pkgId>/<dataType>/<subContentId>`. */

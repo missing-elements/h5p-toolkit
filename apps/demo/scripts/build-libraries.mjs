@@ -7,37 +7,15 @@ import { splitPack, writePack, writePackModule } from '../../../packages/librari
 import { HUB, download as cachedDownload, hubBundle as cachedBundle } from './lib/hub.mjs'
 
 /**
- * Builds the library pack, `@missing-elements/h5p-libraries`: `packages/libraries/libraries.h5p`,
- * the same split into one archive per library under `parts/` with its `index.json` and the
- * `index.js` a bundler reads (`writePack`, `splitPack` and `writePackModule` in that package's
- * `scripts/parts.mjs`), and the licence notice, `packages/libraries/libraries.txt`. Exports from
- * h5p.com and h5p.org carry no libraries, and the player fetches the parts such a package needs;
- * it also plays the pack's newer version of a library a package carries.
- *
- * Every content type below is fetched from the hub (cached under the OS temp directory, shared
- * with `build-demo-content.mjs`; `--refresh` fetches again), and so is every addon in `ADDONS`
- * from where H5P Group publishes it, and every library folder in the
- * bundles is kept at the newest minor of each major: H5P keeps a minor
- * compatible with the ones before it, and the player resolves a request for 1.26 to 1.27. A
- * package that needs a newer minor than the pack has is refused, naming the library. With them,
- * since pack 1.1.0, what an H5P site's upload check wants of those libraries (#146): the editor
- * libraries, and the older minor a library names exactly, at the exact versions. `splitPack`
- * marks those `installOnly` in the index; the player never serves one, and h5p-author carries
- * them into a package.
- *
- * The outputs are committed, like the demo content: a deploy should not depend on the hub.
- * Refresh them before a release. A library whose `library.json` declares no licence has to be
- * in `UNDECLARED` below, found by reading its repository, or the build stops — so a refresh that
- * brings in something new is a licence review, not a silent redistribution.
+ * Builds the library pack (for exports with none) into `packages/libraries/`: the hub's newest minor
+ * of each major, the editor libraries, older minors they name, the addon. Committed: no hub at deploy.
  */
 
 configure({ useWebWorkers: false })
 
 /**
- * Every content type the hub serves, as of 2026-10-13. One that is gone is reported and skipped.
- * Kept by hand: the hub's catalogue is read by a registered site, and the build does not register
- * one. AR Scavenger was missing until 2026-10-13, found by playing one example of every content
- * type h5p.org lists; that sweep is how to look for another.
+ * Every content type the hub serves, as of 2026-10-13; one that is gone is reported and skipped.
+ * Kept by hand: the hub's catalogue is read by a registered site, and the build registers none.
  */
 const CONTENT_TYPES = [
   'H5P.Accordion', 'H5P.AdventCalendar', 'H5P.Agamotto', 'H5P.ArithmeticQuiz', 'H5P.ARScavenger', 'H5P.Audio',
@@ -55,11 +33,8 @@ const CONTENT_TYPES = [
 ]
 
 /**
- * Addons: libraries a platform adds to content by its text (`addTo` in `library.json`), which the
- * hub does not serve and a site's administrator uploads by hand. The player adds one to content
- * that matches, as the platforms do when content is saved. MathDisplay is here because a full
- * export from a site that has it lists it as a dependency, and played `untrusted` such a package
- * is refused unless the pack has it too. Its formulas render with MathJax from its own folder.
+ * Addons: libraries a platform adds to content by its text (`addTo`); the hub does not serve them.
+ * MathDisplay: a full export lists it, and played `untrusted` it is refused without the pack's.
  */
 const ADDONS = ['https://h5p.org/sites/default/files/h5p-math-display-1-0-50.h5p']
 
@@ -69,9 +44,8 @@ const BUNDLED = {
 }
 
 /**
- * Licences for the libraries whose `library.json` names none, checked on 2026-09-29. The H5P
- * ones state MIT in their repository's README (github.com/h5p/<repo>), which has no LICENSE file;
- * flowplayer's script carries the GPL-3.0 notice in its own header.
+ * Licences, read from their repositories (2026-09-29), for libraries whose `library.json` has none.
+ * The build stops on one not listed, so a refresh bringing in something new is a licence review.
  */
 const UNDECLARED = {
   'H5P.AdvancedText': 'MIT (README of github.com/h5p/h5p-advanced-text)',
@@ -174,7 +148,8 @@ async function keepLibraries(path) {
   await reader.close()
 }
 
-// What the player serves: the newest minor of each major, the editor's libraries left out.
+// What the player serves: the newest minor of each major, the editor's libraries left out. A
+// package needing a newer minor plays at this one (`downgrade-libraries`, on by default).
 const played = new Map()
 for (const version of seen.values()) {
   if (version.library.machineName.startsWith('H5PEditor.')) continue
@@ -184,8 +159,7 @@ for (const version of seen.values()) {
 }
 
 // With them, what an H5P site's upload check wants (#146): every library a carried one names,
-// preloaded, dynamic or editor, at the exact major.minor, and what those name in turn. A bundle
-// carries its content type's whole closure, so each is in `seen`; one that is not stops the build.
+// editor ones too, at the exact major.minor, and theirs in turn; one no bundle has stops the build.
 const carried = new Map([...played.values()].map((version) => [versionOf(version.library), version]))
 const queue = [...carried.values()]
 while (queue.length > 0) {
@@ -212,10 +186,8 @@ if (unknown.length > 0) {
   process.exit(1)
 }
 
-// Written with a fixed date, the same in any time zone (see `FIXED_DATE`), and with a library's
-// entries kept from the committed pack while its files are the same, so the pack's bytes change
-// only where a library does: the weekly refresh (.github/workflows/libraries.yml) opens a pull
-// request only on a real difference, and commits only the parts of the libraries that changed.
+// A fixed date (`FIXED_DATE`) and a library's entries kept from the committed pack while its files
+// are the same: the bytes change only where a library does, so the weekly refresh stays quiet.
 const previous = await readFile(join(outDir, 'libraries.h5p')).then((bytes) => new Uint8Array(bytes), () => undefined)
 const pack = await writePack(libraries, previous)
 await writeFile(join(outDir, 'libraries.h5p'), pack)

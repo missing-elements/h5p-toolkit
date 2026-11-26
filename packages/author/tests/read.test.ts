@@ -127,11 +127,8 @@ describe.concurrent('every type file', () => {
 
 describe('a package read back', () => {
   /**
-   * A Question Set as H5P's editor saves one and another tool exports it, without its libraries:
-   * no author, a language for the metadata apart from the content's, the comments and change log,
-   * a part with a licence and authors of its own, a field its library does not have, an empty tip
-   * nobody typed in, the copyright of a picture saved with every part empty, and a question
-   * without a title, which the set names itself.
+   * A Question Set as an editor or another tool exports it, without libraries: no author, its own metadata language, comments
+   * and a change log, a part with its own licence and authors, an unknown field, an empty tip and copyright, an untitled part.
    */
   async function elsewhere(at: string) {
     const built = join(at, 'built.h5p')

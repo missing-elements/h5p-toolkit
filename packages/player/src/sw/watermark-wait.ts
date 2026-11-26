@@ -2,22 +2,8 @@ import { COLD_ENTRY_WAIT_MS, WATERMARK_POLL_MS } from '../shared/constants.js'
 import { onWatermark, type ChunkMeta, type ChunkStore } from '../shared/chunk-store.js'
 
 /**
- * Waits until the entry has at least `needed` bytes, is complete, or carries a recorded failure.
- *
- * The bound is a stall, not a wall clock: extraction of a large entry legitimately takes minutes,
- * and a request for the tail of a 220 MB video cannot be answered until it finishes. What must
- * not happen is waiting on a job that has died with the tab that owned it, so the job is expected
- * to keep showing progress — when it stops, the job is asked for again, and only a second silent
- * stretch gives up.
- *
- * Progress is the watermark moving, and it is also the job saying it is there. The Jobs worker
- * announces a running job every second whether or not bytes are arriving, and a queued one the
- * same way, and either resets the clock: the bound is for a job that died with its tab, not for a
- * link that has gone quiet. It once counted only bytes taken from the network, and thirty
- * silent seconds on a live job — a host hiccup, a phone changing networks — ended the media
- * element's response with an error it never recovers from, while the extraction went on to
- * finish. How long a silent link is tolerated is the job's own business (`resilientStream`),
- * and a job that gives up records a failure, which this returns at once.
+ * Waits until the entry has at least `needed` bytes, is complete, or has a recorded failure. The bound is a
+ * stall, not a wall clock, and a running or queued notice resets it: a quiet link is not death.
  */
 export async function waitForWatermark(
   store: ChunkStore,
@@ -27,10 +13,8 @@ export async function waitForWatermark(
     stallMs?: number
     onStall?: () => Promise<void>
     /**
-     * Return as soon as the job reports itself queued. For a response that can carry a body
-     * which follows the extraction, a queued job is reason enough to send the headers now — the
-     * bytes come when its turn does — rather than hold the request open until its first flush,
-     * which behind a long queue could be minutes, longer than a fetch event may stay unanswered.
+     * Return once the job reports itself queued: a response whose body follows the extraction sends
+     * its headers now, since a long queue could outlast how long a fetch event may stay unanswered.
      */
     queuedIsEnough?: boolean
   } = {}

@@ -4,14 +4,8 @@ import { chromium } from 'playwright'
 import { preview } from 'vite'
 
 /**
- * Renders the installable app's screenshots into `app/screenshots/`, which the manifest names:
- * Chrome shows them in its fuller install dialog, a phone's narrow ones and a desktop's wide one,
- * where the app has none otherwise. Taken from the built site, `dist-demo/`, served the way
- * `pnpm preview:demo` serves it, with the demo's own packages playing, so run `pnpm build:demo`
- * first. The output is committed, like the icons; run this when the app's look changes.
- *
- * Chromium will not emulate `display-mode`, so the page's installed-app rules are switched on
- * through the CSSOM instead: the screenshots show the app as installed, not the page in a tab.
+ * Renders the app's screenshots into `app/screenshots/`, named by the manifest for Chrome's install
+ * dialog, from the built site: run `pnpm build:demo` first. Run this when the look changes.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
@@ -33,6 +27,7 @@ try {
     const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, isMobile: scale > 1, hasTouch: scale > 1, colorScheme: 'light' })
     const page = await context.newPage()
     await page.goto(`${base}/app/${src ? `?src=${encodeURIComponent(src)}` : ''}`)
+    // Chromium will not emulate `display-mode`, so the installed-app rules go on through the CSSOM.
     await page.evaluate((modes) => {
       for (const sheet of document.styleSheets) {
         for (const rule of sheet.cssRules) {

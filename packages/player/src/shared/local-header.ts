@@ -1,10 +1,8 @@
 import { PlayerError } from './protocol.js'
 import type { SourceHandle } from './source.js'
 /**
- * The zip local header, the thirty bytes in front of every entry's data. Three places read it —
- * the virtual server before slicing a stored entry, the warm as it walks a span, the Jobs worker
- * before inflating an entry — and none of them needs zip.js for it: the central directory has
- * already said where the header is, and all that is left is to step over it.
+ * The zip local header, the thirty bytes in front of every entry's data. The central directory has
+ * said where it is, so none of its readers needs zip.js: all that is left is to step over it.
  */
 
 export const LOCAL_HEADER_SIGNATURE = 0x04034b50
@@ -15,10 +13,8 @@ export const STORED = 0
 export const DEFLATE = 8
 
 /**
- * Where an entry's compressed bytes begin, given the offset of its local header and the header's
- * first thirty bytes, or `null` when those bytes are not a local header. The name and extra
- * lengths are taken from the local header itself, not from the central directory: the two agree
- * in practice, but only the local one is authoritative for what precedes the data.
+ * Where an entry's compressed bytes begin, given its local header's offset and first thirty bytes,
+ * or `null` if they are not one. Lengths come from the local header: only it is authoritative here.
  */
 export function localHeaderDataStart(offset: number, header: Uint8Array): number | null {
   if (header.length < LOCAL_HEADER_FIXED_SIZE) return null
@@ -31,8 +27,7 @@ export function localHeaderDataStart(offset: number, header: Uint8Array): number
 
 /**
  * Where an entry's data begins: the local header at `offset` read off the handle, its variable
- * part stepped over. The virtual server and the Jobs worker both take this step before reading
- * an entry's bytes.
+ * part stepped over.
  */
 export async function readDataStart(handle: SourceHandle, offset: number, entryName: string): Promise<number> {
   const header = await handle.read({ start: offset, end: offset + LOCAL_HEADER_FIXED_SIZE - 1 })

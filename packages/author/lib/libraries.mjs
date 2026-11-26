@@ -6,9 +6,8 @@ import { localize, translationFiles } from './translate.mjs'
 import { patchSemantics } from './types.mjs'
 
 /**
- * The libraries content brings in, loaded as a build loads them, for the build and for a tool
- * beside it that reads or changes content as the build would. No Node import of its own: the pack
- * the libraries come from is handed in, and a package's files are read through the caller.
+ * The libraries content brings in, loaded as a build loads them, for it and for tools that read or
+ * change content the same way. No Node import: the pack is handed in, and files read by the caller.
  */
 
 /**
@@ -23,10 +22,8 @@ import { patchSemantics } from './types.mjs'
  */
 
 /**
- * What libraries are loaded from: the pack `openPack` opens, or any other with these members, such
- * as one over a package's own library folders. `newest` is the library served for a machine name
- * and a major; `open` reads a library's `library.json` and `semantics.json`, after whatever check
- * its source makes, and the names of its translation files, which `translation` reads.
+ * What libraries load from: the pack `openPack` opens, or another with these members. `newest` is the
+ * library for a name and major; `open` reads `library.json` and `semantics.json` as its source checks them, and its `translations` names, for `translation`.
  * @typedef {{
  *   libraries: LibraryRecord[],
  *   newest(machineName: string, major?: number): LibraryRecord | null,
@@ -39,22 +36,15 @@ import { patchSemantics } from './types.mjs'
  * @typedef {import('./generator.mjs').PackEntry} PackEntry
  * @typedef {import('./translate.mjs').TranslationReport} TranslationReport
  * @typedef {{ entries: Map<string, PackEntry>, main: PackEntry, translations: TranslationReport[] }} LoadedLibraries
- *   `entries` by folder, the map `ContentGenerator` takes; `main` the content type's; `translations`
- *   the translation each runnable library's interface texts came from
+ *   `entries` by folder, as `ContentGenerator` takes; `main`, the type's; `translations`
  */
 
 /** @param {unknown} value @returns {value is Record<string, any>} */
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 
 /**
- * The libraries content brings in, each the newest of its major that the pack has, loaded as the
- * build loads them: the content type, every library its parameters name, and every one a library
- * field names as its default. Each library's semantics come with the interface texts of its own
- * translation for the language and with the fields a layout sets marked optional
- * (`patchSemantics`). A library that is the only one a field takes is loaded too, named or not
- * (#172): a book's chapters written without their H5P.Column can then be read as its parameters
- * and checked. Such a library is in `translations` only where the content names it. Every other
- * library of the pack is in the map too, without its semantics.
+ * The libraries content brings in, each the pack's newest of its major: the type, those its
+ * parameters or a field's default name, and a field's only option (#172); the rest lack semantics.
  * @param {LibrarySource} pack
  * @param {{ type: string, language: string, params?: unknown }} content `type` a machine name, with
  *   a major and minor when known, `H5P.Blanks` or `H5P.Blanks 1.14`
@@ -89,11 +79,8 @@ export async function loadLibraries(pack, { type, language, params }) {
       // pack has: each is loaded.
       if (match && match[2] !== undefined) queue.push({ machineName: match[1], major: Number(match[2]) })
       else if (match) for (const entry of pack.libraries) if (entry.machineName === match[1]) queue.push({ machineName: match[1], major: entry.majorVersion })
-      // What the generator takes to name a library though it is not written as one (#174), so
-      // that what is written for it is checked and not reported against no fields: `library`
-      // written loosely, "multichoice", and a name under `type` or `contentType`, as it is or
-      // loosely. Those keys only, as the generator reads them, so that a text that reads like a
-      // name under another, a card's answer "table", loads nothing.
+      // What the generator takes to name a library though not written as one (#174): `library`
+      // loosely written, or a name under `type` or `contentType`; other keys' text loads nothing.
       if (typeof value.library === 'string') {
         const found = machineNameOf(value.library, names)
         if (found && !found.exact) meant(found.machineName)
@@ -150,12 +137,8 @@ export async function loadLibraries(pack, { type, language, params }) {
 }
 
 /**
- * The libraries a saved package's content is checked against: the package's own, where it carries
- * a major of a library, and the fallback's, the pack's, where it does not. Content is in the shape
- * of the version it was saved with, which a package that carries its libraries carries, and which
- * the pack, keeping the newest minor of each major, may have moved past. A package's own library
- * is a folder the player takes as one (its `ownLibraries`): a `library.json` naming the library its
- * folder's name does.
+ * The libraries a saved package's content is checked against: its own where it carries a major,
+ * else the pack's: content has the shape of the version it was saved with, and the pack may have moved past it.
  * @param {PackageFiles} files the package's
  * @param {LibrarySource} [fallback] for what the package does not carry: the pack `openPack` opens
  * @returns {Promise<LibrarySource>}

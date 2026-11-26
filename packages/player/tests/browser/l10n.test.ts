@@ -4,13 +4,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, createPlayer, frameDocument, frameWindow, play, settle, waitForSettled } from './utils'
 
 /**
- * The core's own strings in the content's language, the one its `h5p.json` names, and in the
- * element's for a package that names none: what the runtime answers for a key, and the licence
- * names it builds from them in its own ready handler — in the language too, so the strings were
- * in place before that handler ran. Read inside the frame, where the content's buttons and dialogs
- * get them. The worker picks the tag; the runtime's `l10n.js`, named for any language but English,
- * and its boot script decide which strings that is. The fixtures below name none, but for the
- * first test's two.
+ * The core's strings in the content's language (`h5p.json`'s) or the element's, read in the frame:
+ * a key's answer, and the licence names built in the ready handler, which needs the strings first.
  */
 
 interface Core {
@@ -55,9 +50,8 @@ describe('the core’s strings', () => {
   })
 
   it('are in the package’s language from a host without Range whose h5p.json arrives late', async () => {
-    // The worker opens its reader at the first progress report, here before `h5p.json` has
-    // arrived, and the frame boots from a later one while the media still arrives (#57). The
-    // record had none of the manifest then, so the frame took the element's language.
+    // The worker opens its reader at a progress report, here before `h5p.json` arrived (#57): the
+    // record had no manifest then, so the frame took the element's language, not the content's.
     document.documentElement.setAttribute('lang', 'en')
     let downloaded = 0
     const { player, result } = await settle('/no-range/german-late-manifest.h5p?throttle=1000000', {}, (each) => {

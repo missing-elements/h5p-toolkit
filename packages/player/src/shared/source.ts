@@ -7,13 +7,8 @@ import { resilientStream } from './resilient-stream.js'
 import { sliceStream } from './stream-utils.js'
 
 /**
- * Source adapters. One interface — a size and a byte-range read — over the three ways an archive
- * can be reached. The Service Worker and the Jobs worker both build handles from the persisted
- * descriptor, so neither has to know how the package was opened.
- *
- * The zip.js side — the reader that presents a handle to zip.js, and the segmented fetch behind
- * it — lives in `source-reader.ts`, so that the element, which only probes a source, does not
- * pull zip.js into its own bundle.
+ * Source adapters: one interface, a size and a byte-range read, over the three ways an archive can
+ * be reached, built from the persisted descriptor. The zip.js side is in `source-reader.ts`.
  */
 
 export interface SourceHandle {
@@ -25,9 +20,8 @@ export interface SourceHandle {
   /** Streams an inclusive byte range. Used to serve large stored entries without buffering. */
   stream(range: ByteRange): Promise<ReadableStream<Uint8Array>>
   /**
-   * Bytes taken from the network so far, over every read and stream of this handle. Only a
-   * network handle counts: it is how a job shows it is alive while the inflate has produced
-   * nothing yet, and a local read has no such silence.
+   * Bytes taken from the network so far over every read and stream. Only a network handle counts:
+   * it shows a job is alive while the inflate has produced nothing yet.
    */
   readonly received?: number
 }
@@ -50,23 +44,14 @@ function parseContentRangeSize(header: string | null): number | null {
 }
 
 function readValidator(response: Response): string | null {
-  // Both need `Access-Control-Expose-Headers` to be readable, so this is usually null. When it
-  // is readable, a republished archive at the same URL gets a fresh pkgId instead of stale chunks.
+  // `ETag` needs `Access-Control-Expose-Headers` to be read cross-origin, `Last-Modified` is
+  // safelisted: null only if neither is readable. Else a republished archive gets a fresh pkgId.
   return response.headers.get('etag') ?? response.headers.get('last-modified')
 }
 
 /**
- * Decides how an archive can be reached.
- *
- * A single `GET` with `Range: bytes=0-0` answers both questions that matter: a host without CORS
- * rejects it at the network layer, and a host that ignores `Range` answers `200` with the whole
- * body (which is why the body is cancelled as soon as the headers arrive — a `HEAD` would prove
- * neither, and is often blocked outright).
- */
-/**
- * The schemes a package can be fetched from. Anything else — `javascript:`, `file:`, `ftp:`, a
- * typo — `fetch` rejects with a `TypeError` that reads like a network failure, so the probe
- * refuses it first and names the scheme.
+ * The schemes a package can be fetched from. `fetch` rejects any other with a `TypeError` that
+ * reads like a network failure, so the probe refuses it first and names the scheme.
  */
 const FETCHABLE_SCHEMES = new Set(['http:', 'https:', 'blob:', 'data:'])
 
@@ -82,12 +67,8 @@ export function unfetchableScheme(url: string, pageUrl: string | undefined): str
 }
 
 /**
- * The `https:` URL to suggest when `url` is `http:` on an `https:` page, else `null`. Browsers
- * refuse such a fetch as mixed content — and a page whose CSP names only `https:` refuses it
- * before that — and the rejection reads exactly like a host without CORS, so without this check
- * the element reported `no-cors` and sent people to ask for a download. Loopback hosts are
- * exempt: `http://localhost` and `127.0.0.1` are potentially trustworthy, and browsers let an
- * `https:` page reach them.
+ * The `https:` URL to suggest when `url` is `http:` on an `https:` page, else `null`. Mixed-content
+ * blocking reads like a host without CORS (`no-cors`), so it is named first. Loopback is exempt.
  */
 export function insecureOnSecurePage(url: string, pageUrl: string | undefined): string | null {
   if (!pageUrl) return null
@@ -106,6 +87,10 @@ export function insecureOnSecurePage(url: string, pageUrl: string | undefined): 
   return target.href
 }
 
+/**
+ * Decides how an archive can be reached, with one `GET` of `Range: bytes=0-0`: a host without CORS
+ * rejects it, one ignoring `Range` answers `200` (body cancelled; `HEAD` is often blocked).
+ */
 export async function probeSource(
   url: string,
   signal?: AbortSignal
@@ -163,17 +148,8 @@ export async function probeSource(
 }
 
 /**
- * The size of an archive whose host does not expose `Content-Range`: a `206` to `Range: bytes=0-`
- * carries the whole length in `Content-Length`, and the body is dropped as soon as the headers
- * arrive.
- *
- * A ranged request, not the plain `GET` this once was. A host that compresses the archive on the
- * way out — GitHub Pages gzips `application/octet-stream` — answers a plain `GET` with the
- * compressed copy's length, and `Content-Encoding` is not readable cross-origin either, so nothing
- * marks it as the wrong number: an 84.6 MB package measured 84.4 MB, and zip.js looked for the end
- * of the central directory 275 kB short of it. Chromium, Firefox and WebKit all send
- * `Accept-Encoding: identity` on a request that carries a `Range` header, so a ranged answer is
- * measured in the same bytes the ranges will later be served in.
+ * The size, for a host hiding `Content-Range`: `Content-Length` of a `206` to `Range: bytes=0-`.
+ * Not a plain `GET`: gzipping hosts (GitHub Pages) report the compressed size; a `Range` avoids it.
  */
 async function sizeFromOpenRange(url: string, signal?: AbortSignal): Promise<number | null> {
   const response = await fetch(url, { headers: { Range: 'bytes=0-' }, signal, cache: 'no-store' })
@@ -186,11 +162,8 @@ async function sizeFromOpenRange(url: string, signal?: AbortSignal): Promise<num
 /* ------------------------------------------------------------------ handles */
 
 /**
- * The small reads of every archive this worker reads over HTTP, shared by all its handles: the
- * reader the Service Worker builds again once libraries are attached gets a new handle, and finds
- * the blocks the first one fetched. See `BlockCache`. Made on first use rather than with the
- * module, so that the element — which imports this module for the probe and never opens a
- * handle — does not carry the cache in its bundle.
+ * The small reads of every archive this worker reads over HTTP, shared by all its handles, so a
+ * rebuilt reader finds the blocks the first fetched. Made on first use: the element only probes.
  */
 let blocks: BlockCache | null = null
 
@@ -217,9 +190,8 @@ export interface KeptBlock {
 }
 
 /**
- * The blocks `handle`'s small reads went through, held in this worker's cache, for keeping with
- * the package (#136): what the index and a load's reads before the boot needed. Only a handle over
- * HTTP has any.
+ * The blocks `handle`'s small reads went through, for keeping with the package (#136): what the
+ * index and the reads before boot needed. Only a handle over HTTP has any.
  */
 export function blocksReadBy(handle: SourceHandle): KeptBlock[] {
   return handle instanceof RangeHttpHandle ? handle.blocksRead() : []
@@ -271,9 +243,8 @@ class RangeHttpHandle implements SourceHandle {
     })
     if (response.status !== 206 && response.status !== 200) {
       await discardBody(response)
-      // A `PlayerError` is final; anything else `resilientStream` asks for again. A host that is
-      // overloaded, restarting or rate-limiting says so with a status that can change by itself;
-      // a missing file or an expired URL does not.
+      // A `PlayerError` is final; anything else `resilientStream` retries. A status that can change
+      // by itself (overloaded, restarting, rate-limiting) is retried; a missing file is not.
       if (TRANSIENT_STATUSES.has(response.status)) {
         throw new Error(`Range request answered ${response.status}`)
       }
@@ -287,18 +258,15 @@ class RangeHttpHandle implements SourceHandle {
     const response = await this.fetchRange(range, signal)
     if (!response.body) throw new PlayerError('network', 'Range response had no body')
 
-    // A host that answered 200 sent the whole archive. Buffering it to take a slice would mean
-    // holding hundreds of megabytes — and under `segmentedStream`, four whole files at once — so
-    // the body is sliced as it flows instead. The slice ends the pipe, which cancels the body,
-    // so the transfer stops there too.
+    // A host that answered 200 sent the whole archive: buffering it for a slice would hold hundreds
+    // of MB (four files under `segmentedStream`), so it is sliced as it flows, ending the pipe.
     const body = this.counted(response.body)
     return response.status === 200 ? sliceStream(body, range) : body
   }
 
   /**
-   * A read of at most `BLOCK_CACHE_MAX_READ` — the index, a local header, a small entry — goes
-   * through the block cache, which fetches whole blocks and keeps them. A longer one is fetched
-   * as asked and kept nowhere.
+   * A read of at most `BLOCK_CACHE_MAX_READ` (the index, a header, a small entry) goes through the
+   * block cache, which fetches whole blocks. A longer one is fetched as asked and kept nowhere.
    */
   async read(range: ByteRange): Promise<Uint8Array> {
     if (range.end - range.start + 1 > BLOCK_CACHE_MAX_READ) return this.fetchBytes(range)
@@ -308,10 +276,8 @@ class RangeHttpHandle implements SourceHandle {
   }
 
   /**
-   * A range of at most one block comes out of the block cache, as does a longer one the cache
-   * holds whole: zip.js streams an entry's data right after reading its header, and the block that
-   * held the header usually holds the data too. Anything else streams from the network as it is
-   * asked for, so a video's bytes never pass through the cache.
+   * A range of one block, or a longer one the cache holds whole, comes from the block cache: zip.js
+   * streams data right after its header, usually in that block. Else it streams from the network.
    */
   async stream(range: ByteRange): Promise<ReadableStream<Uint8Array>> {
     const length = range.end - range.start + 1
@@ -333,9 +299,7 @@ class RangeHttpHandle implements SourceHandle {
 
   /**
    * Every request, for a block or a span, goes through `resilientStream`: one that goes quiet or
-   * fails is opened again from the byte it reached. That covers the segments of a large span, the
-   * blocks a local header or the central directory lies in, and a warm span alike — a link that
-   * drops for a moment costs a moment, not the job.
+   * fails is reopened from the byte it reached, so a link that drops for a moment costs a moment.
    */
   private network(range: ByteRange): ReadableStream<Uint8Array> {
     return resilientStream(range, (remaining, signal) => this.attempt(remaining, signal), {
@@ -399,9 +363,8 @@ export async function openSource(
   file?: Blob,
   options: {
     /**
-     * Open a chunked archive that is still downloading. Only the forward index can address such
-     * a handle — its size is what has arrived so far — so this is for the reader built from that,
-     * never for zip.js, which needs the end of the file.
+     * Open a chunked archive that is still downloading. Only the forward index can address it (its
+     * size is what has arrived), never zip.js, which needs the end of the file.
      */
     partial?: boolean
   } = {}

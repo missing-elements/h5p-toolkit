@@ -1,21 +1,6 @@
 /**
- * Proves /demo/cmi5.html against ADL's CATAPULT cmi5 player: the reference launching system,
- * which validates every statement an assignable unit sends against the numbered cmi5
- * requirements and rejects the ones that break one.
- *
- *   pnpm cmi5:catapult              headless: launches the page, answers a question of the real quiz,
- *                                   completes, prints the verdict
- *   pnpm cmi5:catapult --open       prints a launch URL to open in a browser, waits until the session ends
- *   pnpm cmi5:catapult --au <url>   the AU to launch instead of this dev server's page; its CSP has to allow localhost
- *   pnpm cmi5:catapult --down       stops the stack and deletes its data
- *
- * What it does: fetches CATAPULT at a pinned commit into cmi5-catapult/CATAPULT, brings up the player,
- * MySQL and the SQL LRS with Docker Compose, starts the demo's dev server for the AU, creates a
- * tenant and an API token, imports a course structure naming the AU, asks for a launch URL, and
- * either opens it headless or hands it over. At the end it reads the session back from the
- * player — initialized, completed, passed or failed, terminated — and the statements from the
- * LRS, and exits 1 if the sequence is incomplete, if `initialized` or `terminated` went out other
- * than once, or if the player rejected anything.
+ * Proves /demo/cmi5.html against ADL's CATAPULT cmi5 player, which rejects statements that break
+ * a requirement. Flags: `--open`, `--au <url>`, `--down` (stops the stack, deletes its data).
  */
 
 import { spawn } from 'node:child_process'
@@ -127,7 +112,8 @@ async function main() {
   await waitFor(`${player}/api/v1/ping`, 'the player')
   log('stack is up')
 
-  // The AU: this dev server's page, or one given. A returned learner lands on the examples index.
+  // The AU: this dev server's page, or one given (its CSP has to allow localhost). A returned
+  // learner lands on the examples index.
   let vite
   let au = option('--au')
   let returnUrl = 'https://h5p-offline-player.vercel.app/demo/'
@@ -203,9 +189,8 @@ async function main() {
     const { pageLog } = await dump()
     failedSends = pageLog.split('\n').filter((line) => /failed to send|could not record/.test(line))
 
-    // The LMS launches the same registration again, in Normal mode, as it may: the result is in,
-    // so the page must send neither a second `passed` or `completed` nor a `failed` after the
-    // `passed`, even for a failing score (9.3.0.0-6 to 9.3.0.0-8).
+    // The LMS launches the registration again, in Normal mode: no second `passed` or `completed`,
+    // and no `failed` after a `passed`, even for a failing score, may be sent (9.3.0.0-6 to -8).
     again = await api(`/course/${course.id}/launch-url/0`, {
       method: 'POST',
       token,

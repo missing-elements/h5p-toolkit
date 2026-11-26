@@ -16,10 +16,8 @@ import { readContent } from './read.mjs'
 import { SourceError } from './source-error.mjs'
 
 /**
- * What only Node does of a build: the pack read from disk, a source's files read beside it and
- * downloads kept in a temporary folder, and the package written to a path, laid out to stream by
- * the normalizer, an mp4's index first. Everything else a build does is the page's build's too
- * (`browser.mjs`).
+ * What only Node does of a build: the pack read from disk, a source's files read beside it,
+ * downloads kept in a temporary folder, and the package written and laid out to stream.
  */
 
 /**
@@ -28,50 +26,25 @@ import { SourceError } from './source-error.mjs'
  * @typedef {{
  *   output: string, source: import('./build.mjs').Source, builtWith: string, manifest: Record<string, unknown>, content: Record<string, unknown>,
  *   libraries: string[], install: string[], coreApi: import('./install.mjs').CoreApi, translations: TranslationReport[], notes: Problem[], media: string[], lengths: import('./media.mjs').MediaLength[], unread: string[], outline: string
- * }} BuildResult what was written, and what is worth telling about it: `libraries`, the folders the
- *   package plays with; `install`, those carried for an H5P site's upload check; `coreApi`, the
- *   newest H5P core they ask for, which a site needs to take the package (`coreApiLine` says it);
- *   `outline`, the content as text for a review (`outlineOf`); `builtWith`, the content type and
- *   the pack's version of it, "H5P.Blanks 1.14", and `source`, the source as built, naming it: what
- *   to keep with the package, so that a build with a later pack can say the type has moved;
- *   `unread`, the files a check with `unread` did not look at, as the source names them;
- *   `lengths`, the length of each video an Interactive Video's times were held to, as the source
- *   names it (`lengthLine` says one): an mp4's from its index, a Vimeo video's as Vimeo said it
+ * }} BuildResult what was written, and what is worth telling; keep `source` and `builtWith` with it
  * @typedef {{ libraries?: string, base?: string, fetch?: typeof fetch, within?: string[], check?: boolean, unread?: boolean }} BuildOptions
- *   `libraries`, a library pack's parts folder in place of the pinned pack; `base`, the folder a
- *   source's file paths are read from; `fetch`, for media named by web address; `within`, the
- *   folders the output and every local file a source names must be inside, on their real paths, a
- *   list even of one; `check`, to build and write no package: no output is needed or looked at, and
- *   the result's `output` is empty, but a media file named by web address is still downloaded, to a
- *   temporary folder removed after, as the build checks it; a video on YouTube, Vimeo, Panopto or
- *   Echo360 stays an address, as in a build, a YouTube or Vimeo one asked of the site's oEmbed with
- *   `fetch` as a build asks it; `unread`, with `check`, for a source whose files are elsewhere, as
- *   an attachment in a chat is (#270): no file is looked for, none downloaded and no site asked,
- *   one named by a path is judged by its name alone and listed in the result's `unread`, and
- *   `base`, `within` and `fetch` are not used
+ *   `check` writes no package yet downloads web media; `unread`, with it, reads, downloads and asks nothing (#270)
  * @typedef {{ output: string, source: import('./build.mjs').Source, files: string[], notes: Problem[] }} ReadResult
- *   `output`, the source's path; `files`, the media written beside it, by the paths the source
- *   names them by, from its folder; `notes`, what was left out or could not be read back as it is
+ *   `output`, the source's path; `files`, media beside it; `notes`, what was left out or unread
  * @typedef {{ libraries?: string, within?: string[] }} ReadOptions
- *   `libraries`, a library pack's parts folder in place of the pinned pack; `within`, the folders
- *   the package and the folder written in must be inside, on their real paths, a list even of one
+ *   `libraries`, a parts folder in place of the pinned one; `within`, folders to stay inside
  * @typedef {{ output: string, type: string, parts: string[], size: number }} BundleResult
- *   `type`, the content type with the version bundled, `H5P.QuestionSet 1.21`; `parts`, the
- *   folders of the parts it holds; `size`, the zip's in bytes
+ *   `type`, the version bundled (`H5P.QuestionSet 1.21`); `parts`, folders held; `size`, bytes
  * @typedef {{ dev: bigint, ino: bigint }} Made a file this module created, by the device and
  *   inode it was given, which a file that takes its name later does not have
  * @typedef {import('./media.mjs').MediaFacts} MediaFacts
  * @typedef {{ base?: string, fetch?: typeof fetch, within?: string[] }} DescribeOptions
- *   `base`, the folder a path is read from; `fetch`, for a file named by web address and for
- *   asking a video's host; `within`, the folders a local file must be inside, on its real path, a
- *   list even of one
+ *   `base`, where paths are read from; `fetch`, for web addresses; `within`, folders to stay in
  */
 
 /**
- * The parts folder a pack is read from: the one named, or the pinned pack's. A type's bundle holds
- * `parts/` and `libraries.txt`, so one unzipped into a folder named `parts` has its index one
- * folder down, `parts/parts/index.json`: where the folder named has no index and that one does,
- * that one is the pack (#285). The build's line names the folder it read.
+ * The parts folder a pack is read from: the one named, or the pinned pack's. A type's bundle
+ * unzipped into a folder named `parts` has its index in `parts/parts/`, the pack (#285).
  * @internal
  * @param {string} [folder]
  */
@@ -83,9 +56,8 @@ export function partsFolder(folder) {
 }
 
 /**
- * The pack a build reads: the one this package pins, or the `parts/` folder of another copy. Read
- * from its `index.json`, which names the libraries carried for an H5P site's upload check too,
- * where the `pack` export of `index.js` leaves them out.
+ * The pack a build reads: the one this package pins, or another copy's `parts/` folder, read from
+ * its `index.json`, which also names the libraries carried for an upload check.
  * @param {string} [folder] a folder holding `index.json` and the parts it names
  */
 export async function openPack(folder) {
@@ -115,10 +87,8 @@ export async function openPack(folder) {
 }
 
 /**
- * The pinned pack's version, for messages and reports, from the libraries package's package.json
- * where it is installed beside this one. The command line as one file, `dist/h5p-author.mjs`,
- * copied out of the package, has no package beside it: there it is the copy its bundler wrote in
- * from the import. The file comes first, since Node before 22.12 warns on a JSON import.
+ * The pinned pack's version, from the libraries package's package.json where installed, else the
+ * bundler's copy in the one-file command line. File first: Node before 22.12 warns on JSON imports.
  */
 export async function packVersion() {
   try {
@@ -133,8 +103,7 @@ export async function packVersion() {
  * A source's files on disk: beside the source, by their paths from `base`; downloads kept in
  * `temporary`, numbered.
  * @param {{ base: string, temporary: string, within?: string[], beside?: string }} folders
- *   `within`, the folders a file must be inside; `beside`, where a file is looked for, as a
- *   problem says it of one that is not there
+ *   `within`, folders a file must be inside; `beside`, where one is looked for, as problems say
  * @returns {import('./media.mjs').MediaAccess<string>}
  * @internal
  */
@@ -225,19 +194,12 @@ export async function inside(path, folders) {
 }
 
 /**
- * Every network that is not the public internet, as `BlockList` reads it, which matches an IPv4
- * address however it is written: `::ffff:127.0.0.1` and `::ffff:7f00:1` are 127.0.0.1, and a URL
- * writes the first as the second. IPv4: this network, private, carrier-grade NAT, loopback,
- * link-local, IETF protocol assignments, documentation (TEST-NET-1 to 3), benchmarking, multicast
- * and reserved; and each of those as IPv6 carries it to an IPv4 network, behind NAT64's well-known
- * prefix (`64:ff9b::/96`, RFC 6052), which a NAT64 gateway translates, and in 6to4 (`2002::/16`).
- * IPv6: the unspecified and loopback addresses with the IPv4-compatible ones (`::/96`), the
- * IPv4-translated ones (`::ffff:0:0:0/96`, RFC 2765), NAT64's local-use prefix (`64:ff9b:1::/48`,
- * RFC 8215), discard-only (`100::/64`), Teredo (`2001::/32`), which carries an IPv4 address,
- * benchmarking (`2001:2::/48`), documentation (`2001:db8::/32`, `3fff::/20`), segment routing's
- * (`5f00::/16`), unique-local, link-local, site-local and multicast.
+ * Every non-public network, as `BlockList` reads it, which matches an IPv4 address however written
+ * (`::ffff:7f00:1` is 127.0.0.1). IPv4 ranges are added behind NAT64 and 6to4 too.
  */
 const LOCAL_NETWORKS = new BlockList()
+// IPv4: this network, private, carrier-grade NAT, loopback, link-local, IETF protocol assignments,
+// documentation (TEST-NET-1 to 3), benchmarking, multicast and reserved.
 for (const [address, prefix] of /** @type {[string, number][]} */ ([
   ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12],
   ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
@@ -250,6 +212,8 @@ for (const [address, prefix] of /** @type {[string, number][]} */ ([
   LOCAL_NETWORKS.addSubnet(`64:ff9b::${high}:${low}`, 96 + prefix, 'ipv6')
   LOCAL_NETWORKS.addSubnet(`2002:${high}:${low}::`, 16 + prefix, 'ipv6')
 }
+// IPv6: unspecified, loopback, IPv4-compatible and -translated, NAT64 local-use, discard-only,
+// Teredo (carries IPv4), benchmarking, documentation, segment routing, unique-local, link/site.
 for (const [address, prefix] of /** @type {[string, number][]} */ ([
   ['::', 96], ['::ffff:0:0:0', 96], ['64:ff9b:1::', 48], ['100::', 64], ['2001::', 32], ['2001:2::', 48], ['2001:db8::', 32], ['3fff::', 20],
   ['5f00::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]
@@ -276,9 +240,8 @@ export function isPrivateAddress(address) {
 const CREDENTIALS = ['authorization', 'proxy-authorization', 'cookie']
 
 /**
- * A promise that settles as the one given does, or rejects with the signal's reason once it
- * aborts: a lookup takes no signal of its own, so a resolver that hangs would hold a build past
- * its download's idle limit.
+ * A promise that settles as the one given does, or rejects with the signal's reason on abort: a
+ * lookup takes no signal, so a hanging resolver would hold a build past its idle limit.
  * @template T
  * @param {Promise<T>} promise
  * @param {AbortSignal | null | undefined} signal
@@ -295,10 +258,8 @@ function abortable(promise, signal) {
 }
 
 /**
- * A `fetch` that refuses an address on a local network (`isPrivateAddress`), on every redirect it
- * follows, over the resolver and `fetch` given: the tests' seam. `publicFetch` is this over the
- * system's. As `fetch` does, a redirect to another origin drops what the request carried for its
- * own: `Authorization`, `Proxy-Authorization` and `Cookie`.
+ * A `fetch` that refuses a local-network address on every redirect, over a resolver and `fetch`
+ * given (the tests' seam); a cross-origin redirect drops credentials, as `fetch` does.
  * @param {{ lookup?: Lookup, fetch?: Fetch }} [over]
  * @returns {Fetch}
  * @internal
@@ -348,13 +309,8 @@ export function guardedFetch({ lookup: resolveHost = lookup, fetch: send = (inpu
 }
 
 /**
- * A `fetch` for media that refuses an address on a local network, on every redirect it follows:
- * for a build that acts on what a model wrote, where the command line's own may reach any host.
- * A build uses it only where it is passed as `fetch`. It looks a name up and then asks, so a host
- * that answers differently the second time is not covered: it is a guard against a model's
- * mistake or a planted address, not against a hostile network. A name that does not resolve is
- * refused in the words a local one is, so what it refuses does not tell which names exist on a
- * local network. GET and HEAD only, as media is fetched.
+ * A `fetch` that refuses a local network on every redirect, for builds acting on what a model wrote: a guard
+ * against mistakes and planted addresses; it looks a name up and then asks, so a host that answers differently the second time is not covered.
  */
 export const publicFetch = guardedFetch()
 
@@ -387,7 +343,7 @@ function foldersOf(within) {
  * `check`, builds it and writes none, and takes no `output`.
  * @param {unknown} input the source: `{ type, title, language, license, authors, params }`, or a quiz in the published quiz format
  * @param {string | undefined} output the package's path; `undefined` with `check`
- * @param {BuildOptions} [options]
+ * @param {BuildOptions} [options] `base`, `within` and `fetch` are not used with `unread`
  * @returns {Promise<BuildResult>}
  */
 export async function buildPackage(input, output, options = {}) {
@@ -447,9 +403,8 @@ export async function buildPackage(input, output, options = {}) {
     }
     let final = staged
     if (media.files.length) {
-      // Media stored, an mp4's index first: the layout a package streams in. The libraries
-      // carried for an H5P site's upload check stay after the media, where `writePackage` put
-      // them: a host that ignores `Range` then boots, and plays the media, before they arrive.
+      // Media stored, an mp4's index first, as a package streams; the upload-check libraries stay
+      // after it (`writePackage`): a host without `Range` boots and plays before they arrive.
       final = join(temporary, 'normalized.h5p')
       await normalizeArchive({ input: staged, output: final, last: [...built.install.keys()] })
     }
@@ -480,12 +435,8 @@ export async function buildPackage(input, output, options = {}) {
 }
 
 /**
- * What files are, before a source names them (#260): a picture's size, a video's or a recording's
- * container, an mp4's length and what is worth saying of its tracks, read as a build reads them;
- * of a video on YouTube, Vimeo, Panopto or Echo360, its host, and its length where the host says
- * one. A model that writes an Interactive Video's times needs the length first, and wrote a
- * parser of its own for it where it could run one. A file named by a web address is downloaded to
- * a temporary folder removed after, as a check downloads it. `mediaLine` says each in a line.
+   * What files are, before a source names them (#260): picture size, container, an mp4's length and
+   * tracks, a hosted video's host and length. A model needs an Interactive Video's length first.
  * @param {string[]} sources paths from `base`, or web addresses
  * @param {DescribeOptions} [options]
  * @returns {Promise<MediaFacts[]>} one for each, in their order
@@ -512,9 +463,8 @@ export async function describeMedia(sources, options = {}) {
 }
 
 /**
- * Whether a media path a package's content names is one a read writes a file at, under its folder:
- * names joined by `/`, none of them empty, `.` or `..`, and none with a character a file name
- * cannot have on Windows, macOS or Linux. An archive is untrusted, and its content names paths.
+ * Whether a media path from an untrusted archive is one a read writes under its folder: names
+ * joined by `/`, none empty, `.` or `..`, none with a character a file name cannot have anywhere.
  * @param {string} path
  */
 function writable(path) {
@@ -522,14 +472,8 @@ function writable(path) {
 }
 
 /**
- * A package read back into the source a build would take to make it again (#236), to change it and
- * build it again: written into `folder`, made where it is not there, as `<name>.source.json`, with
- * the package's media beside it at the paths the source names them by. Only the media the content
- * names are written, and only under the folder, since an archive is untrusted: a file whose path
- * is no name a read writes is left out of the source, which so names no file outside the folder,
- * and a read that a link in the folder would take outside it writes nothing. Nothing is written
- * over: where a name is taken, nothing is written, and what was written is taken away again where
- * a later write fails.
+ * A package read back into a build's source (#236): `<name>.source.json` and its media in `folder`.
+ * Only named media, only inside it (untrusted archive), none written over, undone on failure.
  * @param {string} file the package, a .h5p
  * @param {string} folder
  * @param {ReadOptions} [options]
@@ -598,9 +542,8 @@ export async function readPackage(file, folder, options = {}) {
       else media.push({ entry, to: join(target, ...path.split('/')), path })
     }
     const source = unwritable.size ? /** @type {import('./build.mjs').Source} */ (withoutFiles(read.source, unwritable)) : read.source
-    // Every name looked at before anything is made, so a read that cannot write all of it writes
-    // nothing: none taken, and none that a link on the way, which the folder may hold, takes out
-    // of it. The archive names the paths.
+    // Every name is looked at before anything is made, so a read that cannot write all of it writes
+    // nothing: none taken, none led out by a link.
     for (const to of [output, ...media.map((each) => each.to)]) {
       if (await lstat(to).then(() => true, () => false)) throw exists(to, 'a read')
       if (!(await inside(to, [target]))) throw new Error(`${to} leads out of ${target} through a link on its way: a read writes only in its folder`)
@@ -675,11 +618,8 @@ function withoutFiles(value, paths) {
 const BUNDLE_DATE = new Date(2000, 0, 1, 2)
 
 /**
- * A content type's bundle (`bundleLibraries`) written to `output`, which must not exist yet: a zip
- * of `parts/`, a parts folder `h5p-author build --libraries parts` reads, with the pack's whole index
- * and the parts a build of the type reads, and of `libraries.txt`, the licences those are used under,
- * as the pack lists them beside its parts folder. Two bundles of the same pack unzipped in one place
- * make one parts folder: their index is the same.
+ * A type's bundle (`bundleLibraries`) written to a new `output`: a zip of `parts/` (the whole
+ * index, the parts the type reads) and `libraries.txt`. Bundles of one pack unzip into one folder.
  * @param {string} type a content type's machine name, such as `H5P.QuestionSet`
  * @param {string} output
  * @param {{ libraries?: string }} [options] `libraries`, a pack's parts folder in place of the pinned pack
@@ -699,11 +639,8 @@ export async function writeBundle(type, output, options = {}) {
 }
 
 /**
- * Every content type's bundle (`contentTypes`), written as `writeBundle` writes one, to
- * `<machine name>.zip` in `folder`, which is made if it is not there. Nothing is written over: where
- * one of them is there already, nothing is written. All of them or none: one that fails takes those
- * written before it away again, so the call can be run again as it was. A file another process has
- * put at one of those names since is theirs, and stays.
+ * Every content type's bundle, as `writeBundle` writes one, to `<machine name>.zip` in `folder`.
+ * Nothing is written over; all or none, so a failure undoes the rest and the call can be run again.
  * @param {string} folder
  * @param {{ libraries?: string }} [options] `libraries`, a pack's parts folder in place of the pinned pack
  * @returns {Promise<BundleResult[]>} by machine name
@@ -750,10 +687,8 @@ async function bundleFiles(directory) {
 }
 
 /**
- * Takes away a file this module created, unless the name holds another file by now. A file another
- * process has put there since is theirs, and removing by the name alone would take it. A guard,
- * not a lock: the check and the removal are two calls, and Node removes a file by its name, so a
- * file that takes the name in the gap between them is still lost.
+ * Takes away a file this module made, unless the name now holds another (another process's). A
+ * guard, not a lock: a file taking the name between the check and the removal is lost.
  * @param {string} path
  * @param {Made} made
  * @returns {Promise<void>}

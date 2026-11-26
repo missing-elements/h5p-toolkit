@@ -9,12 +9,8 @@ import { host, type Host } from './helpers/host.js'
 import { changedQuiz, entriesOf, formulas, quiz } from './helpers/zip.js'
 
 /**
- * The SCORM page of a written site, driven in Chromium as a teacher uses it: files chosen or
- * dropped, each read into a row of the review, a title changed, the zips built and downloaded one
- * by one and all in one, and a refusal shown beside the files that build. What a zip holds is
- * `scorm-browser.test.ts`'s to check against the command's; here it is the page's own script,
- * bundled as the site carries it, and the downloads that reach the disk. A page with only the
- * elements a page had up to embed 1.5 still builds a file the moment it is chosen.
+ * The SCORM page of a written site, driven in Chromium as a teacher uses it, its script bundled
+ * as the site carries it; what a zip holds is `scorm-browser.test.ts`'s to check.
  */
 
 /** A host's page as the README described one up to embed 1.5: the input, the line, the link and the notice. */

@@ -6,13 +6,8 @@ import type { ForwardIndexSnapshot } from './forward-index.js'
 import type { ErrorCode } from './protocol.js'
 
 /**
- * The chunk store: one Cache API cache per package. Small entries are stored whole; archives and
- * extracted media are stored as fixed-size chunks, so a range request is chunk arithmetic plus a
- * slice and nothing bigger than one chunk is ever resident.
- *
- * It is a cache, not a library. Nothing in v1 lets a user manage it; when a write hits the quota,
- * the coldest package that is not currently playing is dropped — emptied first, then deleted,
- * because only the first of those gives the space back at once — and the write is retried.
+ * The chunk store: one Cache API cache per package. Small entries whole, archives and media in
+ * fixed chunks, so nothing over one chunk is resident. A quota error evicts the coldest idle one.
  */
 
 /** What is known about a chunked entry while and after it is written. */
@@ -23,15 +18,13 @@ export interface ChunkMeta {
   available: number
   complete: boolean
   /**
-   * Set when the last attempt to produce the entry failed. The Jobs worker records it so the
-   * virtual server can answer with the failure at once instead of waiting out a stall, and take
-   * the entry up again once the failure is old enough to be worth retesting.
+   * Set when the last attempt to produce the entry failed, so the virtual server answers with the
+   * failure at once, not after a stall, and retests the entry once the failure is old enough.
    */
   error?: EntryFailure
   /**
-   * For a part of the library pack, the SHA-256 its bytes were found to match. Complete is not
-   * enough: a Jobs worker stopped between the last write and the check leaves a part whole and
-   * unchecked, and it is library code (#58).
+   * For a library pack part, the SHA-256 its bytes matched. Complete is not enough: a worker
+   * stopped between the last write and the check leaves a whole, unchecked library part (#58).
    */
   checked?: string
 }
@@ -48,8 +41,7 @@ const FORWARD_INDEX_MARKER = '/__forward__'
 
 /**
  * The name a forward index is announced under on the watermark channel, so a request waiting for
- * an entry that has not arrived yet wakes when the index grows, the way one waiting for bytes
- * wakes when the watermark moves.
+ * an entry that has not arrived wakes when the index grows, as one waiting for bytes does.
  */
 export const FORWARD_INDEX_ENTRY = '__forward_index__'
 
@@ -86,9 +78,8 @@ function indexBlocksKey(pkgId: string): string {
 }
 
 /**
- * The blocks an archive's index was read from over HTTP, kept with the package (#136), and what
- * they were read under: the host's validator and the archive's size. A worker started again puts
- * them back in its block cache only when both still match.
+ * The blocks an archive's index was read from over HTTP, kept with the package (#136) under the
+ * host's validator and the archive's size; a new worker reuses them only when both still match.
  */
 export interface IndexBlocks {
   validator: string
@@ -186,9 +177,8 @@ export class ChunkStore {
   }
 
   /**
-   * Stores an entry in one piece. `body` builds the payload — usually a fresh inflate stream
-   * straight off zip.js, so the entry streams into storage instead of landing in memory first —
-   * and is called again only if a quota retry needs another.
+   * Stores an entry in one piece. `body` builds the payload, usually a fresh inflate stream, so the
+   * entry streams into storage; it is called again only if a quota retry needs another.
    */
   async putWhole(
     entry: string,
@@ -218,8 +208,7 @@ export class ChunkStore {
 
   async setMeta(entry: string, meta: ChunkMeta): Promise<void> {
     // The watermark must never be the write that fails on quota, or a complete entry would look
-    // partial forever. It is tiny, but tiny is not exempt: an origin filled to the last byte
-    // refuses a hundred bytes too, so it goes through the same eviction as the chunks.
+    // partial forever. Tiny is not exempt (a full origin refuses 100 bytes): it evicts like chunks.
     await this.write(
       metaKey(this.pkgId, entry),
       () => new Response(JSON.stringify(meta), { headers: { 'content-type': 'application/json' } })
@@ -228,9 +217,8 @@ export class ChunkStore {
   }
 
   /**
-   * Drops the chunks of an entry and keeps its meta. What a failed extraction leaves behind: a
-   * deflate stream cannot be resumed, so the next attempt starts from zero anyway, and until then
-   * the partial chunks only hold space the rest of the package may need.
+   * Drops the chunks of an entry and keeps its meta, as a failed extraction leaves it: a deflate
+   * stream cannot resume, so the partial chunks only hold space the package may need.
    */
   async discardChunks(entry: string): Promise<void> {
     const cache = await this.cache()
@@ -262,15 +250,8 @@ export class ChunkStore {
   }
 
   /**
-   * Streams an inclusive byte range out of a chunked entry. Chunks are pulled one at a time as
-   * the consumer reads, and each streams straight out of the cache — a partial one sliced as it
-   * flows — so serving a 300 MB video costs kilobytes of memory, not a chunk of it. That matters
-   * most for the small ranges a media element probes with: materialising the 8 MB chunk to hand
-   * back 64 kB of it was the old cost of every such request.
-   *
-   * `waitFor` lets the stream run ahead of the extraction: it is called with the byte the next
-   * chunk reaches and must resolve true once that much exists, or false to end the body there.
-   * Without it every byte of the range has to be in the store before the first one can be served.
+   * Streams an inclusive byte range a chunk at a time, so a 64 kB media probe does not materialise
+   * 8 MB. `waitFor(byte)` runs it ahead of the extraction: true once that exists, false to end.
    */
   readRange(
     entry: string,
@@ -303,12 +284,8 @@ export class ChunkStore {
 
             if (waitFor) {
               const reaches = Math.min((index + 1) * CHUNK_SIZE, range.end + 1)
-              // Told the extraction is gone, the body ends short rather than erroring. A media
-              // element takes an errored body as a fatal error of the resource — "Format error"
-              // before its metadata, a network error after — and never asks again; a body that
-              // ends early it follows up with a request for the rest, exactly as it follows the
-              // shorter `206` a partly extracted entry is answered with, and that request finds
-              // whatever has landed since, or asks for the job anew.
+              // The extraction is gone: end the body short, not errored. A media element takes an
+              // errored body as fatal and never asks again, but follows a short one with a request.
               if (!(await waitFor(reaches))) {
                 controller.close()
                 return
@@ -367,9 +344,8 @@ export class ChunkStore {
   }
 
   /**
-   * The entries of a downloading archive that are already readable, from its local headers. The
-   * Jobs worker publishes this as it downloads; the Service Worker serves from it until the whole
-   * archive — and with it the central directory, the real index — is present.
+   * The entries of a downloading archive already readable from its local headers, published by the
+   * Jobs worker; the Service Worker serves from them until the central directory is present.
    */
   async getForwardIndex(): Promise<ForwardIndexSnapshot | undefined> {
     const cache = await this.cache()
@@ -418,15 +394,8 @@ export class ChunkStore {
   /* ---------------------------------------------------------------- writing and eviction */
 
   /**
-   * A cache write that survives a full disk: on a quota error the coldest *other* package is
-   * dropped and the write retried. The package being served is never a candidate, so playback
-   * cannot evict itself mid-stream.
-   *
-   * It takes a factory, not a `Response`. A body can only be consumed once, and the obvious way
-   * to keep a retry copy — `clone()` before every attempt — tees the body: for a stream straight
-   * off the inflate, the unread branch then buffers the entire entry in memory, on every write,
-   * only to be thrown away when the put succeeds. Building a fresh response only when a retry
-   * actually happens keeps the common path a single pass through.
+   * A cache write that survives a full disk: a quota error drops the coldest *other* package and
+   * retries. A factory, not a `Response`: a `clone()` per attempt would buffer the whole stream.
    */
   private async write(key: string, build: () => Response): Promise<void> {
     const cache = await this.cache()
@@ -456,9 +425,8 @@ export class ChunkStore {
 /* ------------------------------------------------------------------ module-level maintenance */
 
 /**
- * Hook the eviction policy up to the `packages` table. The lookup is injected rather than imported
- * so the store stays testable without IndexedDB; `eviction.ts` supplies the real one, and both the
- * Service Worker and the Jobs worker install it.
+ * Hooks the eviction policy up to the `packages` table. Injected, not imported, so the store tests
+ * without IndexedDB; `eviction.ts` supplies the real one, installed by both workers.
  */
 let coldestPackageLookup: ((exceptPkgId: string) => Promise<string | null>) | null = null
 
@@ -486,15 +454,8 @@ async function evictColdestPackage(exceptPkgId: string): Promise<boolean> {
 }
 
 /**
- * Deletes a cache's entries one by one before the cache itself goes.
- *
- * `caches.delete()` alone frees nothing the write that triggered it can use: Chromium keeps the
- * bytes on the books until every `Cache` object anyone holds for that cache has been garbage
- * collected, and the virtual server creates one per request it serves. Measured against a
- * simulated quota: with a handle alive the space never came back; with handles dropped it took
- * about 770 ms; with the entries deleted first it was back in 3 ms. Without this, a write under
- * pressure evicted every idle package in turn, found each eviction had freed nothing yet, and
- * gave up — while a page reload seconds later found the space there after all.
+ * Deletes a cache's entries one by one before the cache: Chromium keeps the bytes booked until
+ * every `Cache` handle is collected, and the server makes one per request (770 ms against 3 ms).
  */
 async function emptyCache(name: string): Promise<void> {
   if (!(await caches.has(name))) return
@@ -516,15 +477,8 @@ async function coldestCacheName(exceptPkgId: string): Promise<string | null> {
 /* ------------------------------------------------------------------ watermark notices */
 
 /**
- * The watermark is written by the Jobs worker and waited on by the Service Worker: different
- * threads, no shared memory. Polling the cache record bridges that, but only at the poll
- * interval; a notice on a `BroadcastChannel` wakes a waiter the moment the bytes exist. The poll
- * stays as the fallback — it is what notices a job that died — so a platform without the channel
- * is slower, not broken.
- *
- * Two channel objects, not one: a channel never delivers to itself, and the announcer and the
- * listener can be the same module — as they are in a unit test, and would be in a single-worker
- * host that ran both halves in one place.
+ * The Jobs worker writes the watermark, the Service Worker waits: a channel notice wakes a waiter
+ * at once, the poll notices a dead job. Two channels, as a channel never hears itself.
  */
 const WATERMARK_CHANNEL = 'h5p-player-watermark'
 
@@ -562,21 +516,16 @@ function announceWatermark(notice: WatermarkNotice): void {
 }
 
 /**
- * Tells whoever waits on an entry that its job is alive, whether or not anything has arrived:
- * sent on a timer for as long as the job runs, with the bytes taken from the network so far when
- * the source counts them. A liveness notice writes nothing — there is nothing to serve yet — it
- * only keeps a waiter from reading a slow start, or a silent link, as a dead job. The job's own
- * reads bound the silence (`resilientStream`); the waiter does not have to.
+ * Tells whoever waits on an entry that its job is alive, on a timer, with the bytes taken so far if
+ * known. It writes nothing; it keeps a slow start or silent link from reading as a dead job.
  */
 export function announceRunning(pkgId: string, entry: string, received?: number): void {
   announceWatermark({ pkgId, entry, running: true, received })
 }
 
 /**
- * Tells whoever waits on an entry that its job is queued behind another extraction — alive, not
- * yet producing. Extractions run one at a time so the video the learner is looking at gets the
- * whole link; the ones behind it announce this instead of bytes, and a waiter that hears it keeps
- * waiting rather than asking for the job again or giving up.
+ * Tells whoever waits on an entry that its job is queued behind another extraction, alive and not
+ * yet producing, so the waiter keeps waiting rather than asking again or giving up.
  */
 export function announceQueued(pkgId: string, entry: string): void {
   announceWatermark({ pkgId, entry, queued: true })

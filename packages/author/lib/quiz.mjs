@@ -2,8 +2,7 @@ import { escapeText } from './text.mjs'
 
 /**
  * The quiz format the h5p-author skill published on 2026-10-23: a Multiple Choice question or a
- * Question Set of them, in plain text. It stays a source the build takes, mapped here onto the
- * general one, so nothing written in it breaks.
+ * Question Set of them, in plain text. Mapped onto the general source so none breaks.
  */
 
 /**
@@ -124,9 +123,8 @@ function paragraph(value) {
 }
 
 /**
- * The pass mark as two score ranges for the content's overall feedback. The libraries pick a
- * range by the floored percentage and judge `success` by the exact one, which agree for a whole
- * number, so the message a learner gets matches the result an LMS records.
+ * The pass mark as two score ranges for the content's overall feedback. The libraries pick a range
+ * by the floored percentage and judge `success` by the exact one, which agree for whole numbers.
  * @param {Quiz} quiz
  */
 function passFeedback(quiz) {
@@ -140,8 +138,7 @@ function passFeedback(quiz) {
 
 /**
  * A quiz as a general source: Multiple Choice's parameters for each question, inside a Question
- * Set's for a set. A question with no title takes the set's own label and number, as the set's
- * layout does (`H5P.QuestionSet` in types.mjs).
+ * Set's for a set. A question with no title takes the set's label and number, as its layout does.
  * @param {Quiz} quiz
  * @internal
  */

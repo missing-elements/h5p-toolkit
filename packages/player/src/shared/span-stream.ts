@@ -4,19 +4,13 @@ import type { SourceHandle } from './source.js'
 import { deferredStream } from './stream-utils.js'
 
 /**
- * How a span of the archive is pulled: one ranged request, or several at once when the span is
- * large and the host honours `Range`. Both the zip.js bridge and the Jobs worker's extraction
- * come through here, so neither carries the decision and the Jobs worker carries no zip.js.
+ * How a span is pulled: one ranged request, or several at once when it is large and the host
+ * honours `Range`. The zip.js bridge and the Jobs worker both come here; the worker has no zip.js.
  */
 
 /**
- * Streams an inclusive range of the source in one read instead of paging through it.
- *
- * Several connections beat one on a host that caps a single stream, which many do. Only for
- * `range-http`: a picked file and an archive already in the chunk store are local reads, and
- * splitting those buys nothing while costing the buffering. Either way nothing is opened until
- * something reads: a stream is otherwise pulled as soon as it is constructed, and one nobody
- * consumes would open a request for the whole span and leave it hanging.
+ * Streams an inclusive range in one read, over several connections only for `range-http`: local
+ * reads gain nothing from splitting. Nothing opens until read, or an unread stream hangs a request.
  */
 export function streamSpan(handle: SourceHandle, range: ByteRange): ReadableStream<Uint8Array> {
   const { start, end } = range
@@ -29,9 +23,8 @@ export function streamSpan(handle: SourceHandle, range: ByteRange): ReadableStre
 }
 
 /**
- * One segment of a span: a ranged request whose bytes are kept as they arrive, so that when the
- * segment's turn comes the consumer takes what is already there and then follows the request
- * live, rather than waiting for the whole segment to land first.
+ * One segment of a span: a ranged request whose bytes are kept as they arrive, so its turn takes
+ * what is there and follows the request live, not waiting for the whole segment to land.
  */
 class Segment {
   private readonly arrived: Uint8Array[] = []
@@ -94,26 +87,8 @@ class Segment {
 }
 
 /**
- * Pulls one span over several connections and emits it in order.
- *
- * A rolling window rather than "split into N halves and join": splitting a 230 MB span four ways
- * would have three whole quarters waiting in memory for their turn. Here at most
- * `SEGMENT_CONCURRENCY` segments exist at once, a finished one is emitted as soon as its turn
- * comes, and starting the next only when one is consumed keeps the window — and the memory —
- * flat for a span of any size.
- *
- * Order is what makes this usable at all: the consumer is an inflate, and a deflate stream has to
- * be fed from the front. So the download is parallel and the decode stays serial.
- *
- * Two things about the start. The first segment is handed over as it arrives, not once it is
- * complete: on a link that is itself the limit, waiting for a whole 4 MB segment meant the inflate
- * saw nothing until it landed. And the other connections open only once the first is flowing:
- * opened together, the four share the link and the first segment's bytes — the only ones the
- * inflate can use yet — arrive at a quarter of the rate, so the first byte of output waited for
- * roughly 16 MB of transfer. Measured against a 40 MB deflated video on a 4 Mbit/s link, that was
- * 34 s to the first extracted byte — past the 30 s the virtual server gives an extraction to
- * produce anything. A host that caps each connection loses nothing to the ramp: the others open
- * as soon as the first byte arrives.
+ * Pulls one span over several connections and emits it in order, as a deflate stream is fed from
+ * the front. A rolling window, not N splits: at most `SEGMENT_CONCURRENCY` segments, flat memory.
  */
 function segmentedStream(handle: SourceHandle, span: ByteRange): ReadableStream<Uint8Array> {
   const total = span.end - span.start + 1
@@ -143,6 +118,8 @@ function segmentedStream(handle: SourceHandle, span: ByteRange): ReadableStream<
           if (next === current) open(next++)
           const segment = segments.get(current)!
 
+          // The others open once the first flows: opened together, four share the link and the
+          // first segment, all the inflate can use, came at a quarter rate (34 s to first output).
           if (segment.received > 0) {
             while (next < count && segments.size < SEGMENT_CONCURRENCY) open(next++)
           }

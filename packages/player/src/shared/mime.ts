@@ -1,7 +1,6 @@
 /**
- * Content types for served entries. A zip carries no media type, so every response has to be
- * typed from the extension: browsers ignore a stylesheet that is not `text/css`, and Safari
- * refuses to play media served as `application/octet-stream`.
+ * Content types for served entries, typed from the extension as a zip carries none: browsers
+ * ignore a stylesheet not served as `text/css`; Safari will not play media as `application/octet-stream`.
  */
 const TYPES: Record<string, string> = {
   // Runtime

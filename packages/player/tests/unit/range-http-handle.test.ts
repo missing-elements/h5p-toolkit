@@ -34,9 +34,8 @@ function countingBody(bytes: Uint8Array, piece = 1024) {
 }
 
 /**
- * Whether two byte arrays are equal, compared directly. `toEqual` walks a typed array element by
- * element through its generic equality, which took seconds on a megabyte and timed the case out on
- * CI's runners.
+ * Compares two byte arrays directly: `toEqual` walks a typed array element by element and took
+ * seconds on a megabyte, timing the case out on CI.
  */
 function sameBytes(actual: Uint8Array, expected: Uint8Array): boolean {
   if (actual.length !== expected.length) return false
@@ -133,9 +132,8 @@ describe('RangeHttpHandle.stream', () => {
 
 describe('an index read over HTTP', () => {
   /**
-   * zip.js reads an index in small pieces: the tail, the central directory inside it, then each
-   * entry's local header and its data. Every piece was a request, and the reader the Service
-   * Worker builds again once libraries are attached asked for all of them again (#133).
+   * zip.js reads an index in small pieces (tail, central directory, each local header and data),
+   * each a request, and the reader rebuilt once libraries are attached asked for all again (#133).
    */
   async function quiz() {
     // Entries from the start to well past the first block, so the tail and the head are apart.

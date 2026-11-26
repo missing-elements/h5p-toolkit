@@ -5,8 +5,8 @@ export type StatementAdaptation =
   | { reason: string }
 
 /**
- * Makes a statement cmi5 allows: the launch actor, registration and context template take
- * precedence, while the player-provided revision and platform remain in its context.
+ * Makes a statement cmi5 allows: launch actor, registration and context template win (`contextActivities`
+ * join, template first); the player's revision and platform stay. An id is added if none is a UUID.
  */
 export function allowedStatement(statement: Statement, launch: LaunchParameters, data: Pick<LaunchData, 'contextTemplate'>): Statement {
   const template = data.contextTemplate ?? {}
@@ -27,11 +27,8 @@ export function allowedStatement(statement: Statement, launch: LaunchParameters,
 }
 
 /**
- * Adapts only the Activity statements the player has stamped: `context.platform` proves the
- * element passed the statement through `withProvenance`, so one without it is reported and
- * dropped. `context.revision` is kept when present but not required, because the element
- * releases held statements without one on a host without `Range` when the load ends or the page
- * is hidden before the index answered, rather than lose a learner's record.
+ * Adapts only Activity statements the player stamped (`context.platform`); others are dropped.
+ * `context.revision` is optional: if the load ends or the page hides before the index answers, held ones go out without it, not lost.
  */
 export function adaptPlayerStatement(statement: Statement, launch: LaunchParameters, data: Pick<LaunchData, 'contextTemplate'>): StatementAdaptation {
   const object = statement?.object

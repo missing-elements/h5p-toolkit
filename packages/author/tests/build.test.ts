@@ -419,9 +419,8 @@ describe('any content type in the pack', () => {
   })
 
   it('says what to write for what is in the wrong place, checks it in the same build, and counts no list it refused an item of (#172)', async () => {
-    // A book's chapters as a chat without the type's file writes them: pages of their own, with no
-    // H5P.Column around them, and sub-content in the place of a page's items. Every one of it in
-    // one build, by where the source has it; it was "expected sub-content" and "has 0 items".
+    // A book's chapters as a chat without the type's file writes them: no H5P.Column around pages,
+    // sub-content in the place of a page's items. All in one build, by where the source has it.
     expect(await problems({ ...META, type: 'H5P.InteractiveBook', params: { chapters: [
       { title: 'Sources', content: [{ library: 'H5P.AdvancedText', params: { text: 'A river begins at its source.' } }] }
     ] } })).toEqual([
@@ -458,10 +457,8 @@ describe('any content type in the pack', () => {
   })
 
   it('checks the content in the same build as the source\'s own fields, and takes what its outer shape plainly means (#174)', async () => {
-    // A book as Gemini wrote it from a link to the skill and none of its text: the content type as
-    // `contentType`, the source's own fields in `metadata`, as H5P keeps them, and sub-content that
-    // names its library the same way. It was seven problems, all of the outer shape, and the round
-    // after thirty, three an item, one of them a list of 35 libraries.
+    // A book as Gemini wrote it from a link to the skill: the type as `contentType`, own fields in
+    // `metadata`, sub-content naming its library the same way. It was seven problems, then thirty.
     expect(await problems({
       contentType: 'H5P.InteractiveBook',
       metadata: { title: 'Physics', license: 'CC BY', authors: [{ name: 'Ann Author', role: 'Author' }], defaultLanguage: 'en' },
@@ -502,9 +499,8 @@ describe('any content type in the pack', () => {
     expect(await problems({ ...META, type: 'fill-in-the-blanks', params: {} })).toEqual(['type: the library pack has no content type fill-in-the-blanks; nearest: H5P.Blanks'])
     // "Question Set 2" is no Question Set: a number with no point is no version.
     expect(await problems({ ...META, type: 'Question Set 2', params: {} })).toEqual(['type: the library pack has no content type Question Set 2'])
-    // Two keys that each name a type: neither is taken for it. A text under another key is no
-    // name of the type, however it reads, nor is an object other than `metadata` the source's
-    // own fields: Question Set's `introPage` has a title too.
+    // Two keys that each name a type: neither is taken. A text under another key is no type name,
+    // nor is an object other than `metadata` the source's fields (Question Set's `introPage`).
     expect(await problems({ ...META, contentType: 'H5P.Blanks', library: 'H5P.DragText', params: {} })).toEqual([
       expect.stringMatching(/^contentType: is not a field of a source; the fields are/),
       expect.stringMatching(/^library: is not a field of a source; the fields are/),
@@ -535,8 +531,7 @@ describe('any content type in the pack', () => {
       expect.stringMatching(/^params\.presentation\.slides\[0\]\.elements\[0\]\.text: has <h1>, which this field does not take/)
     ])
     // A name under `type` or `contentType` written loosely, in a field that takes several
-    // libraries: the library it names is loaded, so what is written for it is checked against its
-    // fields in the same round, and not against none.
+    // libraries: the library is loaded, so what is written for it is checked in the same round.
     expect(await problems({ ...META, type: 'H5P.Column', params: { content: [{ type: 'advancedtext', text: '<h1>Hi</h1>' }, { content: { contentType: 'advanced-text', params: { text: '<h1>Hi</h1>' } } }] } })).toEqual([
       'params.content[0]: is sub-content, but here it goes inside an object, in its field content: write params.content[0] as { "content": { "library": "H5P.AdvancedText", "params": { … } } }',
       expect.stringMatching(/^params\.content\[0\]\.text: has <h1>, which this field does not take/),
@@ -978,9 +973,8 @@ describe('media', () => {
       youtube('dQw4w9WgXcQ'), vimeo('https://vimeo.com/channels/staffpicks/76979871'), youtube('ccccccccccc'), youtube('ddddddddddd'), youtube('eeeeeeeeeee'),
       youtube('fffffffffff'), youtube('ggggggggggg'), youtube('hhhhhhhhhhh'), vimeo('https://vimeo.com/888888888'), vimeo('https://vimeo.com/777777777'), vimeo('https://vimeo.com/666666666')
     ])
-    // A video nobody else can play yet is a note. Nothing is said of a status that means nothing
-    // for the host (a 500; Vimeo's 403, which refuses the asker's network), nor of one that is not
-    // sent as the host sends it: other words, another status's, or under another type.
+    // A video nobody else can play yet is a note. Nothing is said of a status meaningless for the
+    // host (a 500; Vimeo's 403, refusing the network), nor of one not sent as the host sends it.
     expect(notes).toEqual([
       { path: at(4), message: 'https://www.youtube.com/watch?v=ccccccccccc: YouTube says the video is private: nobody but its owner can play it until it is made public or unlisted (it answered 403)' },
       { path: at(5), message: 'https://www.youtube.com/watch?v=ddddddddddd: YouTube would not say the video may be embedded, which is taken to mean its owner has turned embedding off: play it where it will be used (it answered 401)' }
@@ -1093,9 +1087,8 @@ describe('media', () => {
     expect(await problems(source(film, [text(5, 10), text(300, 310)]), { fetch: vimeo })).toEqual([
       'params.interactiveVideo.assets.interactions[1].duration: runs from 300 to 310 s, and the video ends at about 62 s, as Vimeo says: Interactive Video plays it from 52 to 62 s instead, so end it by 62 s'
     ])
-    // An answer that is not Vimeo's own for a video it has says no length, and holds no time:
-    // one that does not name it, a page, a video being made ready, what is no JSON, and one far
-    // longer than a host's answer, which is not read to its end.
+    // An answer that is not Vimeo's own for a video it has says no length, and holds no time: not
+    // naming it, a page, a video made ready, no JSON, or one too long to be read to its end.
     const long = answers({ provider_name: 'Vimeo', duration: 62, html: 'x'.repeat(70_000) })
     for (const fetch of [answers({ type: 'video', duration: 62 }), answers({ provider_name: 'Vimeo', duration: 62 }, 'text/html'), answers({ provider_name: 'Vimeo', duration: 0 }), long, async () => new Response('not an answer', { headers: { 'content-type': 'application/json' } })]) {
       expect((await build(source(film, [text(300, 310)]), { fetch })).lengths).toEqual([])

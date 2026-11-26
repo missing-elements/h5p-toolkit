@@ -6,13 +6,8 @@ import { downloadAndUnzipVSCode } from '@vscode/test-electron'
 import { _electron as electron } from 'playwright-core'
 
 /**
- * Renders `images/preview.png`, the screenshot on the extension's Marketplace and Open VSX page: the
- * demo's quiz playing in an editor tab, its first question answered and checked, with the Explorer
- * beside it. It drives the VS Code the suite downloads with Playwright, which takes the window from
- * inside, so nothing needs the screen or its recording permission. A fresh profile keeps the window
- * plain: the default theme, no other extension, no AI features. The output is committed, and the
- * listing loads it from `main`; run this (`pnpm --filter h5p-preview screenshot`, which builds
- * first) when the preview's look changes.
+ * Renders `images/preview.png`, the Marketplace and Open VSX screenshot: the demo's quiz in a tab,
+ * answered and checked, taken from inside the window by Playwright: no screen permission needed.
  */
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -53,9 +48,8 @@ const app = await electron.launch({
   args: [
     folder,
     `--extensionDevelopmentPath=${root}`,
-    // The quiz is opened from inside the extension host. Opened from the command line or the Explorer
-    // before the extension's editor is registered, which a fresh profile does not wait for, the file
-    // falls back to the text editor, which shows a zip as binary.
+    // Opened from inside the extension host: from the command line, before the extension's editor
+    // is registered, a fresh profile uses the text editor, which shows a zip as binary.
     `--extensionTestsPath=${join(root, 'scripts', 'screenshot-open.cjs')}`,
     '--disable-workspace-trust',
     '--skip-welcome',

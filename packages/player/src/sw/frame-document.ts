@@ -4,32 +4,13 @@ import { contentMetadata, type ContentMetadata } from '../shared/metadata.js'
 import { isEnglish, LANGUAGE_TAG } from '../shared/language.js'
 
 /**
- * The frame document, generated per request. H5P core assumes it owns the page — it plants
- * `H5P`, `H5PIntegration` and jQuery on `window`, ships global CSS and drives its own fullscreen
- * and resize logic — so it gets a document of its own, exactly as it does on h5p.org. Nothing is
- * served from disk: the Service Worker answers the navigation with this string.
- *
- * The document element carries `class="h5p-iframe"`. H5P's core stylesheet keys seven rules on
- * `html.h5p-iframe` — the base font, the content's 16px/1.5 type, full width, the fullscreen
- * heights — because in a normal H5P install the content lives in an iframe whose `<html>` H5P
- * writes itself. Div embedding puts that class on a `<div>` instead, where none of those
- * selectors can match, and the content renders unstyled. This document *is* the H5P document,
- * so it is the one that should carry the class.
+ * The frame document, generated per request: H5P core assumes it owns the page, so it gets one of
+ * its own. `html.h5p-iframe` is set because the core's stylesheet keys its rules on it.
  */
 
 /**
- * Origins that real content types reach at runtime, by the directive that governs them.
- * H5P.MathDisplay fetches MathJax from a CDN and renders nothing without it; H5P.ArithmeticQuiz
- * and its relatives pull Google's WebFont loader, which then injects a Google Fonts stylesheet
- * and fetches the font files themselves — three origins across three directives for one feature.
- * Everything else stays same-origin.
- *
- * These are written without a scheme on purpose. A host-source with no scheme is matched against
- * the page's own scheme, so an https frame accepts only https, while an http one — in practice
- * only `http://localhost` during development — also accepts http. That matters here because the
- * WebFont snippet builds its URL from `document.location.protocol`: pinning these to `https:`
- * would block the very content this list exists to allow, on the one origin where it is not a
- * downgrade to permit it.
+ * Origins real content types reach at runtime, by directive. Written without a scheme so the page's
+ * own applies: WebFont builds its URL from `location.protocol`, and `https:` would block localhost.
  */
 const RUNTIME_ALLOWLIST = {
   script: [
@@ -38,46 +19,31 @@ const RUNTIME_ALLOWLIST = {
     'cdnjs.cloudflare.com',
     // Google's WebFont loader.
     'ajax.googleapis.com',
-    // The video providers H5P.Video ships a handler for. Each loads a player API into this
-    // document before putting the player itself in an iframe, which `frame-src *` covers.
-    // Taken from H5P.Video's own scripts; Echo360 needs no script of its own.
+    // Video providers H5P.Video has a handler for: each loads a player API here, then its player in
+    // an iframe, which `frame-src *` covers. Echo360 needs no script.
     'www.youtube.com',
     'player.vimeo.com',
     'developers.panopto.com'
   ],
   style: ['fonts.googleapis.com'],
   font: ['fonts.gstatic.com', 'fonts.googleapis.com'],
-  // What script fetches, by path, since one endpoint is all it needs. Found on 2026-10-28 by scanning
-  // every script and stylesheet in the pack for the hosts they name, then reading what each load is;
-  // design/security.md records the scan and what it left out, under
-  // *The frame CSP's runtime allowlist is written without schemes*. Vimeo's SDK reads the video's
-  // oEmbed record before it can create the player: given the URL and an element, as H5P.Video's
-  // handler gives it, it has nothing else to build the frame from. Refused, the handler shows its
-  // loading error after eight seconds.
+  // By path, since one endpoint is all it needs: Vimeo's SDK reads the video's oEmbed record before
+  // it can build the player (*The frame CSP's runtime allowlist is written without schemes*).
   connect: ['vimeo.com/api/oembed.json'],
-  // TimelineJS, under H5P.Timeline, fetches a slide's web media as JSONP, a `<script>` naming the
-  // endpoint, so these are script sources, in both policies: Wikipedia in any language, Vimeo's
-  // old API, SoundCloud and Flickr. Its Twitter, Storify, Vine and YouTube-feed endpoints are
-  // gone, and its Google Maps key is from 2013, so none of those are here.
+  // TimelineJS (H5P.Timeline) fetches a slide's media as JSONP, a `<script>` naming the endpoint,
+  // so these are script sources in both policies. Its Twitter, Storify and Vine endpoints are dead.
   jsonp: ['*.wikipedia.org/w/api.php', 'vimeo.com/api/v2/video/', 'soundcloud.com/oembed', 'api.flickr.com/services/rest/']
 } as const
 
 /**
- * The request header the runtime's boot script (0.2 and later) asks for an untrusted package's
- * `content/content.json` with, `semantics` as its value: it checks the content against its
- * libraries' semantics before the runtime reads it, and the worker serves the file to nothing else.
+ * The header the boot script (0.2 and later) asks for an untrusted package's `content.json` with,
+ * `semantics` as value, to check it against the libraries' semantics; the worker serves no other.
  */
 export const CONTENT_CHECK_HEADER = 'x-h5p-content-check'
 
 /**
- * What an `untrusted` package's frame may load scripts from beyond its own path and the runtime's
- * files: the video players' APIs H5P.Video loads, each by exact path — YouTube's `iframe_api` then
- * its widget script under `/s/player/`, Vimeo's `player.js`, Panopto's embed API; and, as in the
- * trusted policy, TimelineJS's JSONP endpoints (`RUNTIME_ALLOWLIST.jsonp`). Whole hosts would
- * let markup a package injects load any script those hosts serve; a CDN such as jsDelivr serves
- * any file on npm and GitHub. MathJax is not here: H5P.MathDisplay carries it in its own folder
- * since 1.0, and an older copy fetching it from a CDN is the package's code, which does not run.
- * Google's WebFont loader is not here either, so an old Arithmetic Quiz falls back to its fonts.
+ * The video players' APIs an `untrusted` frame may load, by exact path: a whole host would let
+ * markup a package injects load any script it serves, as a CDN serving all of npm does.
  */
 const UNTRUSTED_SCRIPT_PATHS = [
   'https://www.youtube.com/iframe_api',
@@ -87,9 +53,8 @@ const UNTRUSTED_SCRIPT_PATHS = [
 ]
 
 /**
- * A CSP host-source, and nothing else. Values reach this from the host page's own markup, but
- * they end up inside a policy: one containing a `;` or a quote would append directives of its
- * own rather than a host, so anything that is not plainly a host is dropped.
+ * A CSP host-source and nothing else: a value with a `;` or a quote would append directives of its
+ * own, so anything not plainly a host is dropped.
  */
 const HOST_SOURCE = /^(?:(?:https?|wss?):\/\/)?(?:\*\.)?[a-z0-9.-]+(?::\d+)?$/i
 
@@ -117,9 +82,8 @@ export interface FrameDocumentOptions {
   /** What the host asked the frame to show and load; see `FrameOptions`. */
   frameOptions?: FrameOptions
   /**
-   * The library folders that carry an `upgrades.js`, for the boot script's upgrade of content
-   * written for an older minor than the one served: a runtime up to 0.2 reads it here, a later
-   * one from the `boot` route.
+   * The library folders with an `upgrades.js`, for content written for an older minor than the one
+   * served: a runtime up to 0.2 reads it here, a later one from the `boot` route.
    */
   upgrades?: string[]
   /** The language tag the element was in: the frame's, for a package that names none of its own. */
@@ -140,11 +104,8 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * The frame's boot script. It is a file of the runtime package rather than a string inlined here
- * — it runs in the H5P document and calls the core's API, so it ships with the core, under the
- * core's licence, and this worker only names it. A record written by an element before 0.5
- * carries no `bootJs`; the file sits beside `main.bundle.js` in every layout the runtime is
- * served in, so that is where it is looked for then.
+ * The frame's boot script is a runtime package file, so it ships with the core under its licence.
+ * A record from before 0.5 has no `bootJs`: the file sits beside `main.bundle.js` in every layout.
  */
 export function bootScriptUrl(assets: FrameAssets): string {
   if (assets.bootJs) return assets.bootJs
@@ -163,22 +124,16 @@ function recordedTag(value: unknown): string | undefined {
 }
 
 /**
- * The frame's language, which is the content's, and H5P's own buttons and dialogs are in it too,
- * so that the interface reads in the language of the content it surrounds: `h5p.json`'s
- * `defaultLanguage`, which H5P writes as the `lang` of the iframe it makes. A package that names
- * none takes the element's language, likelier its own than English is; with neither, English, the
- * core's own. Until #55 the strings followed the element's language whatever the content's, so a
- * German page put "Vollbild" and "Nutzungsrechte" around an English quiz's Check and Retry.
+ * The frame speaks the content's language, so H5P's buttons match: `h5p.json`'s `defaultLanguage`,
+ * else the element's, else English (#55: the strings once followed the element, not the content).
  */
 function frameLanguage(options: Pick<FrameDocumentOptions, 'metadata' | 'language'>): string {
   return recordedTag(options.metadata?.defaultLanguage) ?? recordedTag(options.language) ?? 'en'
 }
 
 /**
- * The runtime's `l10n.js`, which the boot script picks the core's strings from, when the frame
- * needs it: in any language but English, the core's own. The URL comes back from IndexedDB too,
- * so it is held to http(s), like the host's own scripts. A record an older element wrote has
- * none, and its frame stays English.
+ * The runtime's `l10n.js`, which the boot script picks the core's strings from, in any language but
+ * English. The URL came from IndexedDB, so it must be http(s); an older record has none: English.
  */
 function l10nScriptUrl(assets: FrameAssets, language: string): string | undefined {
   if (isEnglish(language)) return undefined
@@ -209,12 +164,8 @@ function assetOrigins(assets: FrameAssets, base: string, language: string): stri
 }
 
 /**
- * The `@font-face` rules for the text faces `sync-h5p-assets.mjs` took out of the core sheet, so
- * that each face is its own file a bundler can emit and the browser fetches only the ones in use.
- * The values arrive through IndexedDB, so each is held to the shape the sync script writes and a
- * face that does not fit is left out rather than escaped: a URL is reparsed and must be http(s),
- * and a parsed URL's `href` has `"`, `<` and whitespace percent-encoded, so it cannot leave the
- * quoted `url()` or the `<style>` block.
+ * `@font-face` rules for the faces `sync-h5p-assets.mjs` took from the core sheet, so only used
+ * ones load. Values come from IndexedDB: a misfit is dropped, a parsed `href` cannot leave `url()`.
  */
 export function fontFaceRules(fonts: readonly FrameFont[] | undefined): string {
   if (!fonts) return ''
@@ -239,9 +190,8 @@ export function fontFaceRules(fonts: readonly FrameFont[] | undefined): string {
 }
 
 /**
- * The host's own stylesheets and scripts, held to the shape the element writes: absolute http(s)
- * URLs. They arrive through IndexedDB like the fonts, so anything else is dropped here rather than
- * written into the document.
+ * The host's own stylesheets and scripts, held to what the element writes: absolute http(s) URLs.
+ * They come from IndexedDB like the fonts, so anything else is dropped rather than written in.
  */
 function customUrls(urls: readonly string[] | undefined): string[] {
   return (urls ?? []).flatMap((url) => {
@@ -283,12 +233,8 @@ function sanitizeFrameOptions(options: FrameOptions | undefined): FrameOptions |
 }
 
 /**
- * Where an `untrusted` package's frame may load scripts from: the package's own path on the
- * virtual file server, which serves library code only from the attached bundle; the runtime's
- * files and the host's own `custom-js`, each by exact URL; and the video players' APIs. Not
- * `'self'`: the frame shares the host's origin, and `'self'` would let markup a package injects
- * load any script on the host's whole site, a JSONP endpoint or an old framework among them, which
- * `'unsafe-eval'` makes worse.
+ * Where an `untrusted` frame loads scripts: its package path, the runtime's files and `custom-js`
+ * by exact URL, and the video APIs. Not `'self'`: injected markup could load any host script.
  */
 function untrustedScriptSources(options: FrameDocumentOptions): string[] {
   const strings = l10nScriptUrl(options.assets, frameLanguage(options))
@@ -306,9 +252,8 @@ function untrustedScriptSources(options: FrameDocumentOptions): string[] {
 }
 
 /**
- * A URL as a CSP source by its path: origin and path only, since a source carries no query, and
- * `;` and `,` percent-encoded so a URL cannot end the directive or the policy. The browser decodes
- * a path before it compares, so the encoded source still matches. `null` for what is not http(s).
+ * A URL as a CSP source by path (a source takes no query), with `;` and `,` percent-encoded so it
+ * cannot end the directive or policy; browsers decode before comparing. `null` if not http(s).
  */
 function pathSource(url: string, base: string): string | null {
   try {
@@ -337,14 +282,8 @@ export function buildContentSecurityPolicy(options: FrameDocumentOptions): strin
       ...(options.untrusted ? untrustedScriptSources(options) : ["'self'", ...origins, ...customJs, ...RUNTIME_ALLOWLIST.script, ...RUNTIME_ALLOWLIST.jsonp]),
       ...extra,
       `'nonce-${options.nonce}'`,
-      // EmbeddedJS compiles its templates with `eval`, and content types built on it — the board
-      // games, older question sets — render nothing without this.
-      //
-      // It buys an attacker nothing here. The archive's own scripts are served from this origin
-      // and already run under `'self'` with no restriction, so anyone who can put a file in the
-      // package can already run whatever they like; evaluating a string they also control adds
-      // no reach. What this policy is for is limiting where code and data can come *from*, and
-      // `'unsafe-eval'` does not widen that.
+      // EmbeddedJS compiles templates with `eval`: board games and older question sets need it.
+      // It adds no reach, as the archive's own scripts already run under `'self'`.
       "'unsafe-eval'"
     ),
     // CKEditor-authored text carries `style="…"` on nearly every field, so inline styles cannot
@@ -363,15 +302,13 @@ export function buildContentSecurityPolicy(options: FrameDocumentOptions): strin
     `img-src * data: blob:`,
     `media-src * data: blob:`,
     `frame-src *`,
-    // Deliberately narrow: this blocks the few content types that fetch external data files
-    // (remote subtitles, remote JSON). Accepted for v1. Vimeo's oEmbed record is the one
-    // exception, since nothing of Vimeo's plays without it.
+    // Narrow on purpose: the few types fetching remote data (subtitles, JSON) are blocked. Vimeo's
+    // oEmbed record is the exception, since nothing of Vimeo's plays without it.
     directive('connect-src', "'self'", ...RUNTIME_ALLOWLIST.connect, ...extra),
     `worker-src 'self' blob:`,
     `object-src 'none'`,
-    // `'self'`, not `'none'`: H5P sets a `<base>` to the frame's own URL, and refusing it logs
-    // an error on every load. Same-origin still keeps the protection that matters — a hostile
-    // script cannot repoint the document's relative URLs at another origin.
+    // `'self'`, not `'none'`: H5P sets a `<base>` to the frame's URL, and refusing it logs an error
+    // on every load. Same-origin still stops a script repointing relative URLs at another origin.
     `base-uri 'self'`,
     `form-action 'none'`
   ].join('; ')
@@ -383,17 +320,12 @@ export function buildFrameDocument(options: FrameDocumentOptions): string {
   const language = frameLanguage(options)
   const l10nJs = l10nScriptUrl(assets, language)
 
-  // A runtime up to 0.2 boots through h5p-standalone's `main.bundle.js`, which the document loads
-  // ahead of the boot script, and takes the upgrade list from here; a later one has no such file
-  // and asks the `boot` route for what to load. The route is named in every document, the older
-  // kind too: a page from before an upgrade, still open, registers its loads naming the loader,
-  // and on a host that serves the runtime at one path the boot script there is the new one by now,
-  // which boots from the route and leaves the loader's 404 alone. A 0.2 boot script ignores it.
+  // Up to runtime 0.2, `main.bundle.js` loads before the boot script and `upgrades` ride here.
+  // `boot` is in every document: a page open across an upgrade runs the new script, which needs it.
   const loader = assets.mainJs
 
-  // A JSON block, not a script: it is data, so it needs no nonce, and the boot script proper —
-  // `frame-boot.js` from the runtime package, loaded by URL under the nonce — is the same bytes
-  // for every package. `<` is escaped so no value can end the block early.
+  // A JSON block, not a script: data needs no nonce, so `frame-boot.js` is the same bytes for every
+  // package. `<` is escaped so no value can end the block early.
   const bootConfig = JSON.stringify({
     pkgId,
     h5pJsonPath: virtualRoot,
@@ -413,17 +345,13 @@ export function buildFrameDocument(options: FrameDocumentOptions): string {
   }).replaceAll('<', '\\u003c')
 
   const fontFaces = fontFaceRules(assets.fonts)
-  // The core's strings in every language the runtime has, a script that leaves them on `window`
-  // for the boot script, which picks the frame's language and builds the core's settings with its
-  // strings: so it comes before it.
+  // The core's strings in every language the runtime has, left on `window` for the boot script to
+  // pick from, so this loads before it.
   const strings = l10nJs ? `<script nonce="${nonce}" src="${escapeHtml(l10nJs)}" charset="UTF-8"></script>\n` : ''
   const legacyLoader = loader ? `<script nonce="${nonce}" src="${escapeHtml(loader)}" charset="UTF-8"></script>\n` : ''
 
-  // The last rule in the style block is for H5P.Video's YouTube handler, which pins its iframe
-  // over the 16:9 box it builds with one line that reaches into the YouTube API object's minified
-  // internals (`player.g.style = …`). The field it names changed, so up to H5P.Video 1.6.66 the
-  // line throws and the iframe flows below the box instead: a black picture with sound. The rule
-  // says what that line meant; a fixed library (1.6.80, `getIframe()`) sets the same styles.
+  // The YouTube rule is for H5P.Video's handler: its `player.g.style = …` throws up to 1.6.66
+  // (field renamed), leaving a black picture with sound; 1.6.80 sets the same styles itself.
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(language)}" class="h5p-iframe">
 <head>

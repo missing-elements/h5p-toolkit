@@ -1,7 +1,6 @@
 /**
- * The package as a TypeScript caller sees it: imported by its name, through the `types` condition
- * of its `exports`, from the declarations `pnpm types` generates from the JSDoc. Type-checked by
- * `pnpm typecheck`; nothing here runs.
+ * The package as a TypeScript caller sees it: by name, through the `types` of its `exports`, from
+ * the declarations `pnpm types` makes from the JSDoc. Checked by `pnpm typecheck`; nothing runs.
  */
 import { EmbedError, buildSite, type BuiltSite } from '@missing-elements/h5p-embed'
 import { startEmbed } from '@missing-elements/h5p-embed/embed.js'

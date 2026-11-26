@@ -2,11 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { insecureOnSecurePage, probeSource, unfetchableScheme } from '../../src/shared/source'
 
 /**
- * What the probe can learn about an archive from the headers a browser lets it read. The fake
- * host answers as a browser presents a cross-origin response: only the CORS-safelisted headers
- * survive unless the host exposes more. And it compresses the way GitHub Pages does — a request
- * that carries `Range` is made with `Accept-Encoding: identity` by every engine, a plain one
- * accepts gzip, so only the plain answer is the compressed copy, at the compressed copy's length.
+ * What the probe learns from the headers a browser lets it read: the fake host shows only
+ * safelisted ones and gzips as GitHub Pages does (`Range` goes with `identity`, plain gets gzip).
  */
 
 const URL_ = 'https://pages.example/course.h5p'

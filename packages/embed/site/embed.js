@@ -1,21 +1,7 @@
 /*! @missing-elements/h5p-embed. MIT. */
 /**
- * The embed page: the element alone, driven by the query string, for a site that puts a player
- * domain of its own in an iframe. `startEmbed()` runs it; the page's `main.js` calls it with what
- * `h5p-embed` was told when it wrote the site, and the demo's `/embed` with the demo's copy of the
- * library pack.
- *
- *   ?src=<package url>[&libraries=pack|<url> …|none][&refresh-libraries=off][&downgrade-libraries=off][&preload=auto]
- *    [&xapi=<parent origin>][&frame][&copyright][&export][&icon][&reporting][&fullscreen=off]
- *    [&activity-id=<IRI>][&custom-css=<stylesheet url>][&lang=<language tag>]
- *
- * Upward it speaks H5P's own resizer protocol — the `hello` / `resize` exchange that h5p.org's
- * embed code and its `h5p-resizer.js` use — so a page that already resizes h5p.org iframes
- * resizes this one without a change, and any other page gets `resizer.js` from this origin. xAPI
- * statements are relayed to the parent only when `xapi=` names the parent's origin, and they are
- * posted to that origin only. Once the content is up the page posts one `report` upward, and a
- * load that fails posts its `error` (see `report` below): what an embedding page that checks a
- * package shows under its preview.
+ * The embed page: the element alone, driven by the query string, for a site that frames a player
+ * domain of its own. It speaks H5P's resizer protocol upward; xAPI goes only to `xapi=`'s origin.
  */
 
 /**
@@ -33,18 +19,14 @@ const PACK_CDN_ORIGIN = 'https://cdn.jsdelivr.net'
  *   resolves; it wins over `packBase`. Without either, `pack` is the element's copy on jsDelivr
  * @param {string | null} [options.librariesPack] the URL of a whole `libraries.h5p` on this site,
  *   for a page written before the pack was split: played as any bundle, with no refresh
- * @param {string[] | null} [options.packages] the origins packages and library bundles may come
- *   from, besides this page's own; `null` plays any, one from another origin `untrusted` when the
- *   storage is this origin's
- * @param {string | null} [options.defaultLibraries] the `libraries` value for an address that has
- *   none — `pack` or URLs, as the parameter — so a snippet without `&libraries=` still plays
- *   an export that carries no libraries; `&libraries=none` turns it off for one address
+ * @param {string[] | null} [options.packages] the other origins packages and bundles may come from;
+ *   `null` plays any, one from another origin `untrusted` when the storage is this origin's
+ * @param {string | null} [options.defaultLibraries] the `libraries` value for an address with none,
+ *   so a snippet without `&libraries=` plays an export that has none; `&libraries=none` opts out
  * @param {H5PPlayerElement['runtime']} [options.runtime] the `runtime` export of `@missing-elements/h5p-runtime`,
  *   for a page that bundles the element; without it the element looks for `frame-assets/` beside itself
- * @param {boolean} [options.askInOwnFrame] whether a package from another origin plays `untrusted`,
- *   with a click to play it with its own code when it needs that, when this page is framed by a
- *   page of its own origin, whose storage it shares. A site whose own preview frames the page for
- *   a package the visitor just chose passes `false`
+ * @param {boolean} [options.askInOwnFrame] whether a foreign package plays `untrusted` when this
+ *   origin frames the page, sharing its storage; a preview of a chosen package passes `false`
  */
 export function startEmbed({ packBase = null, pack = null, librariesPack = null, packages = null, defaultLibraries = null, runtime = null, askInOwnFrame = true } = {}) {
   const params = new URLSearchParams(location.search)
@@ -97,9 +79,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
   /* ---------------------------------------------------------------- sizing, upward */
 
   /**
-   * A message to the page that frames this one: the height in the shape h5p-resizer.js expects,
-   * and `report`, `error` and `xapi` in this page's own. To any parent unless a target is named,
-   * since nothing in the height is secret; the xAPI relay names the origin that opted in.
+   * A message to the page that frames this one: the height as h5p-resizer.js expects, and `report`,
+   * `error` and `xapi` in this page's own. To any parent unless a target is set: nothing secret.
    * @param {object} message
    * @param {string} [target]
    */
@@ -138,21 +119,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
   /* ---------------------------------------------------------------- the report, upward */
 
   /**
-   * What the player learnt about the package, for the embedding page to show: whether the host
-   * streamed it or made the browser download it whole (`source.type`), how big it is, what it
-   * says it is (`metadata`), where libraries it did not carry came from (`libraryBundle`, `null`
-   * when it carried its own), which played at an older version than the content names
-   * (`downgradedLibraries`, empty when none did), and how long it took here. Posted once, when the
-   * content is up:
-   *
-   *   { context: 'h5p-offline-player', action: 'report', source, metadata, libraryBundle,
-   *     downgradedLibraries, elapsedMs }
-   *
-   * and to any parent, like the heights: the parent named the package, and the manifest's strings
-   * are the package's own to tell. A parent treats them as text. A load that fails before the
-   * content is up posts `{ context: 'h5p-offline-player', action: 'error', code, message }`
-   * instead, a refusal by this page included (`code: 'refused'`). The shapes are an interface:
-   * a site that checks packages builds its preview from them, so a field is only ever added.
+   * What the player learnt about the package, posted once when the content is up, to any parent as
+   * it named the package. The shapes are an interface a preview builds on: a field is only added.
    */
   let startedAt = 0
 
@@ -262,10 +230,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
   }
 
   /**
-   * A package's address as the element is given it: resolved against this page, and only when it
-   * is `http` or `https`. `null` for anything else, a `javascript:` or `data:` URL or text that is
-   * not a URL. The element gets the parsed URL's `href`, never the text, so `src` holds what was
-   * checked.
+   * A package's address as the element is given it: resolved against this page, only if `http` or
+   * `https`, as the parsed `href`, never the text, so `src` holds what was checked.
    * @param {string} value
    */
   const packageUrl = (value) => {
@@ -286,8 +252,7 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
 
   /**
    * The `libraries` value with `pack` resolved to this site's copy, or an error to show. With a
-   * list of hosts, every bundle's origin has to be on it, jsDelivr's included when the pack comes
-   * from there; the CSP that `h5p-embed` wrote says the same, this only says it in words.
+   * host list every bundle's origin must be on it; the CSP says it too, this puts it in words.
    * @param {string} value
    * @returns {{ value?: string, error?: string }}
    */
@@ -297,9 +262,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
     if (value === 'none') return { value: '' }
     for (const token of value.split(/\s+/).filter(Boolean)) {
       if (token === 'pack') {
-        // This site's copy of the pack, which the element was pointed at above; without one, the
-        // element's own `pack`, the copy on jsDelivr, where that may be reached, so a snippet
-        // written for `pack` keeps playing after a rebuild with --no-libraries.
+        // This site's copy of the pack, else the element's on jsDelivr where that may be reached,
+        // so a snippet written for `pack` keeps playing after a rebuild with --no-libraries.
         if (ownPack || (!librariesPack && permitted(PACK_CDN_ORIGIN))) sources.push('pack')
         else if (librariesPack) sources.push(librariesPack)
         else return { error: 'This player was set up without the library pack, so libraries=pack is not available here.' }
@@ -313,16 +277,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
   }
 
   /**
-   * The element's display options, by their attribute names, for the embedding page to ask for:
-   * `&frame&copyright&export` shows H5P's action bar with those buttons, `&fullscreen=off` takes
-   * that one away, `&refresh-libraries=off` plays a package's own libraries even where the pack
-   * has newer ones, `&downgrade-libraries=off` refuses content made for a newer version of a
-   * library than any source has, `&activity-id=` names the statements' object and `&custom-css=`
-   * restyles the content to the embedding site's taste. `&lang=` is the embedding page's
-   * language, which this page cannot read across origins: H5P's own buttons and dialogs follow it
-   * for a package that does not name its own language, and follow the content's where it does.
-   * Not `custom-js`, `embed-code` or `user`: a script is a capability on this origin that a link
-   * should not hand out, the embed is the embed, and a learner's name has no place in a URL.
+   * The element's display options, by attribute name, for the embedding page to ask for. Not
+   * `custom-js`, `embed-code` or `user`: a link should not hand out a script, nor a learner's name.
    */
   const applyOptions = () => {
     for (const name of ['frame', 'copyright', 'export', 'icon', 'reporting']) {
@@ -356,11 +312,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
   }
 
   /**
-   * Whether this document's storage is this origin's own: top level, or framed by this origin. A
-   * package's scripts run with the storage of the origin it plays on. In another site's frame
-   * that storage is partitioned by the embedding site, so a page can only ever reach what was
-   * played under its own embed; opened on its own, a link to a package from elsewhere waits for
-   * a click.
+   * Whether this document's storage is this origin's own: top level, or framed by this origin. In
+   * another site's frame it is partitioned by that site, so scripts reach only what it played.
    */
   const sharesOriginStorage = () => {
     if (!framed) return true
@@ -405,9 +358,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
     return
   }
 
-  // Anything else from another origin would share this origin's storage. It plays untrusted, as
-  // data with the library pack's code and none of its own, and waits for a click that names the
-  // host only when it cannot play without its own, or there is no pack to play it with.
+  // Another origin's package would share this origin's storage: it plays untrusted, as data with this
+  // site's sources (its default, else the pack), and asks for a click if there are none or a carried library is missing.
   const { host } = address
   askToTrust = () => {
     loader.hidden = true
@@ -427,9 +379,8 @@ export function startEmbed({ packBase = null, pack = null, librariesPack = null,
     )
     notice.append(' ', button)
   }
-  // The address's `libraries=` is the link-writer's as much as its `src`, and a bundle's code runs
-  // as the host's own: an untrusted package plays with this site's sources alone, the page's
-  // default or its pack, and the address's only once the click has trusted it.
+  // The address's `libraries=` is the link-writer's, and a bundle's code runs as the host's own, so
+  // an untrusted package plays with this site's sources alone until the click has trusted it.
   const own = defaultLibraries?.trim() ? librarySources(defaultLibraries.trim()).value : ''
   const sitesSources = own || librarySources('pack').value
   if (!sitesSources) {

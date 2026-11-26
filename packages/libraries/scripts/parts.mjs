@@ -5,22 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { BlobWriter, TextReader, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter, configure } from '@zip.js/zip.js'
 
 /**
- * Splits the library pack into one archive per library folder, `parts/<folder>.h5p`, and writes
- * `parts/index.json`, which says what each part is: the library's full version, the dependencies
- * its `library.json` declares, its addon patterns, and the part's size and SHA-256. `<h5p-player>`
- * reads the index to fetch only the parts a package needs, and to play the pack's newer version
- * of a library a package carries; a part is checked against its hash once downloaded.
- *
- * Also writes `index.js` and `index.d.ts`, the `pack` export a bundler resolves: the index with a
- * static `new URL` for every part, the one shape Vite, Rollup and webpack 5 emit as an asset; and
- * `install.js`, the same with the libraries carried for an H5P site's upload check only
- * (`installOnly` below), which the player never serves.
- *
- * Each part copies its entries from the pack as they are, compressed bytes and dates included,
- * so the parts change exactly when the pack does, and the pack keeps a library's entries from the
- * pack before it when its files are the same (`writePack`), so the weekly refresh commits only the
- * libraries that changed. `pnpm parts` splits the committed `libraries.h5p`;
- * `apps/demo/scripts/build-libraries.mjs` writes a new one with `writePack` and splits it.
+ * Splits the pack into `parts/<folder>.h5p` and `parts/index.json`, so the player fetches only the
+ * parts a package needs; also writes `index.js` and `install.js`, the modules a bundler resolves.
  */
 
 configure({ useWebWorkers: false })
@@ -34,31 +20,20 @@ const packageDir = resolve(import.meta.dirname, '..')
 const PART_MANIFEST =JSON.stringify({ title: 'H5P Offline Player library pack', language: 'und', mainLibrary: '', preloadedDependencies: [], embedTypes: ['div'] })
 
 /**
- * The date every entry of the pack and its parts is written with, so the bytes change only when a
- * library does. A zip records a wall-clock time with no zone, and zip.js takes it from the Date's
- * local fields, so this is built from local fields too: the same bytes in any time zone. It was
- * `Date.UTC(2000, 0, 1)` until #51, which wrote 02:00 at UTC+2, where the pack up to 1.0.0 was
- * built, and 00:00 on CI, whose first weekly run rewrote all 106 archives with no library changed
- * (#48). 02:00 is kept so the bytes stay those pack 1.0.0 shipped.
+ * Every entry's date, so the bytes change only when a library does. A zip has no zone and zip.js
+ * takes local fields, so this uses them (#48, #51), at 02:00 as pack 1.0.0 did.
  */
 export const FIXED_DATE = new Date(2000, 0, 1, 2)
 
 /**
- * The smallest a part is written. A bundler inlines a small asset named by `new URL` as a `data:`
- * URL — Vite under 4 kB, webpack's asset modules under 8 kB — and a page's `connect-src` refuses
- * to fetch one, so a smaller part is padded up to this with the archive's comment, which nothing
- * reads. A dozen libraries are that small; the padding is about 50 kB in all.
+ * A bundler inlines an asset under 4 kB (Vite) or 8 kB (webpack) as a `data:` URL, which a page's
+ * `connect-src` refuses to fetch, so a smaller part is padded to this with its archive comment.
  */
 const MIN_PART_SIZE = 8 * 1024 + 1
 
 /**
- * Writes the pack: its `h5p.json`, then each library's files, in the order given. A library whose
- * files are those its folder holds in `previous`, the pack this one replaces, keeps that pack's
- * entries as they are, their order and compressed bytes included, so its part comes out as before.
- * The build takes each library from the first hub bundle that carries its newest version, with
- * its files in that bundle's order, and the hub lists them in an order of its own: the refresh of
- * 2026-11-02 rewrote 30 parts whose libraries had not changed, because the new bundle of Branching
- * Scenario, the first to carry them, listed their files differently (#116).
+ * Writes the pack: `h5p.json`, then each library's files. One whose files `previous` already holds
+ * keeps its entries as they were: the hub's file order varies, and rewrote 30 parts once (#116).
  * @param {{ folder: string, files: Map<string, Uint8Array> }[]} libraries each folder's files, by their names in the pack
  * @param {Uint8Array} [previous] the pack this one replaces
  */
@@ -183,12 +158,8 @@ export async function splitPack(pack, outDir) {
 }
 
 /**
- * Whether a library of the pack is carried for an H5P site's upload check only, and never served
- * by the player: an editor library, or an older minor of a major the pack has a newer minor of,
- * which the player plays in its place. H5P core's validator, which Moodle, WordPress and Drupal
- * run on an upload, wants every library a package carries to have its dependencies with it at the
- * exact major.minor, editor dependencies included (#146), so h5p-author carries these too; the
- * `pack` export of `index.js` leaves them out, and `install.js` has them.
+ * Whether a library is carried only for an H5P site's upload check, never played: an editor library or
+ * an older minor the player replaces. The validator wants dependencies at exact major.minor (#146).
  * @param {{ machineName: string, minorVersion: number | string }} library its `library.json`
  * @param {number} newestMinor the pack's newest minor of the library's major
  */
@@ -223,11 +194,8 @@ async function checkParts(outDir, index) {
 }
 
 /**
- * Writes the modules a bundler resolves into `dir`, the index as data with each part named by a
- * static `new URL` relative to the module: `index.js`, the `pack` export, the libraries the player
- * serves; and `install.js`, the same with the libraries carried for an H5P site's upload check
- * only (`installOnly`), for a page that writes packages. A bundler emits every part a module
- * names, so a page that only plays imports the first. With their `.d.ts` files.
+ * Writes into `dir` the modules a bundler resolves: `index.js`, the `pack` of the libraries played,
+ * and `install.js`, with the `installOnly` ones too, each part a static `new URL`; and `.d.ts`s.
  * @param {Array<object>} index
  * @param {string} dir the package directory
  * @param {string} name the package's name, for the pre-bundling fix below
@@ -237,10 +205,8 @@ export async function writePackModule(index, dir = packageDir, name = '@missing-
   const list = (entries) => entries.map((entry) => `    { ...${JSON.stringify(entry)}, url: ${url(entry.folder)} }`).join(',\n')
   const header = `// Written by scripts/parts.mjs. Do not edit; run \`pnpm parts\` in packages/libraries.
 
-// Vite's dev server pre-bundles dependencies into \`node_modules/.vite/deps/\`, which rewrites
-// these URLs to files that were never put there. The package's own copy is still served at its
-// real path, so a URL that landed in the pre-bundle directory is pointed back at it. A Vite
-// build, Rollup and webpack never produce such a URL.
+// Only Vite's dev server pre-bundles into \`node_modules/.vite/deps/\`, which points these URLs at files
+// never put there; the package's own copy stays at its real path, so such a URL is pointed back at it.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIR = ${JSON.stringify(`/node_modules/${name}/`)}
 
@@ -257,10 +223,8 @@ function unbundled(href) {
   const carried = index.filter((entry) => entry.installOnly)
   const module = `${header}
 /**
- * The library pack, for \`<h5p-player>\`'s \`pack\` property: what \`parts/index.json\` says of each
- * library the player serves, and where its part is. Each URL is a static \`new URL\`, so a bundler
- * emits the part and rewrites the address; a learner's browser fetches only the parts a package
- * needs. The libraries carried for an H5P site's upload check only are in \`install.js\`.
+ * The library pack, for \`<h5p-player>\`'s \`pack\` property: each library the player serves and its
+ * part's URL (a static \`new URL\`, so a bundler emits it). The rest are in \`install.js\`.
  */
 export const pack = {
   libraries: [
@@ -273,10 +237,7 @@ import { pack as played } from './index.js'
 
 /**
  * The whole pack, for a page that writes packages with \`@missing-elements/h5p-author/browser\`:
- * the libraries the player serves, then the ones an H5P site's upload check wants with them
- * (\`installOnly\`): the editor libraries, and an older minor of a library that another names
- * exactly. A bundler emits every part named here, about ${Math.round(carried.reduce((sum, { size }) => sum + size, 0) / 1e5) / 10} MB more than \`index.js\`'s,
- * so a page that only plays imports that one.
+ * plus the \`installOnly\` ones, about ${Math.round(carried.reduce((sum, { size }) => sum + size, 0) / 1e5) / 10} MB more than \`index.js\`, which a player page imports.
  */
 export const pack = {
   libraries: [
@@ -308,10 +269,8 @@ export interface PackLibrary {
   /** For an addon, the content it is added to, as its \`library.json\` says. */
   addTo?: unknown
   /**
-   * Carried for an H5P site's upload check only, which wants every library a package carries to
-   * have its dependencies with it at the exact major.minor, editor dependencies included: an
-   * editor library, or an older minor the player plays the newer one for. Never served by the
-   * player; \`install.js\` has these, \`index.js\` does not.
+   * Carried for an H5P site's upload check only (it wants a carried library's dependencies at
+   * their exact major.minor): an editor library or an older minor. Only \`install.js\` has these.
    */
   installOnly?: true
   /** The part's size in bytes. */

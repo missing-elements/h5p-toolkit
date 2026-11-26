@@ -2,10 +2,8 @@ import zlib from 'node:zlib'
 import { crc32 as tableCrc32 } from './crc32-table.mjs'
 
 /**
- * CRC-32 of `bytes`, continuing from `previous`. Native from Node 22.2 on; a table before that.
- * A namespace import rather than a named one, because a named import of a builtin's missing
- * export fails at link time and would take the whole script down on an older Node. Exported as
- * `@missing-elements/h5p-normalize/crc32` for Node; a page resolves that to `lib/crc32-table.mjs`.
+ * CRC-32 of `bytes`, continuing from `previous`: zlib's from Node 22.2 on, a table before. Not a
+ * named import: a missing builtin export fails at link time and kills the script on older Node.
  *
  * @type {(bytes: Uint8Array, previous?: number) => number}
  */

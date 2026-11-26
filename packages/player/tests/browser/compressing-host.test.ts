@@ -3,11 +3,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, clearPackageCaches, play } from './utils'
 
 /**
- * A host that honours `Range` but compresses the archive on the way out, as GitHub Pages does.
- * The browser asks for `identity` on a ranged request and for gzip on a plain one, so the same
- * archive answers with two lengths — and cross-origin, `Content-Length` is the only one of the
- * size headers the probe can read. The first test pins the browser behaviour the probe relies on;
- * the second plays through such a host.
+ * A host that honours `Range` but gzips the archive, as GitHub Pages does: ranged requests get
+ * `identity`, plain ones gzip, so two lengths exist; cross-origin, only `Content-Length` shows.
  */
 describe('a host that compresses the archive', () => {
   it('answers a ranged request uncompressed and at the true length, a plain one gzipped', async () => {

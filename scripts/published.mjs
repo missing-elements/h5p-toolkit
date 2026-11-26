@@ -3,26 +3,16 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 /**
- * Whether npm, and jsDelivr behind it, serve the versions a package of this repository is about to
- * be published against (#253). npm takes a version in, then processes it before it serves it: in
- * release 1.7.0 (2026-11-19) that took 1 to 4 minutes for most packages and 14 for the 31 MB
- * library pack, and a package published in that time names a version nobody can install yet.
- * `publish.yml` publishes a release in dependency order in one run and sets `H5P_PUBLISH_WAIT`, in
- * minutes: there a 404 means the version is still being processed, and the check waits for it. By
- * hand it is 0: a 404 means npm does not serve it, not published or still being processed, and the
- * check says so at once.
- *
- * `node ../../scripts/published.mjs`, in a package's `prepublishOnly`, checks every package of this
- * repository it names by `workspace:` outside `devDependencies`, at the version the workspace has.
+ * Whether npm serves the versions a package is about to be published against (#253). npm processes
+ * a new version first (up to 14 minutes in 1.7.0), so a 404 waits `H5P_PUBLISH_WAIT` minutes.
  */
 
 /** How often a check asks again while it waits. */
 const POLL = 30_000
 
 /**
- * How long one request may take, its body included. Node's fetch has no limit of its own beyond
- * undici's five minutes for the headers, and one request to npm hung that long while this was
- * being written.
+ * How long one request may take, its body included: fetch has none beyond undici's five minutes for
+ * the headers, and one request to npm hung that long.
  */
 const REQUEST = 30_000
 
@@ -64,9 +54,8 @@ export async function served(url, label, options = {}) {
 }
 
 /**
- * A success with its body read as JSON, so a body that fails, stalls past the request's limit or
- * is not JSON is a failed request, asked again; any other answer with its body let go, so its
- * connection does not keep the process up.
+ * A success with its body read as JSON, so a bad or stalled body is a failed request, asked again;
+ * any other answer's body is let go, so its connection does not keep the process up.
  * @param {Answer} response
  * @returns {Promise<Served>}
  */
@@ -96,8 +85,7 @@ const unchecked = (what, status) =>
 
 /**
  * Stops a check whose request failed with anything but a 404, the one answer that says a version
- * is not served: after a server error, a refusal, or a request that failed, timed out or could not
- * be read, the check says it could not tell, rather than to publish what may be there.
+ * is not served: for any other it says it could not tell, rather than publishing what may be there.
  * @param {Served} response
  * @param {string} what what was asked for, as the message names it
  */
@@ -108,9 +96,8 @@ export function stopUnlessAnswered(response, what) {
 }
 
 /**
- * The dependencies the package in `folder` names by `workspace:` (in `dependencies`,
- * `optionalDependencies` and `peerDependencies`, not `devDependencies`, which nobody installing it
- * gets), each at the version the workspace has, and whether npm serves it. They share one wait.
+ * The `workspace:` dependencies of the package in `folder`, not its `devDependencies` (nobody
+ * installing it gets those), each at the workspace's version, and whether npm serves it. One wait.
  * @param {string} folder a package's folder, beside the others under packages/
  * @param {Parameters<typeof served>[2]} [options]
  * @returns {Promise<{ name: string, version: string, status: number | string, ok: boolean }[]>}

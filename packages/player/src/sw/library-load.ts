@@ -1,22 +1,8 @@
 import type { LibraryLoad } from '../shared/protocol.js'
 import { dependenciesIn, type LibraryDependency, type PackageManifest } from '../shared/content-libraries.js'
 
-/**
- * What the frame loads, and in what order: every library the content needs, its scripts and its
- * stylesheets, dependencies first. Until the core was vendored (#37) h5p-standalone worked this out
- * in the frame, asking the virtual server for each `library.json` in turn, after a probe of
- * whether the package names its folders with versions; the worker has the archives and the rules
- * by which a folder answers, so it answers the frame with the result instead, on the `boot` route.
- *
- * The order is h5p-standalone's to the letter — the same walk, the same topological sort with the
- * same tie-breaks — because it is the order every content type has been played in here, the
- * sweep's included, and the order among libraries that do not depend on each other is a choice
- * the content was tested against. Two things differ, neither of which changes the order of any
- * package measured on 2026-10-18 (the demo's, the fixtures and the sweep's 55): a library is named
- * by the folder it is served from, so two requests that one folder answers — content asking for
- * 1.0 where 1.1 is served, and a library asking for 1.1 — load it once rather than twice; and a
- * dependency cycle, which h5p-standalone threw on, is broken where it closes.
- */
+// What the frame loads and in what order, on the `boot` route: every library the content needs,
+// dependencies first. The order is h5p-standalone's, the one every content type was played in.
 
 /** One library as the walk found it: the folder that answered, and what its `library.json` says. */
 export interface WalkedLibrary {
@@ -38,10 +24,8 @@ export type LibraryLookup = (dependency: LibraryDependency) => Promise<{ folder:
 const keyOf = (dependency: LibraryDependency) => `${dependency.machineName} ${dependency.majorVersion}.${dependency.minorVersion}`
 
 /**
- * The libraries `roots` need, in the order h5p-standalone's `loadDependencies` found them: the roots
- * first, then a level at a time, each level the dependencies the one before it named that are not
- * found yet. The lookups of a level run together. A library nothing answers for is named in
- * `missing`, as the folder its version would have, and its own dependencies go unwalked.
+ * The libraries `roots` need, in the order h5p-standalone's `loadDependencies` found them: roots
+ * first, then a level at a time. A library nothing answers for goes to `missing`, its own unwalked.
  */
 export async function walkLibraries(
   roots: readonly LibraryDependency[],
@@ -73,6 +57,7 @@ export async function walkLibraries(
         return
       }
       folderOf.set(keyOf(dependency), answer.folder)
+      // One folder can answer two requests (1.0 asked, 1.1 served): it loads once.
       if (byFolder.has(answer.folder)) return
       const library = walkedLibrary(answer.folder, answer.library, dependency)
       byFolder.set(answer.folder, library)
@@ -85,10 +70,8 @@ export async function walkLibraries(
 }
 
 /**
- * The scripts and stylesheets of `libraries`, dependencies first: h5p-standalone's
- * `sortDependencies`, edge for edge. A library with no dependencies is an edge of one, whose missing
- * end `toposort` takes for a node of its own; that node decides nothing but the tie-breaks, and it is
- * kept so that they come out the same.
+ * The scripts and stylesheets of `libraries`, dependencies first, edge for edge as h5p-standalone's
+ * `sortDependencies`. A library with no dependencies keeps its edge to `undefined`, for the ties.
  */
 export function loadOrder(libraries: readonly WalkedLibrary[], folderOf: ReadonlyMap<string, string>): { scripts: string[]; styles: string[] } {
   const edges: Array<[string, string | undefined]> = []
@@ -111,10 +94,8 @@ export function loadOrder(libraries: readonly WalkedLibrary[], folderOf: Readonl
 }
 
 /**
- * What the frame loads for a package whose libraries `walkLibraries` found from `manifest`'s
- * dependencies: the main library at the version served, the files in order, and the folders the
- * core's `H5P.getLibraryPath` cannot name by version — `libraryDirectories`, for a package that
- * keeps a library in a folder named without one. `null` when the main library is not among them.
+ * What the frame loads: the main library as served, the files in order, and `directories` for the
+ * folders `H5P.getLibraryPath` cannot name by version. `null` when the main library was not found.
  */
 export function libraryLoad(
   manifest: PackageManifest,
@@ -150,9 +131,8 @@ function walkedLibrary(folder: string, library: unknown, asked: LibraryDependenc
 }
 
 /**
- * A `preloadedJs` or `preloadedCss` as entry names under the package's root, `<folder>/<path>`, in
- * order. A path that would leave the folder — absolute, with a scheme, or climbing out with `..` —
- * is left out: the file comes from an archive, and a page names it as a script.
+ * A `preloadedJs` or `preloadedCss` as entry names `<folder>/<path>`, in order. A path that leaves
+ * the folder (absolute, with a scheme, or with `..`) is dropped: the archive is untrusted.
  */
 export function filesIn(folder: string, files: unknown): string[] {
   if (!Array.isArray(files)) return []
@@ -164,10 +144,8 @@ export function filesIn(folder: string, files: unknown): string[] {
 }
 
 /**
- * `toposort` 2.0.2 by Marcel Klehr (MIT), the sort h5p-standalone bundles, ported as it is but for a
- * cycle: where it threw, the edge that closes one is passed over, since a node counts as visited
- * from the moment it is entered, and the rest still sorts. Every node comes out before the nodes
- * its edges point at; the last node first seen is visited first, and a node's edges last to first.
+ * `toposort` 2.0.2 by Marcel Klehr (MIT), as h5p-standalone bundles it, but for a cycle: the edge
+ * that closes one is passed over instead of thrown on, and the rest still sorts.
  */
 export function toposort<T>(edges: ReadonlyArray<readonly [T, T]>): T[] {
   const nodes = [...new Set(edges.flatMap(([from, to]) => [from, to]))]

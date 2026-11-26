@@ -1,25 +1,14 @@
-// The repository's star count on the header's Star button. A classic script in <head>, like
-// theme.js and for the same reason: the count a visitor was last shown is put on <html> before
-// anything is painted — as `data-stars`, and as `--star-count`, a CSS string the stylesheet draws
-// after the star — so moving between pages draws the button whole, where a module, run after the
-// first paint, made it grow under the reader on every page.
-//
-// The count comes from GitHub's API in the visitor's browser, which `connect-src 'self' https:`
-// allows, at most once an hour: the API answers sixty unauthenticated requests an hour per address,
-// and a school or an office is one address. What is stored is when to ask next, written before
-// asking, so the pages opened while a request is out do not ask too: an hour after a success, ten
-// minutes after a failure, and after a rate limit the moment GitHub says it lifts
-// (`X-RateLimit-Reset`, which it exposes to pages). The first cut stored when it last asked and
-// waited an hour after any failure, so a visitor rate-limited at 09:25 by a limit lifting at 09:40
-// saw no count until 10:25. The count already shown stays through a failure; with none ever
-// fetched, the button shows none. In an installed window of the app the button is
-// not shown at all (app.css), so nothing is drawn and nothing asked: an app meant to work offline
-// should not reach a third party for a button it hides.
+// The Star button's count. A classic script in <head>, like theme.js: the last count is on <html>
+// before the first paint, so the button does not grow under the reader.
 ;(() => {
+  // Hidden in an installed window (app.css), so nothing is asked: an offline app should not reach a
+  // third party.
   if (matchMedia('(display-mode: standalone), (display-mode: window-controls-overlay)').matches) return
 
   const API = 'https://api.github.com/repos/missing-elements/h5p-toolkit'
   const KEY = 'h5p-demo-stars'
+  // Asks an hour after a success, ten minutes after a failure (GitHub allows 60 an hour per address;
+  // a school is one), after a rate limit when it lifts (`X-RateLimit-Reset`). Stored before asking.
   const FRESH_MS = 60 * 60 * 1000
   const RETRY_MS = 10 * 60 * 1000
   const root = document.documentElement

@@ -54,12 +54,8 @@ import { loadSegment, routesFor, type LoadRef, type Routes } from './sw/routes.j
 import { adoptRevision, clearUserData, readUserData, removeUserData, writeUserData } from './user-data-store.js'
 
 /**
- * `<h5p-player>` — the package's public surface. It plays a package and nothing else: no URL
- * field, no file picker, no progress bar, no "open in Safari" banner. Those belong to the host
- * page, which builds them out of the events this element emits.
- *
- * Setting `src` or `file` loads, the way it does on `<video>`. Setting it again aborts whatever
- * was in flight for the previous package and starts over.
+ * `<h5p-player>` plays a package and nothing else: the URL field, picker and progress belong to the
+ * host page. Setting `src` or `file` loads, as on `<video>`; setting it again restarts.
  */
 
 /** In dev the runtime is served from `public/frame-assets/`, the same flat layout as `dist/`. */
@@ -73,28 +69,8 @@ const ASSET_FILES = {
   l10nJs: 'l10n.js'
 } as const
 
-// The two files this package ships beside the element are named here, one static
-// `new URL('./file', import.meta.url)` each, so that Vite, Rollup and webpack 5 in a consuming
-// app emit it as an asset and rewrite the URL — nothing for the host to copy.
-//
-// The runtime is not: it is `@missing-elements/h5p-runtime`, a package of its own because it is
-// GPL-3.0 and this one is MIT, and a static `new URL` here would have a bundler emit files this
-// package does not carry. A bundled host imports that package and hands its `runtime` export to
-// the element; a host serving files sets `assets-base`; and with neither, the element looks in
-// `frame-assets/` beside its own script — the layout of a served `dist/` with the runtime copied
-// in, which is what the demo site and the verifier serve. That default is built from a variable,
-// not a literal, so no bundler tries to resolve it.
-//
-// `@vite-ignore` matters in dev and in a consuming app alike: in dev the worker is served by the
-// plugin in `vite.plugins.ts` and Vite must not try to resolve the file at transform time. The
-// comment does not survive the minifying pass in `build-workers.mjs`, and a consumer does not
-// need it: there the files exist beside the module.
-//
-// One consumer needs help: Vite's dev server pre-bundles dependencies into
-// `node_modules/.vite/deps/`, rewriting each of these URLs to a file that was never put there.
-// The package's own copy is still served at its real path, so a URL that landed in the
-// pre-bundle directory is pointed back at it. A Vite build, Rollup and webpack never produce
-// such a URL, and neither does Vite with the package in `optimizeDeps.exclude`.
+// Vite's dev server pre-bundles dependencies into `node_modules/.vite/deps/`, rewriting these URLs
+// to a file never put there; `unbundled` points one back at the package's own served copy.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIST = '/node_modules/@missing-elements/h5p-offline-player/dist/'
 
@@ -107,6 +83,8 @@ function unbundled(href: string): string {
   return url.href
 }
 
+// A static `new URL('./file', import.meta.url)` lets a bundler emit the file and rewrite the URL.
+// `@vite-ignore`: in dev `vite.plugins.ts` serves the worker, so Vite must not resolve it.
 const DEFAULT_SW_URL = unbundled(new URL(/* @vite-ignore */ './h5p-sw.js', import.meta.url).href)
 
 /**
@@ -133,9 +111,8 @@ function assetsIn(base: string): FrameAssets {
 }
 
 /**
- * A `runtime`'s `l10nJs`, resolved against the page: the worker takes it only as an absolute
- * http(s) URL, as it does the host's own scripts, and a relative one would otherwise be dropped
- * there without a word. Absent, or not a URL, it leaves the frame English.
+ * A `runtime`'s `l10nJs`, resolved against the page: the worker takes only an absolute http(s) URL
+ * and would drop a relative one silently. Absent, the frame stays English.
  */
 function l10nFile(url: unknown): { l10nJs?: string } {
   if (typeof url !== 'string' || !url) return {}
@@ -146,7 +123,8 @@ function l10nFile(url: unknown): { l10nJs?: string } {
   }
 }
 
-/** See the note above `unbundled`: a variable, so that no bundler resolves the directory. */
+// The runtime is its own GPL-3.0 package: a static `new URL` would have a bundler emit files this
+// MIT package does not carry, so the directory is a variable.
 const DEFAULT_ASSETS_DIR = 'frame-assets/'
 
 const DEFAULT_ASSETS: FrameAssets = import.meta.env.DEV
@@ -154,9 +132,8 @@ const DEFAULT_ASSETS: FrameAssets = import.meta.env.DEV
   : assetsIn(unbundled(new URL(DEFAULT_ASSETS_DIR, import.meta.url).href))
 
 /**
- * The language an element is in: its own `lang`, or the nearest one above it, across a shadow
- * root to its host, as HTML resolves an element's language. An empty `lang` says the language is
- * unknown, which reads as none.
+ * The language an element is in: its own `lang` or the nearest above it, across a shadow root to
+ * its host, as HTML resolves it. An empty `lang` says it is unknown, which reads as none.
  */
 function declaredLanguage(element: Element): string | undefined {
   for (let node: Node | null = element; node; node = node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentNode) {
@@ -170,10 +147,8 @@ export type PlayerState = 'idle' | 'probing' | 'downloading' | 'indexing' | 'rea
 export type { UserDataEntry } from './shared/protocol.js'
 
 /**
- * The package's own account of itself: `h5p.json`'s metadata as the runtime's copyright dialog
- * reads it — title, licence, authors — plus `mainLibrary`, the content type. What a page shows
- * beside the player ("Interactive Video, CC BY 4.0, by …"). The manifest is untrusted and the
- * fields are held to their shapes on the way here; a licence H5P has no name for is left out.
+ * `h5p.json`'s title, licence and authors, with `mainLibrary`: what a page shows beside the
+ * player. Untrusted, so held to its shapes; a licence H5P has no name for is left out.
  */
 export interface PackageMetadata extends ContentMetadata {
   mainLibrary?: string
@@ -182,19 +157,15 @@ export interface PackageMetadata extends ContentMetadata {
 /** Where the package's bytes come from, as the probe classified it. See `source`. */
 export type PackageSource = SourceDescriptor
 
-/**
- * What supplied libraries the package did not carry, or newer versions of those it did: the URL
- * that answered (the `libraries` source that won; for `pack`, where its parts are — jsDelivr's
- * address, a `pack-base`, or the `pack` property's), its origin, and whether it was read from a
- * copy downloaded earlier rather than fetched now. `fromCache` is what a page needs for "nothing
- * left this origin": a bundle on the page's own origin, or one served from cache, meant no
- * request to a third party. `refreshed`, for the pack: the libraries the package carries that
- * played at the pack's newer version.
- */
+/** What supplied libraries the package did not carry, or newer versions of those it did. */
 export interface LibraryBundle {
+  /** The `libraries` source that won; for `pack`, where its parts are. */
   url: string
+  /** The origin of `url`. No third party was asked if it is the page's own, or `fromCache` is true. */
   origin: string
+  /** Read from a copy downloaded earlier, not fetched now. */
   fromCache: boolean
+  /** For the pack: the libraries the package carries that played at the pack's newer version. */
   refreshed?: RefreshedLibrary[]
 }
 
@@ -206,9 +177,8 @@ export interface LibraryPack {
 }
 
 /**
- * Where `libraries="pack"` finds the pack: the version this release pins, on jsDelivr, whose index
- * the worker carries; a copy at `pack-base`, whose index is read from there; or the `pack`
- * property, which carries its index. `url` is what `libraryBundle` reports.
+ * Where `libraries="pack"` finds the pack: the pinned version on jsDelivr, whose index the worker
+ * carries; a copy at `pack-base`, read there; or the `pack` property, which carries its index.
  */
 type PackLocation =
   | { kind: 'pinned'; url: string }
@@ -236,10 +206,8 @@ export interface PlayerErrorDetail {
 }
 
 /**
- * What `resume` does with the state the content saves. `off`: nothing, a reload starts over.
- * `device`: kept in this browser's storage, keyed by the package and the build it was saved
- * against, and handed back on the next load. `host`: the host page keeps it — it gets a
- * `userdata` event on every save and sets `userData` before a load — and nothing is stored here.
+ * What `resume` does with the saved state: `off` keeps none; `device` keeps it in this browser per
+ * package build; `host` leaves it to the page (`userdata` events out, `userData` in).
  */
 export type ResumeMode = 'off' | 'device' | 'host'
 
@@ -271,12 +239,8 @@ export interface PlayerProgressDetail {
 }
 
 /**
- * The element's own box, `shadow.css`, adopted as a constructable stylesheet rather than written
- * as an inline `<style>`: under a host page's `style-src 'self'` the inline element is blocked
- * without a word and the frame collapses to an iframe's intrinsic 150px, while
- * `CSSStyleSheet.replaceSync` is CSSOM and not subject to it. One sheet is shared by every
- * instance on the page. The rules and the reasons behind them are in the stylesheet itself:
- * `?inline` hands it over as a string, minified for the build, comments and all gone.
+ * The element's box, `shadow.css`, adopted as a constructable stylesheet: a host's CSP
+ * `style-src 'self'` blocks an inline `<style>`, and the frame collapses to 150px.
  */
 let shadowSheet: CSSStyleSheet | null = null
 
@@ -297,10 +261,8 @@ function adoptShadowStyles(root: ShadowRoot): void {
 
 export class H5PPlayerElement extends HTMLElement {
   /**
-   * The two attributes a change of which does something at once. Every other one — `sw`,
-   * `assets-base`, `jobs`, `libraries`, `pack-base`, `refresh-libraries`, `downgrade-libraries`,
-   * `preload`, `resume`, the frame options — is read when a load starts or when the package is
-   * registered, so a change takes effect on the next load and needs no callback.
+   * The two attributes a change of which does something at once. Every other one is read when a
+   * load starts or the package is registered, so a change takes effect on the next load.
    */
   static get observedAttributes(): string[] {
     return ['src', 'auto-resize']
@@ -321,10 +283,8 @@ export class H5PPlayerElement extends HTMLElement {
   /** The package's xAPI `context.revision`, once its index says. See `revision`. */
   private internalRevision: string | null = null
   /**
-   * Whether the index has answered for the revision — with one, or without, for a worker too old
-   * to compute it. Until then statements are held, so that every one carries it: on a host
-   * without `Range` the frame boots from the forward index, before the central directory the
-   * fingerprint is taken from has arrived.
+   * Whether the index has answered for the revision, even with none. Until then statements are held
+   * so each carries it: on a host without `Range` the frame boots before the fingerprint exists.
    */
   private revisionSettled = false
   /** `h5p.json`'s metadata and content type, once the index has read them. See `metadata`. */
@@ -335,11 +295,8 @@ export class H5PPlayerElement extends HTMLElement {
   private internalDowngraded: DowngradedLibrary[] = []
   private heldStatements: HeldStatement[] = []
   /**
-   * The package this element played before the current load, and its revision. Emptying the
-   * frame navigates it to `about:blank`, and a statement the old document sent just before it
-   * left arrives after that — while the new load is probing, `internalPkgId` is null and the
-   * message filter lets it through. Such a statement is stamped with the build it came from, not
-   * held and released under the next one's.
+   * The package played before this load, and its revision: a statement the old document sent as it
+   * left arrives while `internalPkgId` is null, and is stamped with its own build.
    */
   private previousStamp: { pkgId: string; revision: string | null } | null = null
   /** Large deflated entries, in archive order, waiting to be pulled before the content asks. */
@@ -347,18 +304,13 @@ export class H5PPlayerElement extends HTMLElement {
   /** What the host handed in for the next load under `resume="host"`. */
   private hostUserData: UserDataEntry[] | null = null
   /**
-   * The token the frame's document saves under, handed to it when it asked for its state. A save
-   * carrying any other token is dropped: `clearUserData()` withdraws the token so that the
-   * document still running — and its last save, sent as it goes away — cannot bring back what
-   * the host just cleared before the next load reads the store.
+   * The token the frame's document saves under. `clearUserData()` withdraws it, so a save from the
+   * document still running (its last, sent as it goes) cannot bring back what the host cleared.
    */
   private userDataSession: string | null = null
   /**
-   * The resume mode this load started with. `resume` takes effect on the next load, so a load
-   * reads it once and keeps the value for everything it decides later: the frame's URL, the
-   * state handed to the frame, and the stamping of saves made before the index answered. Read
-   * live, a host switching the attribute mid-load got a frame started under one mode and
-   * answered under another.
+   * The resume mode this load started with, read once: a host switching the attribute mid-load
+   * would otherwise get a frame started under one mode and answered under another.
    */
   private loadResumeMode: ResumeMode = 'off'
   /** `saveInterval` as this load read it, for the same reason. */
@@ -368,9 +320,8 @@ export class H5PPlayerElement extends HTMLElement {
   private runtimeValue: FrameAssets | null = null
   private packValue: Array<PackLibrary & { url: string }> | null = null
   /**
-   * The mode the frame holding `userDataSession` was answered under, which its saves follow.
-   * Kept apart from `loadResumeMode`: a straggler save from the previous document can arrive
-   * after the next load has begun and before its frame has asked for its state.
+   * The mode the frame holding `userDataSession` was answered under, which its saves follow. Apart
+   * from `loadResumeMode`: a straggler save can arrive after the next load has begun.
    */
   private userDataMode: ResumeMode = 'off'
   private prefetching: string | null = null
@@ -400,12 +351,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Whether to pull large deflated media before the content asks for it. `none` (the default)
-   * fetches an entry when the runtime requests it; `auto` starts once the content is up.
-   *
-   * Off by default because `auto` spends a learner's bandwidth on a video they may never reach —
-   * the host's call, not the element's. It is worth making for a package whose media cannot be
-   * streamed: see `PrefetchEntry`.
+   * Whether to pull large deflated media before it is asked for: `none` (default) fetches on
+   * request, `auto` starts once the content is up, spending bandwidth on video that may never play.
    */
   get preload(): 'none' | 'auto' {
     return this.getAttribute('preload') === 'auto' ? 'auto' : 'none'
@@ -416,9 +363,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Whether the content resumes where the learner left off. Off by default: a browser is not a
-   * learner, and on a shared machine the state one student leaves would be picked up by the
-   * next. Takes effect on the next load. See `ResumeMode`.
+   * Whether the content resumes where the learner left off. Off by default: on a shared machine the
+   * state one student leaves would be picked up by the next. Next load; see `ResumeMode`.
    */
   get resume(): ResumeMode {
     const value = this.getAttribute('resume')
@@ -432,11 +378,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Seconds between the saves `resume` makes while the content runs: what the H5P plugins call
-   * the user data save interval, and H5P core `saveFreq`. The content is also saved shortly after
-   * each `completed` or `progressed` statement, and as the page goes away. 10 by default, which
-   * costs little on the device; a host that sends each save to a server may want the plugins'
-   * 30. At least 1. Takes effect on the next load.
+   * Seconds between the saves `resume` makes while the content runs, and after each `completed` or
+   * `progressed` statement and on unload. 10 by default, at least 1; next load.
    */
   get saveInterval(): number {
     const value = Number(this.getAttribute('save-interval'))
@@ -447,12 +390,8 @@ export class H5PPlayerElement extends HTMLElement {
     this.setAttribute('save-interval', String(value))
   }
   /**
-   * Plays the package as data, for one the host did not make: none of its own code runs. Its
-   * library folders are ignored and the libraries come from `libraries` — the pack when that is
-   * not set — `content/` serves only H5P's own list of content file types, and the frame's policy
-   * names script paths exactly instead of the whole origin. A package that needs a library the
-   * sources do not have is refused, and the error's `missingLibraries.carried` says when its own
-   * copy would have played it. Takes effect on the next load.
+   * Plays the package as data, for one the host did not make: none of its own code runs, libraries
+   * come from `libraries` (the pack if unset), `content/` serves only H5P's file types. Next load.
    */
   get untrusted(): boolean {
     return this.hasAttribute('untrusted')
@@ -476,9 +415,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Forgets the state kept on this device for the package loaded now, or the one loaded last.
-   * The content keeps running as it is; remove `src` and set it again to start it over. Saves from the running
-   * document are dropped from here on, so what was cleared stays cleared until the next load.
+   * Forgets the state kept on this device for the package loaded now, or last. Saves from the
+   * running document are dropped, so it stays cleared until the next load.
    */
   async clearUserData(): Promise<void> {
     const pkgId = this.internalPkgId ?? this.previousStamp?.pkgId
@@ -510,19 +448,16 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Which build is playing, as every `xapi` and `finished` statement's `context.revision` says
-   * it: `sha256:…` over the archive's index, then any attached library bundle's. For a host's own
-   * records of what it published. `null` until the package is indexed.
+   * Which build is playing, as each `xapi` and `finished` statement's `context.revision` says:
+   * `sha256:…` over the archive's index, then any attached bundle's. `null` until indexed.
    */
   get revision(): string | null {
     return this.internalRevision
   }
 
   /**
-   * Where the package's bytes come from, as the probe classified it: `range-http` (read in
-   * place, the host honours `Range`), `chunked` (downloaded whole first, the host does not) or
-   * `file` (picked from disk), with the size and the host's validator. What a page shows as
-   * "streams" versus "downloads"; `null` before a package is loaded.
+   * Where the bytes come from: `range-http` (read in place, `Range` honoured), `chunked`
+   * (downloaded first) or `file` (picked), with size and the host's validator. `null` until loaded.
    */
   get source(): PackageSource | null {
     return this.internalPkgId && this.currentSource ? { ...this.currentSource } : null
@@ -542,10 +477,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The libraries the content names at a newer minor than any source has, which played at the
-   * newest older one of the same major (`downgrade-libraries`): `{ library, from, to }`, empty when
-   * none did. The load's, not the bundle's: the older version may be the package's own, with no
-   * bundle attached at all.
+   * Libraries the content names at a newer minor than any source has, played at the newest older
+   * one (`downgrade-libraries`) as `{ library, from, to }`; empty if none. The load's own.
    */
   get downgradedLibraries(): DowngradedLibrary[] {
     return this.internalDowngraded.map((library) => ({ ...library }))
@@ -608,11 +541,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Whether the element follows the content's height, which it does unless told
-   * `auto-resize="off"`. On by default because every host wants it and the alternative is a
-   * 150px frame; off for a host that sizes the element itself, from a stylesheet or the `resize`
-   * event, since the inline height written here beats any rule of theirs. A bare `auto-resize`
-   * is what pages written while it was opt-in carry, and it means the default.
+   * Whether the element follows the content's height, unless `auto-resize="off"`. On by default, as
+   * the alternative is a 150px frame; off lets a host size it, as the inline height wins.
    */
   private get autoResizes(): boolean {
     return this.getAttribute('auto-resize') !== 'off'
@@ -634,11 +564,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Holds a shared lock on the package for as long as it is loaded here. Eviction — in this tab
-   * or any other — never picks a package with a lock under its prefix, so a learner mid-video is
-   * safe from a quota squeeze caused by a package loading somewhere else. Shared, so two tabs on
-   * the same package both hold it. Released when the load is aborted, which a new `src`,
-   * `clear()` and disconnection all do.
+   * Holds a shared lock on the package while it is loaded here: eviction, in any tab, never picks a
+   * locked package, so a learner mid-video is safe from a quota squeeze. Released on abort.
    */
   private holdPackage(pkgId: string, signal: AbortSignal): void {
     const locks = (navigator as { locks?: LockManager }).locks
@@ -654,15 +581,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Sends the frame to `url`, or empties it with `null`, without a step in the page's history.
-   * Every navigation of a frame that already holds a document adds an entry to the page's session
-   * history: setting `src` for each package after the first added two, one emptying the frame and
-   * one loading the next, and emptying it added one, so a learner's Back walked the frame through
-   * old packages before it left the page, and a page's own history steps lost what lay ahead of
-   * them. Found on 2026-10-12 by the installable app, whose Back closes a file. `location.replace`
-   * navigates the frame in place, the first navigation included; only a frame out of the
-   * document, which has no window to navigate, gets `src`, which loads as the frame is inserted
-   * and adds no step.
+   * Sends the frame to `url`, or empties it with `null`, adding no history step: each navigation of
+   * a frame holding a document adds one, so Back walked through old packages.
    */
   private navigateFrame(url: string | null): void {
     if (url === this.frameLocation) return
@@ -721,10 +641,8 @@ export class H5PPlayerElement extends HTMLElement {
       this.internalPkgId = pkgId
       this.holdPackage(pkgId, signal)
 
-      // Under a key of this load's own: another player on the origin may be showing the same
-      // package with other settings — trusted where this one is not, in another language — and
-      // the package's row is shared. A worker older than the element keeps the row's alone, and
-      // its routes name no key.
+      // Under a key of this load's own: another player on the origin may show the same package with
+      // other settings, and the row is shared. An older worker keeps the row's alone.
       const view = loadKey()
       const registered = await this.send({ type: 'register', record: this.recordFor(pkgId, descriptor), view })
       if (signal.aborted) return
@@ -734,11 +652,8 @@ export class H5PPlayerElement extends HTMLElement {
         await this.send({ type: 'file', pkgId, file: this.currentFile })
       }
 
-      // `?resume=1` tells the frame's boot script to ask for the saved state before the runtime
-      // initialises. In the URL, not the frame document, so that a worker and an element of
-      // different versions each do what they know: see `frame-boot.ts`.
-      // `?user=1` the same way: the host named a learner, and the frame asks for it in the same
-      // reply, before the runtime reads its actor.
+      // `?resume=1` and `?user=1` make the frame's boot script ask for the saved state and the
+      // learner before the runtime starts. In the URL, not the document, so mixed versions cope.
       const flags = [this.loadResumeMode === 'off' ? '' : 'resume=1', this.userValue ? 'user=1' : ''].filter(Boolean)
       const frameUrl = `${routes.frame}${loadSegment(load)}${flags.length ? `?${flags.join('&')}` : ''}`
       let indexed: IndexResult
@@ -753,9 +668,8 @@ export class H5PPlayerElement extends HTMLElement {
         const remote = descriptor.type === 'range-http'
         indexed = await this.index(load, signal, !remote)
         if (signal.aborted) return
-        // The libraries are pulled into the cache in a few requests before the frame boots;
-        // read on demand, they cost the runtime one or two round trips per file. Not a step
-        // that can fail the load: the frame boots against whatever landed.
+        // Libraries are pulled in a few requests before the frame boots, as on demand each file
+        // costs one or two round trips. It cannot fail the load: the frame boots on what landed.
         if (remote && indexed.warm.length > 0) {
           await this.runWarm(pkgId, descriptor, indexed.warm, signal)
           if (signal.aborted) return
@@ -773,18 +687,15 @@ export class H5PPlayerElement extends HTMLElement {
           : null
       this.revisionSettled = true
       this.releaseStatements()
-      // A state saved before this answer — by a frame booted early on a host without `Range` —
-      // is stamped with the build now that it is known, so the next load can check it. A stamp
-      // that cannot be written leaves the row one the next load hands over unchecked, as it would
-      // have anyway while the build was unknown; that is not worth failing a load that is up.
+      // A state saved before this answer (frame booted early without `Range`) is stamped with the
+      // build now, so the next load can check it. If the stamp fails, the load stays up.
       if (this.loadResumeMode === 'device' && this.internalRevision) {
         adoptRevision(pkgId, this.internalRevision).catch(() => {})
       }
 
       this.prefetchQueue = [...indexed.prefetch]
-      // A download that booted early already has its frame; the final index only swapped the
-      // worker onto the real one. Otherwise: the registration has to be `activated` before this
-      // navigation, or it reaches the server and 404s — there is no such file.
+      // A download that booted early already has its frame; the final index only swapped the worker
+      // onto the real one. Otherwise the registration must be `activated` first, or it 404s.
       if (this.frameLocation !== frameUrl) this.navigateFrame(frameUrl)
       else if (this.internalState === 'ready') this.advancePrefetch()
     } catch (error) {
@@ -794,11 +705,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Downloads a package from a host that ignores `Range`, and boots as soon as the worker's
-   * forward index says the runtime has what it needs — for a libraries-first export, long before
-   * the media has finished. Each progress report is a chance to ask; a "not yet" is not an error.
-   * The final index after the download is the real one, from the central directory: it swaps the
-   * worker onto it, and is where a package missing libraries is found out.
+   * Downloads a package from a host that ignores `Range`, booting once the forward index says the
+   * runtime has what it needs. The final index (central directory) finds missing libraries.
    */
   private async downloadAndIndex(
     load: LoadRef,
@@ -809,9 +717,8 @@ export class H5PPlayerElement extends HTMLElement {
     let booted = false
     let downloaded = false
     let attempt: Promise<void> | null = null
-    // The pack's parts are attached while the package still arrives, once the worker can say
-    // which, so the frame boots early with them. A part that will not come leaves the rest of
-    // the download to boot without the pack, and the final index to decide.
+    // The pack's parts are attached while the package still arrives, so the frame boots early with
+    // them. A part that will not come leaves the final index to decide.
     const sources = this.librarySources()
     let pack = sources.includes('pack') ? this.packLocation() : null
     const fill = sources[0] === 'pack'
@@ -833,10 +740,8 @@ export class H5PPlayerElement extends HTMLElement {
           again = true
           return
         }
-        // Only a partial index says `ready`, and only after the dependency walk. Once the
-        // download is whole the worker answers from the central directory with no `ready` and
-        // no walk, which is the final index's job below: booting on that answer let the runtime
-        // ask for a library before the bundle that supplies it was attached.
+        // Only a partial index says `ready`, after the dependency walk. A whole download answers
+        // none: booting on that let the runtime ask for a library before its bundle was attached.
         if (reply.ready === true) {
           booted = true
           this.iframe.title = frameTitle(reply.title)
@@ -865,32 +770,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Indexes the package, and if it turns out to declare libraries it does not carry, fetches them
-   * from the configured sources, in order, indexing again after each.
-   *
-   * Without a `libraries` attribute this is one call that either works or reports exactly what is
-   * missing. Reaching out to a third party is never something the element decides on its own.
-   * With a list — `libraries="/libraries.h5p pack"` — the first source that covers the package
-   * wins, and the next is tried only for what the one before still left absent. A source that
-   * cannot be reached at all — the bundle's host down, and no copy of it downloaded before — is
-   * passed over the same way while another remains, since the point of naming a second one is to
-   * have it when the first is not there; only the last source's failure is the load's. The last
-   * bundle attached stays attached: the worker keeps one bundle per package, and a later bundle
-   * in the list is expected to cover the earlier.
-   *
-   * The pack is offered with every index, and the worker answers with the parts it has to supply
-   * (`supplyParts`): with `refresh`, the newer versions of libraries the package carries from the
-   * start, and what the package lacks once every source before the pack has been tried. A refresh
-   * that cannot be had — a part that will not download, or does not match its hash — is given up
-   * and the package plays as exported; a load is never failed for it.
-   *
-   * With `deep`, the worker also follows each library's own dependencies, as the runtime will,
-   * and what none of the package's folders provides is fetched the same way.
-   *
-   * What every source leaves missing gets one more round, unless `downgrade-libraries="off"`: the
-   * load asks the worker to serve the newest older minor of the same major for a library named at
-   * a newer one, and the pack to supply it (#85). Only then, so that a later source with the
-   * version named wins over an earlier one with an older version.
+   * Indexes the package; with `libraries` (untrusted defaults to the pack), fetches what it lacks
+   * from those sources in order, indexing after each. Without, one call reports what is missing.
    */
   private async index(load: LoadRef, signal: AbortSignal, deep = false, refresh = this.refreshesLibraries): Promise<IndexResult> {
     const sources = this.librarySources()
@@ -926,6 +807,7 @@ export class H5PPlayerElement extends HTMLElement {
           await this.supplyParts(load, reply.plan, pack, signal)
         } catch (error) {
           if (signal.aborted) throw error
+          // A refresh that cannot be had is given up: the package plays as exported, never fails.
           if (refresh && reply.plan.refreshed.length > 0) {
             refresh = false
             continue
@@ -943,6 +825,7 @@ export class H5PPlayerElement extends HTMLElement {
           continue
         }
         if (!source) {
+          // Only after every source, so a later one with the version named beats an older (#85).
           if (!downgrade && mayDowngrade) {
             downgrade = true
             // Kept with the load's settings, so a worker started again serves the same folders.
@@ -982,9 +865,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * What played at an older minor than the content names, onto `downgradedLibraries` and the
-   * console: the content was made for a version no source has, and what that version added is
-   * left out.
+   * Records what played at an older minor than the content names (`downgradedLibraries`, console):
+   * the version it was made for is in no source, so what it added is left out.
    */
   private reportDowngrades(downgraded: DowngradedLibrary[] | undefined): void {
     if (!downgraded?.length) return
@@ -1017,10 +899,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Downloads the parts of the pack an index asked for, all at once, each checked against its
-   * hash, and attaches them with the package's own folders they replace. A part kept from before
-   * is used with no request: its id is its hash. Each is held like the package, so eviction
-   * leaves it alone while the package plays. `quiet` leaves the state to a download under way.
+   * Downloads the pack parts an index asked for, all at once, each checked against its hash, and
+   * attaches them with the folders they replace; a kept part needs no request.
    */
   private async supplyParts(load: LoadRef, plan: PackPlan, pack: PackLocation, signal: AbortSignal, { quiet = false } = {}): Promise<void> {
     const parts = await Promise.all(
@@ -1095,11 +975,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Registers a second package as the source of the libraries this one is missing.
-   *
-   * Every failure along the way — an unreachable URL, a bundle that is not an archive, one that
-   * turns out not to have them either — is reported as one thing: these libraries are missing and
-   * this is where the attempt to supply them stopped.
+   * Registers a second package as the source of the missing libraries. Every failure on the way
+   * (unreachable URL, not an archive, lacking them too) is reported as one: these are missing.
    */
   private async supplyLibraries(
     load: LoadRef,
@@ -1115,11 +992,8 @@ export class H5PPlayerElement extends HTMLElement {
         descriptor = await probeSource(url, signal)
       } catch (error) {
         if (signal.aborted) throw error
-        // The source cannot be reached — no network, or its host is down — but a bundle
-        // downloaded from it before serves as well now as it did then. This is what lets an
-        // installed app play a stripped export offline once it has played one online.
-        // Briefly, and a silence is a no: a worker older than 0.1.7 — an `h5p-sw.js` copied
-        // before the element was updated — does not know the question and never answers it.
+        // Source unreachable, but a bundle downloaded from it earlier serves as well: an installed
+        // app plays a stripped export offline. Silence is a no: workers before 0.1.7 never answer.
         const reply = await this.send({ type: 'find-downloaded-libraries', url }, SILENT_ANSWER_TIMEOUT_MS).catch(() => null)
         const earlier = reply?.ok && reply.type === 'downloaded-libraries' ? reply.pkgId : null
         if (!earlier) throw error
@@ -1133,9 +1007,8 @@ export class H5PPlayerElement extends HTMLElement {
       }
       const libraryPkgId = await remotePkgId(url, descriptor.validator)
 
-      // Downloaded once rather than read over `Range`, even when the host supports ranges. A
-      // library bundle is read exhaustively — every library's JSON, scripts and styles — so a
-      // few hundred ranged round-trips cost far more than fetching the few megabytes in one go.
+      // Downloaded once, not read over `Range` even where supported: a bundle is read exhaustively,
+      // so a few hundred ranged round trips cost far more than a few megabytes at once.
       const bundle: SourceDescriptor = {
         type: 'chunked',
         url,
@@ -1172,9 +1045,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Origins the host vouches for, added to the frame's policy. For content that reaches somewhere
-   * the built-in list cannot know about — a tenant's own Panopto host, an in-house CDN. The
-   * worker drops anything that is not plainly a host.
+   * Origins the host vouches for, added to the frame's policy for content reaching somewhere the
+   * built-in list cannot know of (a tenant's Panopto host, an in-house CDN). Only hosts are kept.
    */
   private allowOrigins(): string[] {
     const value = this.getAttribute('allow-origins')?.trim()
@@ -1227,9 +1099,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The learner, as the actor of every statement the content sends: `{ name, mail }`, what
-   * h5p-standalone calls `user`. Read by the load, so set it before `src`. Not stored anywhere:
-   * it goes to the frame in the reply it waits for before booting.
+   * The learner, as the actor of every statement: `{ name, mail }`. Read by the load, so set it
+   * before `src`; not stored, it goes to the frame in the reply it waits for before booting.
    */
   get user(): FrameUser | null {
     return this.userValue
@@ -1240,12 +1111,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The display and loading options, h5p-standalone's by name, read when the package is
-   * registered so they ride in its record and a restarted worker synthesizes the same frame. A
-   * bare attribute turns a thing on; `fullscreen="off"` turns off the one that is on by default.
-   * `export` needs a file to offer: `download-url`, or the package URL when there is one. The
-   * activity id defaults to the package URL for the same reason: the frame's own URL, which the
-   * runtime would use, carries the package hash and changes with every build.
+   * The display and loading options, read when the package is registered so a restarted worker
+   * synthesizes the same frame. A bare attribute turns an option on, `off` turns it off.
    */
   private frameOptions(source: SourceDescriptor): FrameOptions | undefined {
     const text = (name: string) => this.getAttribute(name)?.trim() || undefined
@@ -1267,6 +1134,7 @@ export class H5PPlayerElement extends HTMLElement {
       const value = flag(name)
       if (value !== undefined) options[key] = value
     }
+    // `export` needs a file to offer: `download-url`, or the package URL when there is one.
     const downloadUrl = text('download-url') ?? (options.export ? sourceUrl : undefined)
     if (downloadUrl) {
       const resolved = resolve(downloadUrl)
@@ -1280,18 +1148,15 @@ export class H5PPlayerElement extends HTMLElement {
     if (customCss.length) options.customCss = customCss
     const customJs = urls('custom-js')
     if (customJs.length) options.customJs = customJs
+    // The package URL: the frame's own carries the package hash and changes with every build.
     const activityId = text('activity-id') ?? sourceUrl
     if (activityId) options.activityId = activityId
     return Object.keys(options).length ? options : undefined
   }
 
   /**
-   * The runtime's files, resolved by the host: the `runtime` export of
-   * `@missing-elements/h5p-runtime`, which a bundler emits beside the host's own code. Read by the
-   * load, so set it before `src`; it takes precedence over `assets-base`. A value missing any of
-   * the four files is refused, since a frame without one of them is a frame that never boots;
-   * `l10nJs` may be missing, as from a runtime older than the translations, and the frame is then
-   * English.
+   * Runtime files, as the `runtime` export of `@missing-elements/h5p-runtime`; set before `src`,
+   * beats `assets-base`. Needs `frameJs`, `frameCss`, `bootJs`; no `l10nJs`: English.
    */
   get runtime(): FrameAssets | null {
     return this.runtimeValue
@@ -1316,10 +1181,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The library pack, as a bundler emits it: the `pack` export of `@missing-elements/h5p-libraries`,
-   * its index with the URL of each part. `libraries="pack"` then plays from these, and nothing is
-   * asked of jsDelivr. Read by the load, so set it before `src`; it takes precedence over
-   * `pack-base`. Entries that are not well formed are dropped, and a value left with none is none.
+   * The library pack as a bundler emits it (`pack` export of `@missing-elements/h5p-libraries`):
+   * `libraries="pack"` plays from it, not jsDelivr. Set before `src`; beats `pack-base`.
    */
   get pack(): LibraryPack | null {
     return this.packValue ? { libraries: this.packValue } : null
@@ -1349,11 +1212,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The element's language, read by the load like the attributes the record keeps: its `lang`,
-   * or the one it inherits from the page. The frame is in the content's own language, the one
-   * `h5p.json` names, and H5P's own strings with it; this one is the frame's only for a package
-   * that names none, and the runtime's boot script then picks its translation of the core's
-   * strings for it, or leaves them English.
+   * The element's `lang`, or the one inherited from the page, read by the load. The frame uses the
+   * content's own language; this is for a package naming none, else the core stays English.
    */
   private frameLanguage(): string | undefined {
     return languageTag(declaredLanguage(this))
@@ -1372,19 +1232,16 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Has the Jobs worker pull the archive's library spans into the cache, and waits for it. The
-   * job answers `done` however it went — a full store or a host that stopped answering only
-   * shorten what landed — so this resolves and never rejects; an abort resolves it too.
+   * Has the Jobs worker pull the archive's library spans into the cache, and waits. The job answers
+   * `done` however it went (a full store or silent host only shortens it), so this never rejects.
    */
   private runWarm(pkgId: string, source: SourceDescriptor, spans: WarmSpan[], signal: AbortSignal): Promise<void> {
     return this.awaitJob({ type: 'warm', pkgId, source, spans }, WARM_ENTRY, 'warm', signal, { failureRejects: false })
   }
 
   /**
-   * Posts a job to the Jobs worker and waits for its end, relaying its progress as `phase`. The
-   * job's messages are the package's with `entry` — none for a download, `WARM_ENTRY` for the
-   * warm. `done` resolves; `failed` rejects with the job's error, or resolves where a shortened
-   * job is as good as a whole one; an abort of the load resolves and stops listening.
+   * Posts a job to the Jobs worker and waits for its end, relaying progress as `phase`; its
+   * messages carry `entry`: none for a download, `WARM_ENTRY` for the warm.
    */
   private awaitJob(
     job: Extract<ToJobsMessage, { type: 'download' | 'warm' }>,
@@ -1424,15 +1281,11 @@ export class H5PPlayerElement extends HTMLElement {
   /* ---------------------------------------------------------------- Service Worker */
 
   /**
-   * Finds the routes, registering our own worker unless a host has already mounted the handlers
-   * into theirs. Registration uses an explicit `h5p/` sub-scope, so a host worker living in the
-   * same directory — or at `/`, for a root-placed `h5p-sw.js` — is never displaced. One setup at
-   * a time: a load that starts while an earlier one is still bringing the worker up to the
-   * element's version — up to thirty seconds across a major, on a slow host — waits on that setup.
-   * The routes are kept before the version is asked, and a load that began meanwhile took them as
-   * kept and went ahead with the worker of the major before (#49, found in review).
+   * Finds the routes, registering our own worker under an `h5p/` sub-scope unless a host mounted
+   * the handlers into theirs, so one at `/` is never displaced. One setup at a time (#49).
    */
   private ensureWorker(): Promise<Routes> {
+    // A load starting while the worker is brought up to date (30 s across a major) waits on it.
     if (!this.workerSetup) {
       this.workerSetup = this.setUpWorker().finally(() => {
         this.workerSetup = null
@@ -1445,10 +1298,8 @@ export class H5PPlayerElement extends HTMLElement {
     if (this.routes && this.registration) {
       if (await stillRegistered(this.registration)) return this.routes
 
-      // Clearing site data unregisters the worker without telling anyone. The cached handle
-      // still looks fine, and every route it used to answer then falls through to the origin —
-      // which happily returns its own index.html, so the frame ends up showing the host page
-      // nested inside itself instead of the content.
+      // Clearing site data unregisters the worker silently; the cached handle looks fine, but its
+      // routes fall through to the origin's own index.html, nesting the host page in the frame.
       this.routes = null
       this.registration = null
     }
@@ -1517,21 +1368,14 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Brings the worker up to the element's version before the frame boots. Registering again with
-   * an unchanged script URL returns the existing registration without fetching the script, so the
-   * first load after an update would boot against the old worker — and the frame's navigation,
-   * being in scope, would then make the browser fetch the new one and swap it in about a second
-   * into the boot, under a frame document the old version wrote. So a version that differs asks
-   * for the update itself and waits for it, bounded: offline, or on a slow host, the load goes
-   * ahead with the worker it has. A script that is still old after the update is the host's copy,
-   * which only the host can replace; that stays a warning. A worker of another major cannot serve
-   * this element at all, so for one the load waits as long as the update takes, within
-   * `WORKER_MAJOR_UPDATE_TIMEOUT_MS`.
+   * Brings the worker up to the element's version before the frame boots: registering again with an
+   * unchanged URL fetches nothing, so the new one would swap in mid-boot under an old document.
    */
   private async ensureCurrentWorker(registration: ServiceWorkerRegistration): Promise<void> {
     const before = await this.workerVersion()
     if (before === null || before === VERSION) return
 
+    // Bounded: offline, the load goes on. Another major cannot serve at all, so it waits longer.
     const wait = majorOf(before) === MAJOR_VERSION ? WORKER_UPDATE_TIMEOUT_MS : WORKER_MAJOR_UPDATE_TIMEOUT_MS
     await withTimeout(updateWorker(registration, wait), wait, undefined)
     // Asked again rather than trusting what the update reported: with `skipWaiting`, a new
@@ -1540,11 +1384,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The worker's version, over the control channel rather than over the `_ping` route. The
-   * route only answers for a client the worker controls, and the host page deliberately is not
-   * one — our scope is a sub-directory it does not sit under. `postMessage` to the registration's
-   * own worker has no such requirement. `null` when it cannot be learnt: a version check must not
-   * fail a load.
+   * The worker's version over the control channel, not the `_ping` route, which only answers a
+   * client the worker controls, and the page is not. `null` if unknown: it must not fail a load.
    */
   private async workerVersion(): Promise<string | null> {
     try {
@@ -1590,9 +1431,8 @@ export class H5PPlayerElement extends HTMLElement {
   /* ---------------------------------------------------------------- Jobs worker */
 
   /**
-   * The carried script first, from a `blob:` URL, and `h5p-jobs.js` if the page's policy refuses
-   * that. A host that names its own copy with `jobs` gets that first instead, so a strict policy
-   * never sees the `blob:` attempt — which would otherwise land in its violation reports.
+   * The carried script first, as a `blob:` URL, then `h5p-jobs.js` if the page's policy refuses it.
+   * A host naming its own copy with `jobs` gets that first: no `blob:` violation report.
    */
   private ensureJobs(): JobsWorkerHandle {
     if (this.jobs) return this.jobs
@@ -1636,10 +1476,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * Starts the next queued entry, one at a time. Serial rather than parallel: these are whole
-   * videos, and running two halves the rate of the one the learner reaches first. A demand
-   * request from the runtime is not queued behind this — it is posted straight through, and the
-   * Jobs worker's in-flight map collapses the two if they name the same entry.
+   * Starts the next queued entry, one at a time: these are whole videos, and two in parallel halve
+   * the rate of the one the learner reaches first. A demand request goes straight through.
    */
   private advancePrefetch(): void {
     if (this.preload !== 'auto') return
@@ -1677,22 +1515,15 @@ export class H5PPlayerElement extends HTMLElement {
     // The frame is same-origin by construction; anything else claiming to be it is not it.
     if (event.origin !== location.origin) return
 
-    // Before the source check and the package filter: the runtime saves as its document goes
-    // away, which for the previous package happens when the frame navigates to the next one —
-    // after `internalPkgId` has moved on, and by the time the message is handled the document
-    // that sent it is gone and `event.source` no longer names it. The token it carries says
-    // which document it was, and nothing outside that document ever had the token.
+    // Before the source check and package filter: the runtime saves as its document goes away,
+    // after `internalPkgId` moved on and `event.source` names nothing. The token says which it was.
     if ('channel' in data && data.channel === 'h5p-player' && data.type === 'user-data') {
       this.onUserData(data)
       return
     }
 
-    // A statement the previous package's document sent just before the next load replaced it.
-    // Removing the iframe's `src` takes it to `about:blank` in Chromium, and a message from the
-    // document that left arrives with `event.source` null, so the check below cannot place it.
-    // Only a statement, only for the package just replaced: anything else from a document that
-    // is gone has nothing left to act on. A null source proves no more than a same-origin sender,
-    // and same-origin script can dispatch an `xapi` event on this element directly anyway.
+    // A statement the previous document sent as the next load replaced it arrives with
+    // `event.source` null (Chromium). Only for the package just replaced: null proves little.
     if (
       event.source === null &&
       'channel' in data &&
@@ -1750,10 +1581,8 @@ export class H5PPlayerElement extends HTMLElement {
             detail: { code: 'runtime', message: data.message }
           })
         )
-        // Before `ready` a runtime error is the boot failing. After it the content is up and
-        // very likely still working — H5P content types throw non-fatal exceptions routinely,
-        // on resize in particular — so it is reported and the state is left alone: a host that
-        // hides the player on `error` must not hide working content.
+        // Before `ready` an error is a failed boot. After it the content is up and likely working
+        // (errors are routine), so the state stays: hiding on `error` would hide working content.
         if (this.internalState !== 'ready') this.setState('error')
         return
 
@@ -1763,14 +1592,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The frame asked for the saved state before initialising the runtime. From this device's
-   * store, or from what the host handed in; either way with a fresh token for this document's
-   * saves. A value saved against another build of the package is handed over as `null`, which
-   * the runtime shows as "this content has changed, you'll be starting over" and then deletes
-   * — H5P's own answer to the situation, rather than a silent restart or a state the content
-   * was not written for. Not checked while the build is unknown: on a host without `Range` the
-   * frame boots before the index can say, and the package id already separates builds on any
-   * host that sends a validator.
+   * Answers the frame's request for saved state, with a fresh token for its saves. A value saved
+   * against another build goes as `null` (the runtime shows 'content has changed' and deletes it).
    */
   private async answerUserData(pkgId: string): Promise<void> {
     const mode = this.loadResumeMode
@@ -1874,12 +1697,8 @@ export class H5PPlayerElement extends HTMLElement {
   /* ---------------------------------------------------------------- H5P's resizer protocol */
 
   /**
-   * The embedder half of H5P's own iframe resizing, the same exchange `h5p-resizer.js` implements
-   * for a site embedding h5p.org content.
-   *
-   * H5P drives it from the `resize` events content types raise when they actually change — a
-   * dialog opening, an interaction loading, an image arriving. Watching the frame's DOM from the
-   * outside would both miss those and fire on changes that are not resizes.
+   * The embedder half of H5P's own iframe resizing, as `h5p-resizer.js` does for h5p.org embeds.
+   * H5P drives it from the `resize` events content types raise; the frame's DOM cannot tell.
    */
   private onResizerMessage(message: H5PResizerMessage): void {
     const respond = (action: string, payload: Record<string, unknown> = {}) => {
@@ -1888,10 +1707,8 @@ export class H5PPlayerElement extends HTMLElement {
 
     switch (message.action) {
       case 'hello':
-        // Until this is answered the frame keeps its document at full height and never reports a
-        // content size. Answering it is what starts the exchange. The measurement whose result is
-        // dropped is a forced layout, copied from h5p-resizer.js: without it Chrome can hand the
-        // content a stale frame width, and its first measurement comes out wrong.
+        // Until answered the frame keeps full height and reports no size. The dropped measurement
+        // is a forced layout, as in h5p-resizer.js: else Chrome gives the content a stale width.
         this.iframe.getBoundingClientRect()
         window.addEventListener('resize', this.onWindowResize)
         respond('hello')
@@ -1955,10 +1772,8 @@ export class H5PPlayerElement extends HTMLElement {
   }
 
   /**
-   * The page is going away, or may be: a tab hidden on a phone is often never shown again. A
-   * held statement goes out now, without its revision, because a learner's record lost with the
-   * tab is worse than one that cannot prove its build. `visibilitychange` as well as `pagehide`,
-   * since mobile browsers fire only the first reliably.
+   * The page is going away, or may be (a hidden phone tab is often never shown again): held
+   * statements go out now, revision or not. Mobile fires `visibilitychange` reliably.
    */
   private onPageHidden = (event: Event): void => {
     if (event.type === 'visibilitychange' && document.visibilityState !== 'hidden') return
@@ -1981,9 +1796,8 @@ export class H5PPlayerElement extends HTMLElement {
     const message = error instanceof Error ? error.message : String(error)
     const missingLibraries = error instanceof PlayerError ? error.missingLibraries : undefined
 
-    // A package that failed to load is not loaded: its `playing` lock goes, so another load —
-    // here or in another tab — may evict what it left in the store, and any job still running
-    // for it is stopped.
+    // A package that failed to load is not loaded: its `playing` lock goes, so another load, here
+    // or in another tab, may evict what it left, and any job still running for it stops.
     this.abortLoad()
     this.setState('error')
     this.dispatchEvent(
@@ -2002,9 +1816,9 @@ interface HeldStatement {
   verb?: string
 }
 
-/** The entries the worker flagged as needing a background inflate, if it flagged any. */
 /** What an index hands the load: the media worth starting early, and the spans worth pulling first. */
 interface IndexResult {
+  /** The entries the worker flagged as needing a background inflate, if it flagged any. */
   prefetch: PrefetchEntry[]
   warm: WarmSpan[]
   /** `h5p.json`'s title, which names the frame for assistive technology. */
@@ -2020,8 +1834,7 @@ interface IndexResult {
 
 /**
  * What a screen reader announces for the frame: "frame, <title>". The package's own title says
- * which content it is; the generic name is for before a package has been indexed, and for one
- * whose `h5p.json` has no title.
+ * which content it is; the generic name is for before indexing, and for a `h5p.json` with no title.
  */
 const FRAME_TITLE = 'H5P content'
 
@@ -2051,10 +1864,8 @@ function indexResultOf(reply: WorkerReply): IndexResult {
 const packIndexes = new Map<string, Promise<Array<PackLibrary & { url: string }>>>()
 
 /**
- * The index of a pack copy at `base`, `index.json` there, each part's URL beside it, read once a
- * page. Kept in the Cache API as last read, so a package that needs the pack plans the same with
- * no network; the network is asked first, so a copy the host has replaced is read anew on the
- * next page. One that cannot be read is asked for again by the next load.
+ * The index of a pack copy at `base`, read once a page. Kept in the Cache API as last read so
+ * planning works offline; the network is asked first, so a replaced copy is read anew.
  */
 function packIndexAt(base: string): Promise<Array<PackLibrary & { url: string }>> {
   let reading = packIndexes.get(base)
@@ -2100,9 +1911,8 @@ function heldStatement(data: Extract<FromFrameMessage, { type: 'xapi' | 'finishe
 }
 
 /**
- * How far a job has got, for a progress event. Capped: a download's total is the probe's, and
- * jsDelivr answers a ranged request with the length of its compressed copy, so the whole file
- * arrives past it.
+ * How far a job has got. Capped at 1: a download's total is the probe's, and jsDelivr answers a
+ * ranged request with its compressed copy's length, so the file arrives past it.
  */
 function fractionOf(message: { loaded: number; total: number | null }): number | null {
   return message.total ? Math.min(1, message.loaded / message.total) : null
@@ -2114,9 +1924,8 @@ function createNonce(): string {
 }
 
 /**
- * The page's Service Worker container, or `null` where it has none. Not `'serviceWorker' in
- * navigator`: in a frame sandboxed without `allow-same-origin` the property is there, and Chromium
- * and WebKit throw a `SecurityError` on reading it (#57).
+ * The page's Service Worker container, or `null` where it has none. Not an `in` check: in a frame
+ * sandboxed without `allow-same-origin` the property is there and reading it throws (#57).
  */
 function serviceWorkers(): ServiceWorkerContainer | null {
   try {
@@ -2128,8 +1937,7 @@ function serviceWorkers(): ServiceWorkerContainer | null {
 
 /**
  * False once a registration has been torn down, which clearing site data does silently. Another
- * registration at the scope does not count: another player on the page, or another tab, may have
- * registered again first, and the one this element holds has no worker once its clients are gone.
+ * registration at the scope does not count: this one has no worker once its clients go.
  */
 async function stillRegistered(registration: ServiceWorkerRegistration): Promise<boolean> {
   try {
@@ -2142,13 +1950,8 @@ async function stillRegistered(registration: ServiceWorkerRegistration): Promise
 }
 
 /**
- * Resolves when *this* registration's newest worker is activated. Newest first: a registration
- * whose script changed has the new worker installing beside the old active one, and resolving on
- * the old would boot the frame against the version about to be replaced. The wait for a newer
- * worker is bounded while an older one can serve: a host's own worker that does not skip
- * waiting sits in `waiting` until every client of the old one has closed, and the load must not
- * wait with it. A newest worker that turns redundant falls back to the one running for the same
- * reason.
+ * Resolves when this registration's newest worker is activated, not the old one about to be
+ * replaced. Bounded while an older worker can serve: a host worker may sit in `waiting`.
  */
 function activated(registration: ServiceWorkerRegistration, wait = WORKER_UPDATE_TIMEOUT_MS): Promise<ServiceWorker> {
   const running = registration.active?.state === 'activated' ? registration.active : null
@@ -2173,9 +1976,8 @@ function activated(registration: ServiceWorkerRegistration, wait = WORKER_UPDATE
 }
 
 /**
- * Fetches the registration's script and, when its bytes changed, waits for the new worker to
- * take over (`mountH5P` skips waiting), for up to `wait`. Settles without a word when nothing new
- * was installed: the network failed, or the script is the same bytes as before.
+ * Fetches the registration's script and, when its bytes changed, waits up to `wait` for the new
+ * worker to take over (`mountH5P` skips waiting). Settles quietly when nothing new was installed.
  */
 async function updateWorker(registration: ServiceWorkerRegistration, wait: number): Promise<void> {
   try {

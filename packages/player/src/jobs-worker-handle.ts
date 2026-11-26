@@ -14,18 +14,8 @@ export interface JobsScript {
 type Listener = (event: MessageEvent<FromJobsMessage>) => void
 
 /**
- * The Jobs worker, started from the first script the page is allowed to run.
- *
- * The element carries the worker as a string and spawns it from a `blob:` URL, so a host deploys
- * one file fewer. A host page whose policy has no `blob:` in `worker-src` — a `script-src 'self'`
- * with no `worker-src` at all is one — refuses that: Chromium by throwing from `new Worker`,
- * other engines by an `error` event once the load has failed. So each script in turn is tried,
- * and the next one taken on either. Nothing posted to a worker whose script never loaded is
- * delivered, which is why messages wait here until the worker says it is running.
- *
- * When every script is refused, each job asked for answers `failed` with `no-worker`, so a
- * download rejects and an extraction is reported, rather than waiting on a worker that is not
- * there.
+ * The Jobs worker, started from the first script the host's policy lets run (`blob:` or a file).
+ * Messages wait for the worker to say it runs; if every script is refused, jobs fail `no-worker`.
  */
 export class JobsWorkerHandle {
   private worker: Worker | null = null

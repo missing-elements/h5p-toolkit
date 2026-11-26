@@ -1,11 +1,6 @@
 /**
- * The assignable unit's side of cmi5, over `fetch`: the five launch parameters, the one-time
- * token, the `LMS.LaunchData` state document, and the cmi5-defined statements — `initialized`,
- * `passed` or `failed`, `completed`, `terminated` — built the way the spec and the reference
- * launching system expect them. It replaced `@xapi/cmi5`, whose browser build carried its own
- * copies of axios, `@xapi/xapi`, uuid and deepmerge for these few requests, and sends what that
- * library sent. That includes the learner preferences, which nothing here reads: the AU MUST
- * retrieve them on startup (11.0.0.0-3), and CATAPULT refuses the launch when it does not.
+ * The assignable unit's side of cmi5 over `fetch`: launch, token, `LMS.LaunchData`, statements.
+ * It reads the learner preferences too: an AU MUST (11.0.0.0-3), and CATAPULT refuses without.
  */
 
 import type { Cmi5Client, Cmi5Score, LaunchData, LaunchParameters, LearnerPreferences, RegistrationHistory, Statement } from './index.js'
@@ -91,10 +86,8 @@ export interface Cmi5ClientOptions {
 }
 
 /**
- * A cmi5 client for the launch in the page's address. Throws when the address is not a launch.
- * `initialize()` trades the token, reads the launch data and sends `initialized`; given the token
- * and start time of a session already initialized, as after a reload, it reads the launch data
- * and sends nothing.
+ * A cmi5 client for the launch in the page's address; throws when it is not a launch.
+ * `initialize()` sends `initialized`, but given a kept session's token and start it sends nothing.
  */
 export function createCmi5Client(options: Cmi5ClientOptions = {}): Cmi5Client {
   const url = options.url ?? globalThis.location?.href ?? ''
@@ -166,10 +159,8 @@ export function createCmi5Client(options: Cmi5ClientOptions = {}): Cmi5Client {
   }
 
   /**
-   * Whether an earlier session of this registration already sent `completed` or `passed`: each
-   * goes out once per registration (9.3.0.0-6, 9.3.0.0-7), and `failed` never after `passed`
-   * (9.3.0.0-8). One statements query per verb, about this AU, this learner, this registration.
-   * An LRS that will not answer leaves the session to its own count, and says why.
+   * Whether an earlier session of this registration sent `completed` or `passed`: each goes out
+   * once (9.3.0.0-6, -7), `failed` never after `passed` (-8). `unread` says the LRS did not answer.
    */
   const registrationHistory = async (): Promise<RegistrationHistory> => {
     const has = async (verb: string) => {

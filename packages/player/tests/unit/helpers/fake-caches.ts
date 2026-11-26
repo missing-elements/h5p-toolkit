@@ -1,7 +1,6 @@
 /**
- * The Cache API reduced to a map: named caches that keep what is put, with the headers, and
- * answer `match`, `keys` and `delete`. Enough for whole entries, chunks and meta records; the
- * chunk-store write test keeps its own, which counts puts and fails the first on purpose.
+ * The Cache API reduced to a map: named caches that keep what is put with its headers, and answer
+ * `match`, `keys` and `delete`. The chunk-store write test has its own, counting puts.
  */
 export function fakeCaches() {
   const stored = new Map<string, { body: Uint8Array<ArrayBuffer>; headers: Headers }>()

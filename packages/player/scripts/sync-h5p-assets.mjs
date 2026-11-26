@@ -3,19 +3,8 @@ import { resolve } from 'node:path'
 import { DIST_DIR as RUNTIME_DIST, buildRuntime } from '../../runtime/scripts/build.mjs'
 
 /**
- * Brings the runtime the frame needs to where dev and the tests serve it from, and stamps the
- * package version into the sources that carry it.
- *
- * The runtime is `@missing-elements/h5p-runtime`, a package of its own because it is GPL-3.0 and
- * this one is MIT; this script builds it and copies its `dist/` to `public/frame-assets/`, which
- * is the layout the element looks for beside itself when told nothing — the one `dist/` of a
- * published player has *not* got, by design: a host installs the runtime, serves it or copies it,
- * and the player's own package carries none of it. Nothing under `public/` is in git.
- *
- * It also writes `src/frame-fonts.ts`, the names of the text faces the runtime's stylesheet
- * declares: the frame document writes their `@font-face` rules against an `assets-base`, so the
- * element has to know the file names, and the list comes from the runtime's manifest so that the
- * two cannot drift apart within one checkout.
+ * Builds the runtime (GPL-3.0, so a package of its own) into `public/frame-assets/`, where dev and
+ * the tests serve it from; a published player carries none by design. It stamps `src/` too.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
@@ -43,10 +32,8 @@ const fontsModule = `// Written by scripts/sync-h5p-assets.mjs from @missing-ele
 // MANIFEST.json (the H5P core at ${manifest.core.commit.slice(0, 10)}). Do not edit; run \`pnpm sync:assets\` in packages/player.
 
 /**
- * The text faces the runtime's stylesheet declares, in its order, by the file names under its
- * \`fonts/\`. The element resolves each against an \`assets-base\` or the default directory, and
- * the frame document declares the faces from the result; a host that imports the runtime package
- * hands over the resolved URLs instead, through the \`runtime\` property.
+ * The text faces the runtime's stylesheet declares, by file name under its \`fonts/\`, from its
+ * manifest so the two cannot drift. A host that imports it passes URLs in \`runtime\` instead.
  */
 export const FRAME_FONTS = [
 ${manifest.fonts
@@ -62,9 +49,8 @@ if (currentFontsModule !== fontsModule) await writeFile(fontsModulePath, fontsMo
 const constantsPath = resolve(rootDir, 'src', 'shared', 'constants.ts')
 const constants = await readFile(constantsPath, 'utf8')
 const major = Number(packageJson.version.split('.')[0])
-// The library pack `libraries="pack"` names, pinned to the version in this checkout, so a given
-// player release always plays against the same libraries. `prepublishOnly` refuses a version that
-// is not on npm yet.
+// The pack `libraries="pack"` names, pinned to this checkout's version so a release always plays
+// against the same libraries; `prepublishOnly` refuses a version that is not on npm.
 const librariesJson = JSON.parse(await readFile(resolve(rootDir, '..', 'libraries', 'package.json'), 'utf8'))
 const stamped = constants
   .replace(/export const VERSION = '[^']*'/, `export const VERSION = '${packageJson.version}'`)
@@ -75,9 +61,8 @@ if (stamped !== constants) {
   await writeFile(constantsPath, stamped, 'utf8')
 }
 
-// The pinned pack's index, compiled into the Service Worker: which parts a package needs is
-// decided without a request, and each part is checked against the hash written here, so the CDN
-// cannot change the code a host runs. Written only when it changes, like the files above.
+// The pinned pack's index, compiled into the Service Worker: parts are planned without a request,
+// and checked against these hashes, so the CDN cannot change the code a host runs.
 const packIndex = JSON.parse(await readFile(resolve(rootDir, '..', 'libraries', 'parts', 'index.json'), 'utf8'))
 const packIndexPath = resolve(rootDir, 'src', 'shared', 'pack-index.ts')
 const packIndexModule = `// Written by scripts/sync-h5p-assets.mjs from @missing-elements/h5p-libraries ${librariesJson.version}'s
@@ -85,10 +70,8 @@ const packIndexModule = `// Written by scripts/sync-h5p-assets.mjs from @missing
 import type { PackLibrary } from './protocol.js'
 
 /**
- * The index of the library pack this release pins, \`LIBRARY_PACK_VERSION\`: each library's
- * version and dependencies, and its part's size and SHA-256. The Service Worker plans from it for
- * \`libraries="pack"\`, and the parts are fetched from \`LIBRARY_PACK_BASE\`. The libraries the pack
- * carries for an H5P site's upload check only (\`installOnly\`) are left out: the plan never takes one.
+ * The index of the pack this release pins (\`LIBRARY_PACK_VERSION\`), for the Service Worker's
+ * \`libraries="pack"\` plan. The \`installOnly\` libraries are left out: the plan never takes one.
  */
 export const PACK_INDEX: readonly PackLibrary[] = [
 ${packIndex.libraries.filter((entry) => !entry.installOnly).map((entry) => `  ${JSON.stringify(entry)}`).join(',\n')}

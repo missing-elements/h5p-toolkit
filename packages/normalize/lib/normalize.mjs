@@ -1,23 +1,6 @@
 /**
- * Rewrites a `.h5p` so that it streams well through the player. The content is untouched; only
- * the container changes:
- *
- * - Media is stored rather than deflated. mp4, mp3, images and fonts are already compressed, so
- *   deflating them buys about 1% and costs byte addressability: a stored entry can be served
- *   with a single ranged read, a deflated one only by inflating everything before it.
- * - An mp4 whose `moov` index sits behind its data is remuxed so the index comes first. Until
- *   then nothing decodes before the last byte lands.
- * - Entries are ordered `h5p.json`, then the library folders, then `content/`, with content
- *   media last. On a host that ignores `Range` the player boots from the local headers as they
- *   arrive, and this order gets the libraries in before the media. A caller can name library
- *   folders that a package carries and nothing reads as it plays (`last`): those go after the
- *   media, so that such a host does not wait for them.
- * - Text the runtime parses — scripts, styles, JSON — is deflated where an exporter had stored
- *   it. Everything else is copied byte for byte.
- *
- * Input is read with zip.js, which knows every corner of the format. Output goes through
- * `StreamingZipWriter`, because zip.js's writer would hold a video in memory to avoid a data
- * descriptor, and the normalizer always knows the sizes in advance.
+ * Rewrites a `.h5p` so it streams through the player, the content untouched: only the container
+ * changes. Output goes through `StreamingZipWriter`, as zip.js's writer holds a video in memory.
  */
 import { createWriteStream, openAsBlob } from 'node:fs'
 import { mkdtemp, open, rm, stat } from 'node:fs/promises'
@@ -109,9 +92,8 @@ function extensionOf(name) {
 }
 
 /**
- * The same rule the player applies: the canonical form of a zip entry name, or `null` where
- * the name cannot be a plain relative path under the package root. Such an entry is dropped
- * rather than repaired, because the player would refuse it anyway.
+ * The player's own rule: the canonical form of a zip entry name, or `null` if it cannot be a plain
+ * relative path under the package root. It is dropped, not repaired, as the player refuses it.
  * @internal
  * @param {string} raw
  */
@@ -129,16 +111,8 @@ export function plainRelativeName(raw) {
 }
 
 /**
- * The output order. `h5p.json` and any other root file first, then each library folder whole,
- * in the order the source introduced them, then `content/` with `content.json` leading and its
- * media last. Library folders are kept intact rather than having their images pulled to the
- * end: the player treats a folder as complete once a later folder has begun, and a straggler
- * would then be reported missing.
- *
- * A folder in `last` goes after all of that, the media too, whole and in the order the source
- * introduced them (#148): a library the package carries and nothing reads as it plays, such as
- * the editor libraries an H5P site's upload check asks for. `content` is never moved, and a name
- * the archive has no folder for is ignored.
+ * The output order: root files, each library folder whole, then `content/` with media last. A
+ * folder stays whole, as the player counts it done once the next starts; `last` goes after (#148).
  * @internal
  *
  * @template {{ name: string, target: TargetForm }} T
@@ -181,17 +155,15 @@ export function orderEntries(entries, last = []) {
 }
 
 /**
- * Reads `input`, and writes the normalized archive to `output` — or, with no `output`, only
- * inspects and reports. The report is the same either way, including the mp4 layout findings,
- * which means a dry run still inflates a deflated video into a temp file to look at its end.
+ * Reads `input` and writes the normalized archive to `output`, or with none only reports: the same
+ * report, so a dry run still inflates a deflated video into a temp file to look at its end.
  *
  * @param {object} options
  * @param {string} options.input path of the source archive
  * @param {string} [options.output] path to write; omitted for a dry run
  * @param {(result: EntryResult) => void} [options.onEntry] called as each entry is finished
- * @param {readonly string[] | ReadonlySet<string>} [options.last] library folders, by name, to write
- *   after everything else, the media included: what the package carries and nothing reads as it
- *   plays. The rest of the order is as above; a name the archive has no folder for is ignored
+ * @param {readonly string[] | ReadonlySet<string>} [options.last] library folders, by name, written
+ *   after everything else, media included: what the package carries and nothing reads as it plays
  * @returns {Promise<Report>}
  */
 export async function normalizeArchive({ input, output, onEntry, last }) {
@@ -215,12 +187,8 @@ export async function normalizeArchive({ input, output, onEntry, last }) {
 
   try {
     tempDir = await mkdtemp(join(tmpdir(), 'h5p-normalize-'))
-    // `checkSignature` makes every read that decodes an entry compare the result with the CRC
-    // the archive recorded, and throw on a mismatch. zip.js has no default for it, and takes it
-    // from the reader's options or the call's — `configure` does not reach it. Without it, a
-    // media entry whose compressed bytes were damaged but still inflated
-    // was written out stored, under the source's CRC, as though intact. Raw copies
-    // (`passThrough`) are not checked and need not be: their bytes and CRC travel together.
+    // `checkSignature` is in the reader's options, as `configure` does not reach it: with it every
+    // decoding read checks the CRC; else damaged bytes that still inflated were written as intact.
     zipReader = new ZipReader(new BlobReader(await openAsBlob(input)), { checkSignature: true })
     // Tolerant, as the player is: zip.js's default refuses the whole archive over one hostile
     // name, and the point is to drop that entry and keep the rest.
@@ -333,10 +301,8 @@ async function processEntry({ entry, name, target }, { source, tempDir, writer, 
     return { ...base, action: /** @type {const} */ ('copy'), to: from, warning }
   }
 
-  // Refused, not copied. Copying one raw cannot be done faithfully with this writer — an AES
-  // entry reports its inner method and loses its 0x9901 extra field, a classic one written with
-  // sizes after its data carries a password check byte derived from the time rather than the
-  // CRC — and the player cannot play an encrypted entry in any case.
+  // Refused, not copied: this writer cannot copy one faithfully (an AES entry loses its 0x9901 extra
+  // field, a classic one with a data descriptor has a time-derived check byte), and the player cannot play one.
   if (entry.encrypted) throw new Error('the entry is encrypted, which H5P does not use and the player cannot play')
   if (method !== STORE && method !== DEFLATE && method !== DEFLATE64) {
     return copyRaw(target === 'copy' ? undefined : `compression method ${method} cannot be read here; copied as it was`)
@@ -367,9 +333,8 @@ async function processEntry({ entry, name, target }, { source, tempDir, writer, 
     return { ...base, action: 'store', to: stored }
   }
 
-  // An mp4 has to be looked at before it can be laid out, and the part that decides — `moov` —
-  // is usually at the end. A stored entry is read in place; a deflated one is inflated into a
-  // temp file first, because a deflate stream cannot be seeked.
+  // An mp4's `moov`, which decides the layout, is usually at the end. A stored entry is read in
+  // place; a deflated one goes to a temp file first, as a deflate stream cannot be seeked.
   let file = source
   let offset = 0
   let temp = null
@@ -389,10 +354,8 @@ async function processEntry({ entry, name, target }, { source, tempDir, writer, 
       return { ...base, action: 'store', to: stored, detail: plan.detail }
     }
 
-    // The bytes changed, so the CRC has to be measured over the new layout: one pass to
-    // measure, one to write. A stored source is read in place, so nothing has checked its bytes
-    // against the CRC the archive recorded; a new CRC over damaged bytes would vouch for them,
-    // so they are checked first. An inflated one was checked on its way into the temp file.
+    // The CRC is measured over the new layout, in one pass before the write. A stored source is
+    // read in place and checked against its recorded CRC first: a new CRC would vouch for damage.
     if (writer && method === STORE && typeof entry.signature === 'number') {
       let original = 0
       for await (const chunk of readPieces(file, [{ start: offset, end: offset + size }])) original = crc32(chunk, original)

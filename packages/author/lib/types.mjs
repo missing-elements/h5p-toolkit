@@ -2,33 +2,8 @@ import { newId } from './generator.mjs'
 import { stripTags } from './text.mjs'
 
 /**
- * What a content type needs beyond its semantics. H5P's editor has a widget of its own for some
- * types — a slide to place elements on, a video to drag interactions over, a map of stages — and
- * those widgets set fields the form hides. Here each such type has its layout, run on the
- * generated parameters wherever that type appears, top level or as sub-content:
- *
- * - `before` adjusts the written parameters before generation;
- * - `after` sets the hidden fields on the generated ones, once the media are resolved, and checks
- *   what the editor's widget would not have let an author save;
- * - `read` turns what the two wrote back into what a source writes, for a package read back
- *   into a source (#236), run on that source's parameters;
- * - `sets` names the hidden fields the layout sets, which the schema leaves out;
- * - `optional` names fields the semantics call required that the content plays without, which the
- *   editor never asks for or an editor other than the pinned one leaves out;
- * - `decimals` names number fields that take decimals their semantics do not give, and how many,
- *   where an editor other than the pinned one writes them and the content plays them.
- *
- * Paths in `sets`, `optional` and `decimals` are dotted, `[]` for a list's item, relative to the
- * type's own parameters.
- *
- * The widgets followed are the newest release of the minor each content type in the pack names in
- * its `editorDependencies`: H5PEditor.InteractiveVideo 1.26.3 (h5p/h5p-editor-interactive-video at
- * 205abc173eece12046c4dedbe883ea5835e49151), H5PEditor.BranchingScenario 1.5.13
- * (h5p/h5p-editor-branching-scenario at 8fcd92d0a5a5f6b855d9d03ce4d19ab31baa4b99) and
- * H5PEditor.GameMap 1.2.5 (otacke/h5p-editor-game-map at a1ad6b04abb00ef0c1fda5bd446e4f95b8434873).
- * Course Presentation's and Find the Hotspot's layouts are this package's own and take nothing
- * from their editors. design/author.md, *The editor is pinned, and not watched*, says how to move
- * them to a newer editor.
+ * A layout: what a type needs beyond its semantics where its editor widget sets hidden fields:
+ * `before`, `after`, `read`, and the dotted paths `sets`, `optional`, `decimals`.
  */
 
 /**
@@ -76,9 +51,8 @@ function fieldAt(semantics, names) {
 /* ---------------------------------------------------------------- Question Set */
 
 /**
- * The title a Question Set gives a question that has none: the set's own label for a question, in
- * the content's language, and its number. The outline leaves it out, as the build's and not an
- * author's.
+ * The title a Question Set gives a question with none: the set's label for a question, in the
+ * content's language, and its number. The outline leaves it out: it is the build's.
  * @param {any[]} semantics the set's, as loaded for the content
  * @param {number} index
  */
@@ -123,10 +97,8 @@ const interactiveBook = {
 /* ---------------------------------------------------------------- Course Presentation */
 
 /**
- * The slide Course Presentation draws, 16:9, 640 by 360 px at the size its stylesheet is written
- * for. Positions and sizes are percentages of the slide's width (`x`, `width`) and height (`y`,
- * `height`). `font`, `char` and `line` are the text Interactive Video's layout measures with
- * (`textLines`): 16 px, about 8.5 px a character, lines of 1.5.
+ * Course Presentation's slide, 640 by 360 px; positions and sizes are percentages of it. `font`,
+ * `char`, `line` measure text for Interactive Video (`textLines`): 16 px, 8.5 px a character, 1.5.
  */
 const SLIDE = { width: 640, height: 360, font: 16, char: 8.5, line: 1.5 }
 const MARGIN_X = 4
@@ -134,14 +106,8 @@ const MARGIN_Y = 5
 const GAP = 2
 
 /**
- * Text as Course Presentation 1.27 draws it on that slide, from its stylesheet and Advanced
- * Text's (#145): an element at .75em of the slide's 16 px, 12 px; a paragraph at .9em of that,
- * 10.8 px, in lines of 1.25em with 1em after it; `h2` at 1.667em and `h3` at 1.333em, in lines of
- * 1.5em with .5em after; a list item at the element's size in lines of 1.25em, 1em apart. `em` is
- * a block's size in em of the element's, `size` the same in px, `line` and `after` in em of the
- * block's own size; `pre` takes no style, so it is never set larger. Measured at the slide's
- * 16 px in lines of 1.5, as before, a text box came out about twice as tall as its text. These are
- * the minor the pack carries, as the editor rules the other layouts follow are pinned.
+ * Text as Course Presentation 1.27 draws it on that slide, from its stylesheet and Advanced Text's
+ * (#145). Measured at 16 px in lines of 1.5, a text box came out about twice as tall as its text.
  */
 const SLIDE_TEXT = {
   p: { em: 0.9, size: 10.8, line: 1.25, after: 1, sized: true },
@@ -158,10 +124,8 @@ const CHARACTER = 0.53
 const TEXT_STEPS = [2, 1.75, 1.5, 1.25]
 
 /**
- * How much of the slide's height markup takes, in percent, as Course Presentation draws it in a
- * box `pixels` wide with every block that takes a size `step` times as large: each paragraph,
- * heading and list item by its lines and the room after it, each list by the room around it, and
- * a little to spare. Text in no block is measured as a paragraph.
+ * How much of the slide's height markup takes, in percent, in a box `pixels` wide with each sized
+ * block `step` times as large: its lines and the room after each block, a little to spare.
  * @param {string} html
  * @param {number} pixels
  * @param {number} [step]
@@ -185,13 +149,8 @@ function slideTextHeight(html, pixels, step = 1) {
 }
 
 /**
- * Markup with each block that takes a size set `step` times as large: a `font-size` on the block
- * itself, in em of the element's, so the lines, which the stylesheet gives in em, grow with it. A
- * span inside a paragraph would inherit the paragraph's line height as a length, and its lines
- * would overlap. The content check keeps it: Advanced Text allows `font.size`, and a style may
- * sit on a paragraph, a heading or a list item; one the block has already is kept beside it.
- * Written as the content check writes a style it keeps, so an untrusted play changes nothing:
- * each declaration trimmed, in the order of its patterns, joined by `;` and ended with one.
+ * Markup with each sized block `step` times as large, by a `font-size` in em on the block, as a
+ * span would inherit the line height as a length and overlap. Written as the check writes it.
  * @param {string} html
  * @param {number} step
  */
@@ -214,9 +173,8 @@ function sizedText(html, step) {
 const STYLE_ORDER = ['text-align', 'font-size', 'font-family', 'color', 'background-color', 'letter-spacing', 'line-height']
 
 /**
- * How many lines markup takes at 16 px in a width, at about 8.5 px a character: a heading's at
- * its size, and a little between blocks. Interactive Video's measure; Course Presentation's is
- * `slideTextHeight`.
+ * How many lines markup takes at 16 px in a width, about 8.5 px a character, headings at their
+ * size. Interactive Video's measure; Course Presentation's is `slideTextHeight`.
  * @param {string} html
  * @param {number} pixels
  */
@@ -255,10 +213,8 @@ function wanted(element, width) {
 }
 
 /**
- * On a slide with room left and no question to give it to, its text set larger, in steps, the
- * largest that fits with every picture at its full size (#145): Course Presentation draws text
- * small, a paragraph at 10.8 px on a slide 640 px wide, and a slide of text alone showed it in its
- * top part. Only text nobody sized: one that sets a `font-size` anywhere keeps its own.
+ * On a slide with room left and no question to take it, text set larger, the largest that fits with
+ * every picture at full size (#145): Course Presentation draws text small. Only text nobody sized.
  * @param {any[]} free the elements being stacked
  * @param {Array<{ kind: string, height: number, min: number }>} kinds what each wants, in the same order
  * @param {number} spare percent of the slide's height left over
@@ -282,10 +238,8 @@ function growText(free, kinds, spare, width) {
 }
 
 /**
- * Elements without a position are stacked down the slide, full width, below any placed by hand.
- * Text keeps the height its lines need, set larger where the slide has room and no question;
- * a picture or a video shrinks, keeping its shape, to leave a question the room it needs; a
- * question takes what is left.
+ * Elements without a position are stacked down the slide, full width, below any placed by hand:
+ * text takes its lines' height, pictures and videos shrink for a question, which takes the rest.
  * @param {any[]} elements
  * @param {string} path
  * @param {LayoutContext} context
@@ -365,10 +319,11 @@ const coursePresentation = {
 
 /* ---------------------------------------------------------------- Interactive Video */
 
+// Follows H5PEditor.InteractiveVideo 1.26.3, h5p/h5p-editor-interactive-video at
+// 205abc173eece12046c4dedbe883ea5835e49151.
 /**
- * The video Interactive Video draws interactions over, in the units of their fields: `x` and `y`
- * in percent of the video, `width` and `height` in em, at 16 px to a video 640 px wide, so a
- * 16:9 video is 40 em wide and 22.5 em tall.
+ * The video Interactive Video draws interactions over, in the units of their fields: `x`, `y` in
+ * percent of the video, `width`, `height` in em at 16 px to a 640 px video (16:9 is 40 by 22.5 em).
  */
 const FRAME = { width: 40, height: 22.5 }
 
@@ -376,11 +331,8 @@ const FRAME = { width: 40, height: 22.5 }
 const BUTTON = { width: 12, height: 12 }
 
 /**
- * A poster's size where none is written. H5P's editor starts every interaction at 10 by 10 em
- * and leaves the rest to the author's mouse, but for a picture, which it gives the picture's own
- * shape, as is done here. A build has no mouse: a question gets room for its answers and buttons,
- * where 10 by 10 showed two answers of four and hid the Check button behind a scroll; a text as
- * much width as keeps it short. A link, a label and a hotspot keep the editor's size.
+ * A poster's size where none is written: 10 by 10 em as in the editor, a picture its own shape; a
+ * question room for its answers and Check button (10 by 10 hid it), a text enough width.
  * @param {any} interaction
  * @returns {{ width: number, height: number }}
  */
@@ -463,14 +415,8 @@ const interactiveVideo = {
 }
 
 /**
- * An Interactive Video's times held to its video's length, where the build knows one (an mp4's
- * index gives it, and Vimeo says a video's). An interaction that ends past the video's last whole
- * second is moved by the library as it loads (`loaded()` in H5P.InteractiveVideo 1.28): it then
- * ends there and starts as much earlier, and one that starts past the end shows before it, so
- * each is refused with where it would play (#285). H5P's editor caps those times at that second
- * too. A bookmark or an end screen past the end is never reached, and a start past it plays
- * nothing. A host says a length in whole seconds: an interaction is held to that number, and a
- * bookmark, an end screen or a start is past the end only a second beyond it.
+ * An Interactive Video's times held to its video's length: the library moves an interaction ending
+ * past the last whole second to end there (`loaded()`, #285), so it is refused.
  * @param {any} params an Interactive Video's, as H5P stores them
  * @param {string} path where they are
  * @param {(file: string) => import('./media.mjs').MediaLength | undefined} lengthOf a video's length, by its path in the package or the address it stays at
@@ -502,9 +448,8 @@ export function videoTimes(params, path, lengthOf, report) {
 }
 
 /**
- * Where H5P.InteractiveVideo 1.28 plays an interaction that ends past its video's last whole
- * second, as it moves it on load: ending at that second, as long as it was written. `undefined`
- * for one it leaves where it is, and for times that are not a start before an end.
+ * Where H5P.InteractiveVideo 1.28 plays an interaction ending past the last whole second: moved to
+ * end there, as long as written, its start clamped at 0; `undefined` if left, or not a start before an end.
  * @param {unknown} duration an interaction's `duration`, `{ from, to }` in seconds
  * @param {number} last the video's last whole second, as the library counts it
  * @returns {{ from: number, to: number } | undefined}
@@ -523,10 +468,8 @@ export function movedInteraction(duration, last) {
 const placedOn = (on) => (one) => `placed by numbers, which a build cannot hold to the ${on}: look at ${one ? 'it' : 'each'} in the preview`
 
 /**
- * What a source puts on a picture or a video by numbers alone (#260): hotspots, areas and stages
- * at places, interactions at times. A build holds none of them to what the picture or the video
- * shows there, so it says each such list once, as a note for whoever hands the package over: only
- * a person looking at the preview knows whether a hotspot sits on what it names.
+ * What a source puts on a picture or a video by numbers alone (#260): places and times. A build
+ * cannot hold them to what is shown, so it notes each list once, for the preview.
  * @type {Record<string, { at: string, what: [one: string, many: string], on: (one: boolean) => string }>}
  */
 const BY_NUMBER = {
@@ -553,16 +496,11 @@ export function byNumber(library, params) {
 
 /* ---------------------------------------------------------------- Branching Scenario */
 
+// Follows H5PEditor.BranchingScenario 1.5.13, h5p/h5p-editor-branching-scenario at
+// 8fcd92d0a5a5f6b855d9d03ce4d19ab31baa4b99.
 /**
- * The scenario as a graph: each node goes to the node `nextContentId` names, by its index in
- * `content`, a Branching Question to one per alternative, and a negative id ends the scenario
- * there, on the end screen with that `contentId`. Every node has to be reachable from the first,
- * and every path has to reach an end, or a learner is stuck.
- *
- * Where this departs from the editor: it gives a node with no next -1, an end, where here a source
- * has to say, a link left out being likelier a slip than an ending; and it makes one end screen,
- * -1, where the ones a source writes after it are numbered -2, -3… here, which the runtime finds by
- * `contentId` as it finds the first.
+ * The scenario as a graph: each node goes to the node `nextContentId` names, a negative id ends it;
+ * all must be reachable and every path reach an end. No next is a problem, not an end.
  * @type {Layout}
  */
 const branchingScenario = {
@@ -637,15 +575,11 @@ const branchingScenario = {
 
 /* ---------------------------------------------------------------- Game Map */
 
+// Follows H5PEditor.GameMap 1.2.5, otacke/h5p-editor-game-map at
+// a1ad6b04abb00ef0c1fda5bd446e4f95b8434873.
 /**
- * Stages on a map: each placed by `telemetry`, in percent of the map and kept as text, and joined
- * to its `neighbors`, which a source names by label or index and the map stores as indices, both
- * ways, as the editor's map widget keeps them. Each gets the id that widget gives it, a UUID, and a
- * `type`, `stage` or `special-stage`, which the widget keeps on its own element rather than in the
- * content and the runtime works out from `specialStageType` again: the field is hidden and
- * required, and would be reported unset. A source's numbers and labels become that text before
- * generation; what the map widget would not let pass is checked on the stored form, as saved
- * content has it.
+ * Stages on a map as the editor's widget keeps them: `telemetry` in percent as text, `neighbors`
+ * both ways, a UUID and `type` (hidden, required: it would be reported unset).
  * @type {Layout}
  */
 const gameMap = {
@@ -768,11 +702,8 @@ const imageHotspotQuestion = {
 /* ---------------------------------------------------------------- Fill in the Blanks */
 
 /**
- * The gaps of one block of text, found as H5P.Blanks 1.14 finds them (`handleBlanks` in its
- * `js/blanks.js`): from an asterisk to the next, the tags between them taken out, an empty pair
- * passed over, and the character after a gap never read as the start of the next. The library
- * takes the tags out in one pass; here they are taken out until none is left, which differs only
- * for a tag written inside a tag (`<<em>em>`), and leaves no tag that one pass would have joined.
+ * The gaps of a text block as H5P.Blanks 1.14 finds them (`handleBlanks`): asterisk to asterisk,
+ * tags between removed until none is left (the library does one pass).
  * @param {string} question
  * @returns {{ raw: string, content: string }[]} each gap as written, asterisks included, and what the library reads of it
  */
@@ -794,13 +725,8 @@ export function blanksGaps(question) {
 }
 
 /**
- * A backslash written to escape a slash or a colon in a gap's answer, `*1\/2*` or `*10\:30*`.
- * Nothing in H5P.Blanks escapes either (`parseSolution`: the first colon starts the tip, and what
- * is before it is split at every slash), so the answer ends in the backslash and what follows is
- * another answer, or the tip: the package builds, plays, and takes "1\" or "2". What the library
- * does take is an entity, which holds neither character as it is split and which it decodes in
- * each answer: `*1&#47;2*` is the answer 1/2, and the problem writes the gap out that way. An
- * answer that is a backslash and no more is left alone, being one a text may ask for.
+ * A backslash escaping a slash or colon in a gap's answer (`*1\/2*`): H5P.Blanks escapes neither
+ * (`parseSolution`), so the answer ends there. An entity works (`*1&#47;2*`).
  * @type {Layout}
  */
 const blanks = {
@@ -843,14 +769,8 @@ const blanks = {
 const shortened = (text, most) => (text.length > most ? `${text.slice(0, most - 1)}…` : text)
 
 /**
- * A gap H5P.DragText 1.10 cannot take apart. Its `lex` (in `dist/h5p-drag-text.js`) finds a gap's
- * tip, from a colon up to a backslash, and its two feedbacks, from `\+` and `\-` up to a backslash
- * or a colon, each with a pattern that may match more than once, and takes each out of the word
- * with one `replace` of all its matches at once: with two, nothing is taken out. A colon in the
- * feedback is the way to two: the feedback ends there, what follows is a second tip, and the
- * learner drags the word with every tip still in it. A colon in the tip itself is none, the tip
- * running on over it. The word is worked out here as the library does, to show what would be
- * dragged.
+ * A gap H5P.DragText 1.10 cannot take apart: `lex` takes a tip or feedback out with one `replace`
+ * of all matches, so with two nothing is taken out. A colon in a feedback starts a second tip.
  * @type {Layout}
  */
 const dragText = {
@@ -887,24 +807,21 @@ const video = { optional: ['visuals.poster'] }
 /* ---------------------------------------------------------------- Row */
 
 /**
- * A row's columns, each a share of its width in percent. The standard form refuses a decimal typed
- * into one, the field giving no `decimals`, and no editor in the pack sets them; but H5P.com's own
- * editor writes them in hundredths, as the owner's package from there holds (24.76, 62.56), H5P's
- * content check keeps them, and the library plays one as a CSS width. So a share takes two
- * decimals, and such a package builds again after a read (#242).
+ * A row's columns, each a share of its width in percent. H5P.com's editor writes hundredths
+ * (24.76), which the check keeps and the library plays, so a share takes two decimals (#242).
  * @type {Layout}
  */
 const row = { decimals: { 'columns[].width': 2 } }
 
 /**
- * A row's column with nothing in it, which H5P.com's editor leaves as a spacer, as the owner's
- * package from there holds (two of three columns empty, the third between them). H5P's content
- * check takes the empty list out, and the library plays a column with no content as an empty one
- * (`params.content === undefined` becomes `[]`), so a source may leave it out (#242).
+ * A row's column with nothing in it, as H5P.com's editor leaves a spacer. The content check drops
+ * the empty list and the library plays it as empty, so a source may leave it out (#242).
  * @type {Layout}
  */
 const rowColumn = { optional: ['content'] }
 
+// Editors followed: the newest release of the minor a type names in `editorDependencies`, but for
+// Course Presentation and Find the Hotspot, ours (design/author.md, *The editor is pinned*).
 /** @type {Record<string, Layout>} */
 export const LAYOUTS = {
   'H5P.QuestionSet': questionSet,

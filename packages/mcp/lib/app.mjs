@@ -6,16 +6,8 @@ import { SourceError, buildPackage } from '@missing-elements/h5p-author'
 import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typeAnswers } from './answers.mjs'
 
 /**
- * The app server (#210, #270): an MCP server over HTTP for a chat app that shows a card in its
- * reply, ChatGPT first. Two tools and one card. `h5p_play` checks a source and answers as a build
- * does; the card frames the play page of the site, which builds the activity in the person's
- * browser and plays it there.
- *
- * It keeps nothing. Each request gets a fresh server, answers, and is gone; nothing of a request
- * is stored and nothing of it is logged. A file the person attached in the chat never comes here:
- * the chat sends its reference, an address and an id. The address is never asked and never
- * passed on. The id is handed to the card, which asks the chat itself for the file's address,
- * from the person's browser: an address the chat did not give is one nobody fetches.
+ * The app server (#210, #270): an MCP server over HTTP for a chat that shows a card in its reply.
+ * It stores and logs nothing, and an attached file never reaches it: the card asks the chat for it.
  *
  * @typedef {object} AppOptions
  * @property {string} [site] the origin of the site whose play page the card frames; `https://missing-elements.github.io` by default
@@ -23,10 +15,6 @@ import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typ
  * @property {string} [references] the folder of the author package's type files and brief, its `references/`, with the skill's `SKILL.md` and `LICENSE` beside it, as in the package; the installed package's by default
  * @property {string} [card] the card's text, `lib/card.html`; read from beside this file by default
  * @property {string} [version] the version the server names itself with; this package's by default
- *
- * A host with no package folder beside the code, as a bundle is, names all it carries, the pack
- * and the last three: there `import.meta` finds nothing (a Cloudflare Worker, #272). A
- * `references` folder that is not the author package's is refused as the server starts.
  */
 
 const SITE = 'https://missing-elements.github.io'
@@ -45,10 +33,8 @@ The card has the download of the .h5p file: give no link of your own, only an ad
 const PLAY = `Checks an H5P activity's source and plays the activity in the chat, built in the person's browser, with a download of the .h5p file. The source is as h5p_types describes it for its type, its params holding only what differs from the type's defaults. A source with problems is refused, each problem named by its path. Nothing is stored.`
 
 /**
- * A file attached in the chat, as ChatGPT's reference writes a file input, to the letter: it puts
- * the attachment's address and id here for an input named in `openai/fileParams`. Shown to the
- * app as the field's schema and not held to: what comes in its place, a name where a model wrote
- * one, is answered, where a schema would refuse the call unread.
+ * A file attached in the chat, as ChatGPT's reference writes it (`openai/fileParams`). Shown to the
+ * app as the field's schema, not enforced: a name written in its place is answered, not refused.
  */
 const FILE = {
   type: 'object',
@@ -63,10 +49,8 @@ const UI = 'io.modelcontextprotocol/ui'
 const CARD_TYPE = 'text/html;profile=mcp-app'
 
 /**
- * Whether the chat draws this server's card, as it says (#276): true or false where it says, as on
- * protocol 2026-07-28, which carries the client's capabilities in each request; null where it says
- * nothing here, as a chat on the 2025 protocols, which says them once as it starts, to a server
- * that keeps no session.
+ * Whether the chat draws this server's card (#276): a boolean on protocol 2026-07-28, which sends
+ * capabilities in each request; null on 2025 ones, which say it once, and we keep no session.
  * @param {unknown} capabilities
  * @returns {boolean | null}
  */
@@ -77,9 +61,8 @@ function drawsCards(capabilities) {
 }
 
 /**
- * What a chat that draws no card hands over in its place (#276): h5p-author's route 4, the whole
- * source and the build page's plain address. Never a link that carries the source, which breaks
- * where a model writes one character of it wrong (the owner, 2026-11-16).
+ * What a chat that draws no card gets instead (#276): h5p-author's route 4, the whole source and
+ * the build page's plain address, never a link holding the source: one wrong character breaks it.
  * @param {string} site
  * @param {number} files how many files the source names, which the page asks the person for
  */
@@ -89,10 +72,8 @@ const handOver = (site, files) => `hand the activity over to be built in the per
 const FILE_HOSTS = ['https://*.blob.core.windows.net', 'https://files.oaiusercontent.com', 'https://*.oaiusercontent.com']
 
 /**
- * What of the chat's reference to an attached file goes to the card: its id, and its name and
- * type where they came. Not its address, which lets whoever has it read the file, and which a
- * call could carry a made-up one of: the card asks the chat for the address by the id. Text in
- * the reference's place, or one with no id, is none.
+ * What of the chat's reference to an attached file goes to the card: its id, and its name and type
+ * where they came. Not its address, which lets its holder read the file and a call could make up.
  * @param {unknown} file
  */
 function attached(file) {
@@ -110,6 +91,7 @@ function attached(file) {
  */
 export async function createApp(options = {}) {
   const site = new URL(options.site ?? SITE).origin
+  // A Worker's bundle (#272) has no package folder for `import.meta` to find: it passes `version` and `card`.
   const version = options.version ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version
   const card = (options.card ?? await readFile(new URL('./card.html', import.meta.url), 'utf8')).replaceAll('__SITE__', site)
   // A chat keeps a card by its address, so a card that changed has another.
@@ -195,10 +177,8 @@ export async function createApp(options = {}) {
       const text = lines.join('\n')
       return {
         ...answer(text),
-        // The attachment's id for the card, where one came, in both parts of an answer a chat may
-        // hand a card. Not otherwise: a chat may give the model this part in place of the text
-        // (Claude Code 2.1.331 gave Haiku `{"files":0}` and no word of the check, 2026-11-25,
-        // #276), so it carries the text too.
+        // The attachment's id for the card, in both parts of an answer a chat may hand it. The text
+        // too: a chat may give the model this part in its place (Claude Code 2.1.331, #276).
         ...(given ? { structuredContent: { answer: text, files: files.length, fileId: given.file_id, ...(given.file_name ? { fileName: given.file_name } : {}) } } : {}),
         // And the source, which a card drawn from the result alone, with no input, plays from
         // (#276). Shown to the card, not the model. It came in the call; nothing of it is kept.
@@ -208,10 +188,8 @@ export async function createApp(options = {}) {
 
     mcp.registerResource('h5p-play-card', cardUri, { title: 'H5P activity', mimeType: CARD_TYPE, _meta: cardMeta },
       async (uri) => ({ contents: [{ uri: uri.href, mimeType: CARD_TYPE, text: card, _meta: cardMeta }] }))
-    // An earlier card's address gets this card (#278): a chat may keep the tool list, or a reply it
-    // drew, from before the card changed, and ask that address again. Grok did after #277 was
-    // deployed, and could not load the app ("read-resource failed: 400", 2026-11-25); ChatGPT keeps
-    // the card it fetched. This card plays what an earlier one was handed. Not listed.
+    // An earlier card's address gets this card (#278): a chat may ask for one from before the card
+    // changed (Grok did, "read-resource failed: 400"); ChatGPT keeps its card. Not listed.
     mcp.registerResource('h5p-play-card-earlier', new ResourceTemplate('ui://h5p-play/card-{hash}.html', { list: undefined }), { title: 'H5P activity', mimeType: CARD_TYPE, _meta: cardMeta },
       async (uri, { hash }) => {
         if (typeof hash !== 'string' || !/^[0-9a-f]{12}$/.test(hash)) throw new ResourceNotFoundError(uri.href)

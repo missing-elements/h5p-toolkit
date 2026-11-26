@@ -4,19 +4,8 @@ import { drawOf } from './mistakes.mjs'
 import { questionTitle } from './types.mjs'
 
 /**
- * A built content as plain text, for a review before a package is handed over: what an author
- * wrote, one line each, indented by the list it sits in, read through the libraries' semantics.
- * Only text a learner reads is written: a text field the editor draws as a text box, a textarea or
- * rich text, which is not an interface text (`isInterfaceText`) and holds more than its default,
- * which in loaded semantics is the content language's. Where a text breaks, a paragraph, a line, a
- * list item, ` / ` keeps the parts apart. Settings are left out: selects, numbers, booleans,
- * colours, what the editor does not draw (`widget: 'none'`), and a text with no label that is not
- * an item's own, which a widget of the type's own sets, a figure or a position. What says which
- * answer is right is written: a ✓ before an item whose `correct` is true, and the answer a
- * `correct` select names; and a score range before its feedback, in a list the editor draws as
- * H5P's RangeList. Sub-content gets its own library's semantics and its title where an author gave
- * one; media are named by kind and path. What a few types say only by position or by number is
- * written out as `TYPES` says.
+ * A built content as plain text for review before handover: what an author wrote, one line each,
+ * indented by list. Learner-read text and answer marks (✓, score ranges), and draw counts, numbered headers, branching destinations, video times, media paths.
  */
 
 /** @param {unknown} value @returns {value is Record<string, any>} */
@@ -29,20 +18,8 @@ const PROSE = new Set(['text', 'textarea', 'html'])
 const UNLABELLED = new Set(['text', 'question'])
 
 /**
- * What a few types say only by position or by number, written out. Paths are where a list or a
- * field sits in the type's parameters, as `a.b[].c`.
- * - `right`: lists whose first item is the right one, which each type's semantics say in words
- *   alone: "Alternatives - first alternative is the correct one" (Single Choice Set), "the first
- *   statement is correct" (Summary).
- * - `items`: lists whose items get a numbered header, as their editors show them one at a time:
- *   slides, chapters, questions, a scenario's content, which its links name by that number.
- * - `titles`: lists whose items the build titles where an author did not (`questionTitle`): such a
- *   title is the build's, and not written.
- * - `times`: lists whose items start with the time the video shows them: an interaction's
- *   `duration`, a bookmark's or an end screen's `time`.
- * - `links`: a scenario's `nextContentId`, the index of the content a choice or a content leads
- *   to, negative for the end; and `endScreenScore`, the score an end gives.
- * - `labels`: a label for a field whose semantics give none.
+ * What a few types say only by position or number, written out, by path (`a.b[].c`): `right` first
+ * item right, `items` numbered headers, `titles` build-made, `times`, `links` (scenario), `labels`.
  * @type {Record<string, {
  *   right?: string[], items?: Record<string, string>, titles?: Record<string, (semantics: any[], index: number) => string>,
  *   times?: Record<string, 'duration' | 'time'>, links?: boolean, labels?: Record<string, string>
@@ -75,11 +52,8 @@ const BREAK = /^<\/?\s*(?:p|div|h[1-6]|ul|ol|li|dl|dt|dd|pre|blockquote|table|th
 const INLINE = /^<\/?\s*(?:a|abbr|b|bdi|bdo|cite|code|data|del|dfn|em|font|i|ins|kbd|mark|q|s|samp|small|span|strike|strong|sub|sup|time|tt|u|var)\b/i
 
 /**
- * Stored text as a learner reads it, its parts ` / ` apart. Rich text is split where a block starts
- * or ends or a line breaks; a tag inside a line is taken out with nothing in its place, any other
- * with a space; tags are read as `stripTags` reads them. Plain text is split at its line breaks,
- * `\r` alone among them. Entities are read in each part after the split, so no text, an encoded
- * one included, can pass for a break.
+ * Stored text as a learner reads it, its parts ` / ` apart: rich text split at blocks and line
+ * breaks, plain text at line breaks (`\r` too), entities read after, so an encoded one is no break.
  * @param {string} stored
  * @param {boolean} markup whether the field holds markup
  */

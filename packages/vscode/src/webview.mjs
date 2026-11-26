@@ -11,18 +11,8 @@
  */
 
 /**
- * The webview of a preview: a bar with what the package reached and the two switches, and the
- * frame that plays it. Everything inline, under a nonce; the frame may load from the server's
- * origin alone.
- *
- * Messages are taken from two places only. The frame's, by its window and the server's origin:
- * what the element reached — a state, `ready`, an error — which goes on to the extension, and
- * nothing else. The extension's, by the webview's own origin: reload, a change of trust or of the
- * settings. The webview posts its own two: the mode its switches are in, and Open in Browser from
- * the note on media VS Code does not play. A package's own code runs in a frame below the page, on
- * the server's origin. What it posts itself is from neither place; played trusted, though, it
- * shares the page's origin and can post as the page, so the most it can do is misreport its own
- * state, and its media with it: a note, whose button opens the same package in the browser.
+ * The webview of a preview: a bar with what the package reached, two switches, and the frame that
+ * plays it. Only the frame and the extension are heard; a trusted package may post as the page.
  * @param {object} options
  * @param {string} options.nonce
  * @param {WebviewConfig} options.config
@@ -95,9 +85,8 @@ export function webviewHtml({ nonce, config }) {
       const mode = Object.assign({ untrusted: config.untrusted, newest: config.newest }, vscode.getState())
       let ready = null
 
-      // VS Code's theme, for the page's colours: light, or dark, a high-contrast theme as the one it
-      // is built on. VS Code marks the webview's body with it, and a high-contrast light theme with
-      // \`vscode-high-contrast\` too, for older webviews, so light is asked first.
+      // VS Code's theme, from the webview's body: light is asked first, since a high-contrast light
+      // theme is marked \`vscode-high-contrast\` too.
       function themeOf() {
         const list = document.body && document.body.classList
         if (!list) return null

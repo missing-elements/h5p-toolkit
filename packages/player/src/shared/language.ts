@@ -1,14 +1,11 @@
 /**
- * The element's language, as far as the player has anything to do with it: a tag, read off the
- * element's `lang` — its own, or the one it inherits from the page, as any element's language is
- * — and written by the worker as the frame document's. Which of the core's strings a tag gets is
- * the runtime's business; the player only knows English needs none of them.
+ * The element's language: a tag read off its `lang` (own or inherited) and written by the worker as
+ * the frame's. Which core strings a tag gets is the runtime's business; English needs none.
  */
 
 /**
- * A language tag, as far as the player reads one: a primary subtag of letters and any number of
- * further subtags of letters and digits. The runtime holds its tags to the same shape. The value
- * reaches the frame through IndexedDB, so the worker checks it again.
+ * A language tag as the player reads one: a primary subtag of letters, then subtags of letters
+ * and digits, as the runtime holds them. It passes through IndexedDB, so the worker checks again.
  */
 export const LANGUAGE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/
 

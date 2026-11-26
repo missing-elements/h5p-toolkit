@@ -1,11 +1,6 @@
 /**
- * Refuses to publish the embed package while what it imports from two packages of this repository is
- * not on npm: the player's `./plan`, which the SCORM writer plans with, and the normalizer's
- * `./crc32`, which it writes the stored entries' CRC with. The player is pinned exactly, `workspace:*`
- * since #109, because `./plan` is not covered by docs/compatibility.md: a release made before the
- * player's would not install, and one pinned to a player published before `./plan` existed would
- * install and fail on its first import. The normalizer is `workspace:^`, published as a range from
- * the version packages/normalize has, so that version has to be on npm with `./crc32` (#108).
+ * Refuses to publish until the player's `./plan` and the normalizer's `./crc32` are on npm: a pin to a version
+ * without them fails (#108, #109). The player is pinned exactly: docs/compatibility.md does not cover `./plan`.
  */
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

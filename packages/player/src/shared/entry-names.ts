@@ -1,16 +1,13 @@
 /**
- * Entry-name normalisation. Archives are untrusted: an entry may try to escape the package root
- * with `..`, an absolute path, a Windows drive letter or a backslash separator. Anything that
- * cannot be expressed as a plain relative path under the package root is rejected outright
- * rather than sanitised, so a hostile name can never silently become a different valid name.
+ * Entry-name normalisation. Archives are untrusted: separators and `.` or empty segments are normalised,
+ * but a name that escapes the package root is rejected, never sanitised, so it cannot become another valid one.
  */
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
 
 /**
- * Returns the canonical form of a zip entry name, or `null` if the name is unusable.
- * Canonical means: forward slashes, no leading slash, no `.` or `..` segments, no empty
- * segments, no trailing slash.
+ * Returns the canonical form of a zip entry name, or `null` if unusable: forward slashes, no
+ * leading or trailing slash, no `.`, `..` or empty segments.
  */
 export function normalizeEntryName(raw: string): string | null {
   if (!raw || CONTROL_CHARS.test(raw)) return null
@@ -48,9 +45,8 @@ export function normalizeRequestPath(raw: string): string | null {
 }
 
 /**
- * Builds the entry index from raw zip names. Directory entries are dropped, unusable names are
- * dropped, and a name that normalises onto one already taken is dropped rather than overwriting
- * it — first occurrence wins, so a duplicate cannot shadow a library file already indexed.
+ * Builds the entry index from raw zip names. Directories, unusable names and a name already taken
+ * are dropped: first occurrence wins, so a duplicate cannot shadow a library file already indexed.
  */
 export function indexEntryNames<T extends { filename: string; directory?: boolean }>(
   entries: T[]

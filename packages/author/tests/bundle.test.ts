@@ -10,10 +10,8 @@ import { buildPackage, bundleLibraries, contentTypes, missingForInstall, openPac
 import { removeIfMade } from '../lib/node.mjs'
 
 /*
- * A content type's bundle (#166): the parts a build of the type reads, for a build where the pack
- * cannot be installed and a file can be fetched. Everything the type can hold is in it, with what
- * an H5P site's upload check wants, and no addon; a build from it is the build from the pack, or
- * stops at the part it lacks, by name.
+ * A content type's bundle (#166): the parts a build of the type reads, where the pack cannot be
+ * installed, with what an upload check wants, no addon. A build from it matches the pack's, or stops at a part it lacks.
  */
 
 const parts = resolve(import.meta.dirname, '../../libraries/parts')

@@ -3,10 +3,8 @@ import { resolve } from 'node:path'
 import { chromium } from 'playwright'
 
 /**
- * Renders the social card, `demo/og-image.png`, 1200 by 630, from a small HTML page in Chromium.
- * Link previews want a raster image and the repository has no image tooling, so the browser the
- * tests already need does the rasterizing. The mark beside the name is the site's logo,
- * `demo/favicon.svg`. The output is committed; run this when the card's text or the logo changes.
+ * Renders the social card, `demo/og-image.png`, 1200x630, in Chromium: link previews want a raster
+ * image and the repository has no image tooling. Run when the text or logo changes, then commit the PNG.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')

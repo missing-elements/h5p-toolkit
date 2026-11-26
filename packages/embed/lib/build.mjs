@@ -5,13 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { EmbedError, PLAYER_FILES } from './shared.mjs'
 
 /**
- * Writes the embed page as a static site: one folder, deployable to any static host, that a site
- * frames from a player domain of its own. Everything comes from installed packages — the element
- * and its workers from the player's `dist/`, the H5P runtime from its own package as
- * `frame-assets/`, the library pack's parts from `@missing-elements/h5p-libraries` as
- * `libraries/` — so the versions are the ones this package was published with, and nothing is
- * fetched. The SCORM page goes in beside it, with the launch page's template and bridge it
- * builds a zip from, so a teacher on the site makes one with nothing but a browser.
+ * Writes the embed page as a static site, a folder for any static host, from installed packages
+ * alone: nothing is fetched, so the versions are those this package was published with.
  */
 
 export { EmbedError } from './shared.mjs'
@@ -25,9 +20,8 @@ const DIST = fileURLToPath(new URL('../dist', import.meta.url))
 /** The page's own files, copied as they are; `index.html` and `scorm.html` are written, not copied. */
 const PAGE_FILES = ['embed.js', 'embed.css', 'main.js', 'resizer.js', 'scorm-main.js', 'scorm-page.css']
 /**
- * What the SCORM page builds a zip from, under the names its script fetches them by: the launch
- * page's template and its bridge, from `scorm/`; and the page's script as `scripts/build.mjs`
- * bundles it, since the site has no bundler and the script imports zip.js.
+ * What the SCORM page builds a zip from, under the names its script fetches them by; the script
+ * is bundled by `scripts/build.mjs`, as the site has no bundler and it imports zip.js.
  */
 const SCORM_FILES = [
   ['scorm-launch.html', join(SCORM, 'index.html')],
@@ -51,12 +45,8 @@ export function installed(specifier, hint) {
 }
 
 /**
- * An origin as the CSP and the page compare it: `https://host[:port]`, or plain http on a loopback
- * address for trying it locally. Anything with a path, a query or a trailing slash is refused
- * rather than trimmed, so a typo is not silently a different policy. The host is held to what a
- * CSP host is, letters, digits and hyphens between dots: the URL parser takes `*`, `;` and `"` in
- * a host, and a wildcard would allow what the page then refuses, by exact origin, on every load,
- * while a quote would end the policy in the files that quote it (#58).
+ * An origin as the CSP compares it: `https://host[:port]`, or http on loopback, with no path.
+ * The host is letters, digits, hyphens and dots: `*`, `;` and `"` would break the policy (#58).
  * @internal
  * @param {string} value
  * @returns {string}
@@ -83,9 +73,8 @@ export function parseOrigin(value) {
 const PACK_CDN_ORIGIN = 'https://cdn.jsdelivr.net'
 
 /**
- * A `libraries` value for addresses that name none, checked against the site it goes into: the
- * tokens the page understands (`pack`, `none`, https URLs), and with a host list, nothing
- * the page would then refuse on every load. Returns the value normalised to single spaces.
+ * A `libraries` value for addresses that name none, checked against the site it goes into, so
+ * the page never refuses it on a load. Returns it normalised to single spaces.
  * @internal
  *
  * @param {string | null | undefined} value
@@ -138,10 +127,8 @@ export function parseOrigins(values) {
 }
 
 /**
- * The page's policy. `connect-src` is where the element and its workers may fetch packages and
- * library bundles from: any https host by default, which is what a player for links needs, or
- * exactly the hosts given. `frame-ancestors` goes only into a header — a `<meta>` policy ignores
- * it — and names who may frame the page; without it any site may.
+ * The page's policy: `connect-src` is any https host by default, or exactly the hosts given.
+ * `frame-ancestors` goes only into a header, as a `<meta>` policy ignores it.
  */
 /**
  * @internal
@@ -175,12 +162,8 @@ export function contentSecurityPolicy({ packages = null, ancestors = null, meta 
  */
 function headerRules(csp) {
   const revalidate = 'public, max-age=3600, stale-while-revalidate=86400'
-  // Asked again on every load, a 304 when nothing changed. The runtime's files keep their names
-  // from one version to the next, and the worker's version decides which it needs: kept for an
-  // hour, the runtime of the version before ran under the new worker after an update, and every
-  // play failed until the hour was out (0.10 to 1.0, measured, #49). The pack the same way, for
-  // whatever reads it with the browser's defaults: the element itself asks for its index
-  // revalidated and for its parts past the HTTP cache, so for it the header changes nothing.
+  // Revalidated on every load: the runtime's files keep their names across versions, so one kept an
+  // hour ran under the new worker after an update and every play failed (#49). The pack likewise.
   const current = 'no-cache'
   return [
     {
@@ -222,11 +205,8 @@ function vercelConfig(rules) {
 }
 
 /*
- * The three server formats below are for a host of one's own — the European hosts a data
- * protection officer accepts have no `_headers` convention, and a university's Apache or an
- * nginx on a Hetzner box is where the embed page usually ends up. Each is written from the same
- * rules as the two files above, so they cannot disagree. Values are quoted with double quotes
- * in every format, which is safe because the policy carries only single quotes.
+ * The three formats below are for a host of one's own, written from the same rules as the two
+ * above. Values take double quotes in each, safe as the policy carries only single quotes.
  */
 
 /**
@@ -258,9 +238,8 @@ function caddyfile(rules) {
 }
 
 /**
- * nginx: a file to `include` inside the `server` block that serves the folder. nginx's
- * `add_header` in a `location` replaces every `add_header` inherited from the server level
- * rather than adding to it, so each location repeats the headers that apply everywhere.
+ * nginx: a file to `include` in the `server` block. An `add_header` in a `location` replaces the
+ * inherited ones, so each location repeats the headers that apply everywhere.
  * @param {ReturnType<typeof headerRules>} rules
  */
 function nginxConf(rules) {
@@ -372,9 +351,8 @@ async function occupied(dir) {
  */
 
 /**
- * Writes the site into `out`. Refuses a folder that already has files in it unless `force`, and
- * even then only replaces the files it writes, so pointing it at the wrong folder costs nothing
- * that was not its own.
+ * Writes the site into `out`. Refuses a folder with files in it unless `force`, which replaces
+ * only the files it writes, so a wrong folder costs nothing that was not its own.
  *
  * @param {object} options
  * @param {string} options.out

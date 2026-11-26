@@ -1,10 +1,5 @@
-// The h5p-author skill's text, copied into the package as `prepack` runs: `SKILL.md`, its brief,
-// `references/authoring.md`, how to change a package, `references/change.md`, its build routes,
-// `references/build/`, one file a way to build, and its type files, each content type's notes,
-// an example and its fields, as the release has them.
-// A page that builds, with no skill beside it, hands the type files to a chat whose source had
-// problems (#172), and a site builds the skill's zips from the package it pins. They are the
-// skill's, at the repository's root, where `npx skills add` looks; the copy is not in git.
+// The skill's text copied in as `prepack` runs: `SKILL.md`, `references/`. A page that builds hands
+// the type files to a chat (#172) and a site zips the skill from it; not in git.
 import { cp, readdir, rm } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 

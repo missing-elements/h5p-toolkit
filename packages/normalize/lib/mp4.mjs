@@ -1,9 +1,6 @@
 /**
- * An ISO media file, an mp4's or an m4a's, read by its atoms: where they are, and what its index
- * (`moov`) says of it. Through a `read(offset, length)` that gives fewer bytes at the file's end,
- * so it runs wherever the bytes are, a file in Node or a `Blob` on a page. Only atoms' headers and
- * a few small atoms are read: never the media, nor the index's tables, but where the index is moved
- * in front of the media (`faststartPlan`), which reads it whole to rewrite its chunk offsets.
+ * An mp4's or m4a's atoms and index (`moov`), read through `read(offset, length)`, so it runs on a
+ * file in Node or a `Blob` on a page. Never the media, but `faststartPlan` reads `moov` whole.
  */
 import { formatBytes } from './format.mjs'
 
@@ -30,9 +27,8 @@ const LEADING_TYPES = new Set(['ftyp', 'moov', 'mdat', 'free', 'skip', 'wide', '
 const KINDS = /** @type {Record<string, 'video' | 'audio'>} */ ({ vide: 'video', soun: 'audio' })
 
 /**
- * More atoms than a real file has at one level, a fragmented one included as far as its index:
- * a file of more is not one this reads, and is not walked to its end, so that one made of tiny
- * atoms costs neither the memory nor the time.
+ * More atoms than a real file has at one level: a file of more is not walked to its end, so one
+ * made of tiny atoms costs neither the memory nor the time.
  */
 const MAX_ATOMS = 10_000
 
@@ -40,9 +36,8 @@ const MAX_ATOMS = 10_000
 const ascii = (bytes) => String.fromCharCode(...bytes)
 
 /**
- * The atoms between `start` and `end`, each by its header, as far as the first of type `until`
- * where one is given; `null` where one is not whole there or is no atom, or where there are more
- * than `MAX_ATOMS`.
+ * The atoms between `start` and `end` by header, up to the first of type `until` if given; `null`
+ * where one is not whole or is no atom, or there are more than `MAX_ATOMS`.
  * @param {Read} read
  * @param {number} start
  * @param {number} end
@@ -176,9 +171,8 @@ const CONTAINERS = new Set(['trak', 'mdia', 'minf', 'stbl'])
 const MAX_MOOV_SIZE = 256 * 1024 * 1024
 
 /**
- * Deeper than the containers of a real index nest, which is four, `trak` to `stbl`: an index made
- * of containers inside containers, as only a crafted file has, is left alone before the walk
- * through it runs out of stack.
+ * Deeper than a real index nests (four, `trak` to `stbl`): a crafted one is left alone before the
+ * walk through it runs out of stack.
  */
 const MAX_DEPTH = 8
 
@@ -194,17 +188,8 @@ const MAX_DEPTH = 8
  */
 
 /**
- * How to lay an mp4 out with its index (`moov`) in front of its media (`mdat`), so that a player
- * decodes the first frame from the first few hundred kilobytes instead of after the last byte. A
- * remux, not a re-encode: the only bytes that change are the chunk offset tables (`stco`, `co64`)
- * inside `moov`, which shift by its length, since it now sits in front of the data they point
- * into: what `qt-faststart` and `ffmpeg -movflags +faststart` do. Only `moov`, a few megabytes at
- * most, is read into memory; the rest is ranges of the file. So it runs wherever the bytes are: a
- * range of a file in Node, as the normalizer's faststart, or a `Blob` on a page, whose slices are
- * the ranges, as the author's build page lays out a video it stores.
- *
- * Never throws over content: a file that is no ISO media file, or one whose structure this does
- * not understand, comes back `skipped`, with the input as its output.
+ * How to lay an mp4 out with `moov` before `mdat`, so a player decodes from the first bytes, not the last:
+ * only chunk offsets change. Content it cannot move is `skipped`; only a read short of `size` throws.
  * @param {Read} read
  * @param {number} size the file's length
  * @returns {Promise<FaststartPlan>}
@@ -234,9 +219,8 @@ export async function faststartPlan(read, size) {
   // A copy: a read may hand back a view of bytes it keeps, which are not this to change.
   const index = new Uint8Array(whole)
 
-  // Where a byte ends up once `moov` is lifted out from behind `mdat` and dropped in front of it:
-  // anything before `mdat` stays put, anything from `mdat` up to `moov` moves back by `moov`'s
-  // length, and anything after `moov` loses it in front and gains it behind, so does not move.
+  // Where a byte ends up once `moov` moves before `mdat`: what is before `mdat` or after `moov`
+  // stays, and what lay from `mdat` to `moov` moves later by `moov`'s length.
   /** @param {number} position */
   const shift = (position) => (position >= mdat.offset && position < moov.offset ? moov.size : 0)
 
@@ -260,10 +244,8 @@ export async function faststartPlan(read, size) {
 }
 
 /**
- * Walks the atoms between `start` and `end` inside `moov`, descending into the containers that
- * lead to sample tables, and adds `shift(offset)` to every chunk offset it finds. Any other
- * absolute position it knows of, `saio`, makes the file one it will not move. Returns a reason
- * where the table cannot be rewritten, `null` on success.
+ * Adds `shift(offset)` to every chunk offset between `start` and `end` inside `moov`, descending
+ * into the containers that lead to sample tables. Returns a reason where it cannot, else `null`.
  * @param {Uint8Array} moov
  * @param {number} start
  * @param {number} end
@@ -291,10 +273,8 @@ function patchChunkOffsets(moov, start, end, shift, depth = 0) {
     if (atomSize < headerSize || position + atomSize > end) return 'malformed atom inside moov'
 
     if (type === 'cmov') return 'compressed moov is not supported'
-    // Common Encryption keeps the offsets of its per-sample data in `saio`, and in a file that is
-    // not fragmented those are absolute file positions, like the chunk offsets. Moving `moov`
-    // without rewriting them would leave a protected video that can no longer be decrypted, so
-    // such a file is left as it was.
+    // Common Encryption's `saio` holds absolute positions in an unfragmented file: moving `moov`
+    // without rewriting them would leave a video that cannot be decrypted, so it is left alone.
     if (type === 'saio') return 'encrypted sample data (saio) is not supported'
 
     if (CONTAINERS.has(type)) {

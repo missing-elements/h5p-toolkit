@@ -4,10 +4,8 @@ import { LocalHeaderScanner } from '../../src/shared/forward-index'
 import { collect, manifest, memoryHandle, zipOf, type Files } from './helpers/archives'
 
 /**
- * A reader over an archive that is still arriving. What matters is what it claims and when: never
- * ready before every declared library has finished arriving, never a certain "no" for a file that
- * may still be on its way, and correct bytes for what it does serve — off its own inflate, since a
- * forward entry has no zip.js object behind it.
+ * A reader over an archive still arriving: never ready before every declared library has arrived,
+ * never a certain "no" for a file that may be on its way, and correct bytes off its own inflate.
  */
 
 const media = new Uint8Array(150_000).map((_, i) => (i * 13 + 5) % 251)

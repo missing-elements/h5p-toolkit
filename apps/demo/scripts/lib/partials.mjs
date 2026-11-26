@@ -1,20 +1,6 @@
 /**
- * The markup the pages share, written once in `partials/`. A page writes
- *
- *   <!-- partial: topbar -->
- *
- * on a line of its own, and the line becomes `partials/topbar.html`, indented as the comment was,
- * when the page is served or built. A partial can name partials of its own: the app's bar names
- * the nav and the icons the other pages' bar is made of, around buttons of its own. A name with
- * no file, or a partial that names itself at any depth, fails the build rather than shipping a
- * page with a hole in it.
- *
- * The site's nav then marks the page it is on: the link whose address is the longest prefix of
- * the page's own gets `aria-current="page"`, so `/demo/setup.html` marks Setup and
- * `/demo/xapi.html`, one of the examples, marks Examples.
- *
- * The files are read on every request, and a change to one reloads every open page, so an edit
- * shows at once in dev; Vite's own reload for an HTML file reaches only the page of that name.
+ * The markup the pages share, in `partials/`. A page's line `<!-- partial: topbar -->` is replaced
+ * by that file's contents, indented as it was; a missing or self-naming partial fails the build.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -70,6 +56,7 @@ export function partialsPlugin(dir) {
     /** @param {{ file: string, server: import('vite').ViteDevServer }} update */
     handleHotUpdate({ file, server }) {
       if (!file.startsWith(dir)) return
+      // Vite's own reload for an HTML file reaches only that page, and a partial is on many.
       server.ws.send({ type: 'full-reload' })
       return []
     }

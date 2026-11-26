@@ -5,9 +5,8 @@ import { PackageReader } from '../../src/sw/package-reader'
 import type { SourceHandle } from '../../src/shared/source'
 
 /**
- * What the runtime is told to load when a bundle fills in for a stripped export. The export's
- * `h5p.json` names only the main library; the libraries its sub-content uses are named in
- * `content.json`, and the bundle — the app's pack in particular — may carry a newer minor.
+ * What the runtime is told to load when a bundle fills in for a stripped export: `h5p.json` names
+ * only the main library, `content.json` the sub-content's, and the bundle may carry a newer minor.
  */
 
 const handleOf = (bytes: Uint8Array<ArrayBuffer>): SourceHandle => memoryHandle(bytes).handle

@@ -50,9 +50,8 @@ export interface PackDependency {
 }
 
 /**
- * One library of the library pack, as its `parts/index.json` describes it: the pack is split into
- * one archive per library folder, `<folder>.h5p`, so a package downloads only the libraries it
- * needs, each checked against its hash.
+ * One library of the pack, as `parts/index.json` describes it: an archive per folder,
+ * `<folder>.h5p`, so a package downloads only the libraries it needs, each hash-checked.
  */
 export interface PackLibrary {
   /** `<machineName>-<major>.<minor>`, the one folder the part holds. */
@@ -68,10 +67,8 @@ export interface PackLibrary {
   /** For an addon, the content the platforms add it to (`addTo` in its `library.json`). */
   addTo?: unknown
   /**
-   * Carried for an H5P site's upload check only, which wants every library a package carries to
-   * have its dependencies with it at the exact major.minor, editor dependencies included (#146):
-   * an editor library, or an older minor the pack has a newer one of. The plan never takes one;
-   * h5p-author copies them into a package.
+   * Carried for an H5P site's upload check, which wants a library's dependencies at the exact
+   * major.minor, editor ones included (#146). The plan never takes one; h5p-author copies them.
    */
   installOnly?: true
   /** The part's size in bytes. */
@@ -81,9 +78,8 @@ export interface PackLibrary {
 }
 
 /**
- * The pack, offered with an `index` so the worker can say which parts the package needs. `pinned`:
- * the version this release pins, whose index the worker carries; otherwise the element hands over
- * the index of a copy the host named, with each part's URL.
+ * The pack, offered with an `index` so the worker names the parts a package needs. `pinned` is
+ * this release's version, whose index the worker carries; else the element sends a copy's index.
  */
 export type PackOffer = {
   /** Play the pack's newer version of a library the package carries. */
@@ -154,11 +150,9 @@ export interface MissingLibraries {
   carried?: boolean
 }
 
-/** One row of the IndexedDB `packages` table. */
 /**
- * What the host asked the frame to show and load, by h5p-standalone's own option names, so a
- * reader of its documentation finds the same words here. `activityId` is its `xAPIObjectIRI`.
- * Written into the package's record, so a restarted worker synthesizes the same frame.
+ * What the host asked the frame to show and load, by h5p-standalone's option names (`activityId`
+ * is its `xAPIObjectIRI`). Written into the package's record, so a restarted worker rebuilds it.
  */
 export interface FrameOptions {
   /** The H5P action bar under the content, which the three buttons below live in. */
@@ -193,6 +187,7 @@ export interface FrameUser {
   mail: string
 }
 
+/** One row of the IndexedDB `packages` table. */
 export interface PackageRecord {
   pkgId: string
   source: SourceDescriptor
@@ -221,9 +216,8 @@ export interface PackageRecord {
   /** The language tag the element was in when it loaded the package; absent when none was declared, and from a record an older element wrote. */
   language?: string
   /**
-   * Played as data: none of the package's own code runs. Library folders come only from the
-   * attached bundle, `content/` serves only H5P's own list of file types, and the frame's policy
-   * names exact script paths. See the `untrusted` attribute.
+   * Played as data, none of the package's code runs: libraries come from the attached bundle only,
+   * `content/` serves only H5P's file types, and the frame allows scripts by exact path or URL, not origin.
    */
   untrusted?: boolean
   status: PackageStatus
@@ -234,19 +228,15 @@ export interface PackageRecord {
   /** The element version that wrote the row. Read by nothing today; a future migration keys on it. */
   version: string
   /**
-   * What each load asked for, by its load key: the settings above as that load set them, and the
-   * bundle attached for it. The fields above are the last registration's, and serve only a frame
-   * an older element opened, whose URLs carry no load key. See `LoadSettings`.
+   * What each load asked for, by its load key: the settings above and the bundle attached. The
+   * fields above are the last registration's, and serve only a frame an older element opened.
    */
   views?: Record<string, LoadSettings>
 }
 
 /**
- * What one load asked for, apart from the bytes. The row is the package's, and two players can
- * show the same package at once with different settings — one untrusted and one trusted, one in
- * French and one in German — so each load's are kept under a random key of its own, which its
- * frame's URLs carry. Random rather than a hash of the settings: two loads that asked for the
- * same thing would share a reader, and one reloading would detach the other's bundle.
+ * What one load asked for, apart from the bytes, under a random key its frame's URLs carry, so two
+ * players can show one package differently. Not a hash: a reload would detach another's bundle.
  */
 export interface LoadSettings {
   frameAssets: FrameAssets
@@ -265,9 +255,7 @@ export interface LoadSettings {
   superseded?: string[]
   /**
    * A library named at a newer minor than any source has is served from the newest older minor of
-   * the same major. Set by the load with an `attach-libraries`, once every library source has been
-   * tried for the version named, and kept here so that a worker started again serves the same
-   * folders the frame was booted with.
+   * the same major. Set once every source was tried, kept so a restarted worker serves the same folders.
    */
   downgrade?: boolean
   /** When a load last registered these, for keeping the newest few. */
@@ -275,17 +263,13 @@ export interface LoadSettings {
 }
 
 /**
- * Where the runtime's files are: `@missing-elements/h5p-runtime`'s `dist/`, resolved by the host
- * (its `runtime` export, under a bundler), by the element against an `assets-base`, or against
- * the default `frame-assets/` beside the element. The runtime is a package of its own because it
- * is GPL-3.0 and the player is MIT; the player carries none of these files and only names them.
+ * Where the runtime's files are: `@missing-elements/h5p-runtime`'s `dist/`, resolved by the host,
+ * an `assets-base` or beside the element. A package of its own: it is GPL-3.0, the player MIT.
  */
 export interface FrameAssets {
   /**
-   * h5p-standalone's `main.bundle.js`, the loader of the runtime up to 0.2, which walked the
-   * libraries in the frame and booted the core: present in a record an element wrote with such a
-   * runtime, whose frame document the worker still writes the way it expects. A later runtime has
-   * none; its boot script loads what the worker's `boot` route names (`LibraryLoad`).
+   * h5p-standalone's `main.bundle.js`, the loader of a runtime up to 0.2: in a record written with
+   * it, whose frame the worker still writes that way. Later runtimes load what `boot` names.
    */
   mainJs?: string
   /** `frame.bundle.js` — the H5P core's scripts, jQuery and h5p.js among them. */
@@ -293,9 +277,8 @@ export interface FrameAssets {
   /** `h5p.css`, the core's stylesheets rebuilt to stand alone: icon fonts and images inlined. */
   frameCss: string
   /**
-   * The frame's boot script, `frame-boot.js`, which the worker names in the frame document.
-   * Absent from a record an element before 0.5 wrote, when the script was inlined; the worker
-   * then looks for it beside `mainJs`.
+   * The frame's boot script, `frame-boot.js`, named in the frame document. Absent from a record an
+   * element before 0.5 wrote, when it was inlined; the worker then looks beside `mainJs`.
    */
   bootJs?: string
   /**
@@ -304,10 +287,8 @@ export interface FrameAssets {
    */
   fonts?: FrameFont[]
   /**
-   * The core's strings in every language the runtime has, `l10n.js`, which the worker names in
-   * the frame document when the element's language is not English; the boot script picks the
-   * language. Absent from a record an older element wrote, and from a `runtime` older than the
-   * translations: the frame is then English.
+   * The core's strings in every language, `l10n.js`, named in the frame document when the language
+   * is not English. Absent from an older record or `runtime`: the frame is then English.
    */
   l10nJs?: string
 }
@@ -320,10 +301,8 @@ export interface FrameFont {
 }
 
 /**
- * What a frame loads, as the worker's `boot` route answers it (`sw/library-load.ts`): the boot
- * script of a runtime after 0.2 asks for it and builds `H5PIntegration` from it, where h5p-standalone
- * walked the libraries itself. A contract between the player and the runtime, like the boot
- * configuration: a field the boot script needs is one every worker it pairs with writes.
+ * What a frame loads, as the worker's `boot` route answers (`sw/library-load.ts`): a runtime after
+ * 0.2 builds `H5PIntegration` from it. A contract with the runtime.
  */
 export interface LibraryLoad {
   /** The main library at the version served, `H5P.QuestionSet 1.21`: `H5PIntegration`'s `library`. */
@@ -376,18 +355,15 @@ export type ToWorkerMessage =
    */
   | { type: 'register'; record: PackageRecord; view?: string }
   /**
-   * `deep`: also follow each library's own dependencies, as the runtime will, and refuse what
-   * none of them provides. Asked for once the library files are local or cached.
-   * `pack`: the library pack is a source; the reply carries a `plan` when it has parts to supply.
+   * `deep`: also follow each library's dependencies, as the runtime will, and refuse what none
+   * provides. `pack`: the library pack is a source; the reply carries a `plan` if it has parts.
    */
   | { type: 'index'; pkgId: string; view?: string; deep?: boolean; pack?: PackOffer }
   /** Answer to a `need-file` request: the page hands back the `File` the worker lost on restart. */
   | { type: 'file'; pkgId: string; file: File }
   /**
-   * Points a package at other ones, already registered and indexed, for its libraries: a bundle,
-   * which replaces the one before, or parts of the pack, which are added, with the package's own
-   * folders they replace. `downgrade`: from now on an older minor answers for a newer one nothing
-   * provides (`LoadSettings.downgrade`).
+   * Points a package at registered, indexed ones for its libraries: a bundle (replacing the last)
+   * or pack parts (added, with the folders they replace). `downgrade`: see `LoadSettings`.
    */
   | { type: 'attach-libraries'; pkgId: string; libraryPkgId?: string; parts?: string[]; superseded?: string[]; downgrade?: true; view?: string }
   /**
@@ -397,13 +373,8 @@ export type ToWorkerMessage =
   | { type: 'find-downloaded-libraries'; url: string }
 
 /**
- * An entry a cold load cannot serve without a background inflate: large and deflated, so there is
- * no byte in it a `Range` request can reach without the whole stream up to that point.
- *
- * These are named in the `indexed` reply so the work can be started before the content asks for
- * it. That is the only lever there is on a non-faststart mp4, whose index sits at the very end:
- * the first frame is undecodable until the last byte lands, so the wait cannot be shortened, only
- * moved somewhere the learner is not watching it.
+ * A large deflated entry no `Range` reaches without the stream before it, so it needs a background
+ * inflate. Named in `indexed` to start early: a non-faststart mp4 can only move its wait.
  */
 export interface PrefetchEntry {
   entry: string
@@ -411,11 +382,8 @@ export interface PrefetchEntry {
 }
 
 /**
- * Where an entry's compressed bytes are, as the Service Worker's index knows it, so the Jobs
- * worker can extract the entry without an index of its own. An entry from the central directory
- * is named by its local header, which the worker reads for the name and extra lengths in front
- * of the data; one from the forward index of a downloading archive has had that header read
- * already and carries where the data begins.
+ * Where an entry's compressed bytes are, so the Jobs worker needs no index of its own. From the
+ * central directory it names the local header; from a forward index it carries where data begins.
  */
 export interface EntryLocation {
   /** Offset of the local header in the archive. */
@@ -440,11 +408,8 @@ export interface WarmEntry {
 }
 
 /**
- * A run of the archive worth pulling whole before the frame boots: small entries — the libraries'
- * scripts, styles and JSON, and whatever small files sit between them — that the runtime would
- * otherwise ask for one by one, at one or two ranged requests each. Named in the `indexed` reply
- * for a host that honours `Range`; the Jobs worker walks each span in one request and lands every
- * entry in the cache.
+ * A run of the archive worth pulling whole before the frame boots: small entries (library scripts,
+ * styles, JSON) the runtime would ask for one by one. Named in `indexed` for a `Range` host.
  */
 export interface WarmSpan {
   start: number
@@ -494,9 +459,8 @@ export type WorkerReply =
 /* ------------------------------------------------------------------ Service Worker → page */
 
 /**
- * Sent to the frame client, which relays it to its parent element. The Service Worker cannot run
- * a job itself: browsers kill a worker event after a few minutes and a killed inflate cannot
- * resume, so every long extraction is handed back to the page.
+ * Sent to the frame client, which relays it up. The Service Worker cannot run a job: browsers kill
+ * a worker event after minutes and a killed inflate cannot resume, so the page does.
  */
 export type FromWorkerMessage =
   | { type: 'need-job'; pkgId: string; entry: string; location: EntryLocation }
@@ -540,9 +504,8 @@ export type FromJobsMessage =
 /* ------------------------------------------------------------------ frame → element */
 
 /**
- * H5P's own iframe-resizing protocol, spoken between the content and whatever embeds it. The
- * frame sends these to `window.parent`; the element answers them. See `h5p-resizer.js` in
- * h5p-php-library, which is the reference implementation of this side.
+ * H5P's own iframe-resizing protocol: the frame sends these to `window.parent`, the element
+ * answers. `h5p-resizer.js` in h5p-php-library is the reference for the embedder side.
  */
 export interface H5PResizerMessage {
   context: 'h5p'
@@ -561,19 +524,15 @@ export type FromFrameMessage =
   | { channel: 'h5p-player'; type: 'need-user-data'; pkgId: string }
   /**
    * The runtime saved a state, or deleted one (`data: null`). `session` is the token the element
-   * handed this document at boot; a save from a document the element has since told to forget —
-   * `clearUserData()` — carries a token it no longer accepts.
+   * gave this document at boot; one told to forget (`clearUserData()`) carries a stale token.
    */
   | { channel: 'h5p-player'; type: 'user-data'; pkgId: string; session: string } & UserDataEntry
 
 /* ------------------------------------------------------------------ element → frame */
 
 /**
- * One saved value, as H5P core keeps it: a data type (`state`, for what `getCurrentState()`
- * returns), the sub-content it belongs to (`'0'` for the content itself) and the value as the
- * JSON string the runtime produced. `null` means: in a preload, the state was saved against
- * another build of this package, and the runtime shows its "content has changed, starting over"
- * dialog; in a save, the runtime deleted the value.
+ * One saved value: a data type (`state`), its sub-content (`'0'`: the content) and a JSON string.
+ * `null`: in a preload, saved against another build; in a save, deleted.
  */
 export interface UserDataEntry {
   dataType: string
@@ -590,9 +549,8 @@ export interface UserDataPreload {
   saveInterval: number
   entries: UserDataEntry[]
   /**
-   * The learner the host named, for the statements' actor. It travels here, in a message to the
-   * frame, rather than in the package's record: a name and an address are not for the worker's
-   * database, and this reply is already the one thing the frame waits for before it boots.
+   * The learner the host named, for the statements' actor. It travels in a message to the frame,
+   * not in the record: a name and an address are not for the worker's database.
    */
   user?: FrameUser
 }

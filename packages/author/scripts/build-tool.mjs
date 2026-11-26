@@ -4,21 +4,11 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * The command line as one file, `h5p-author.mjs`, and `h5p-author-LICENSES.txt`, every package
- * bundled into it with its licence, since MIT and BSD-3-Clause ask their notices to travel with
- * copies (#247). Route 3 of the skill runs the file with nothing installed, from an unzipped bundle.
- * The organisation's site serves it, copied from this package from the first release that ships
- * it, so that the npm package, and its provenance, cover the bytes a chat runs. Everything it
- * imports is bundled in by Vite, with copies
- * of the two package.json files it reads its versions from where neither is beside it
- * (h5p-toolkit#198). It takes `--libraries`: the pinned pack is not with it.
- *
- * `pnpm build:tool` builds the player's plan, which it imports, first; `prepack` runs that.
- * `node scripts/build-tool.mjs [folder]` writes the two files in `folder`, by default `dist/`.
+ * The command line as one file, `h5p-author.mjs`, with its licences in `h5p-author-LICENSES.txt` (#247), for route 3.
+ * No pinned pack: `--libraries`. Run `pnpm build:tool` (plan first); `node scripts/build-tool.mjs [folder]` skips the plan.
  */
-// Packing runs Vite 8, which needs Node 20.19, or 22.12 and later, on the workspace's floor, 22.12:
-// said here before Vite fails to load. The package's own `engines` stays `>=22`, since installing
-// it runs none of this.
+// Packing runs Vite 8, which needs Node 22.12 on the workspace's floor: said here before Vite fails
+// to load. The package's `engines` stays `>=22`, since installing it runs none of this.
 const [major, minor] = process.versions.node.split('.').map(Number)
 if (major < 22 || (major === 22 && minor < 12)) {
   throw new Error(`Packing builds the one-file tool with Vite 8, and the workspace needs Node 22.12 or later for it; this is Node ${process.versions.node}`)

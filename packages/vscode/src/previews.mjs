@@ -108,9 +108,8 @@ export class Previews {
   async openCustomDocument(uri) {
     const copy = uri.scheme === 'file' ? null : await localCopy(uri)
     const document = new H5PDocument(uri, copy ? copy.file : uri.fsPath, copy ? copy.folder : null)
-    // A package written again — by hand, by a build, by an agent — plays again once it has settled.
-    // The folder is watched and the name compared: a name as the pattern is a glob, and brackets or
-    // braces in it, `quiz [v2].h5p`, would match other names and never its own.
+    // A package written again plays again once it has settled. The folder is watched and the name
+    // compared: as a pattern a name is a glob, and `quiz [v2].h5p` would match others, not itself.
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), '*'))
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timer

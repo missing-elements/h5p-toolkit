@@ -5,42 +5,8 @@ import { build, transform } from 'esbuild'
 import { CORE_DIR } from './sync-core.mjs'
 
 /**
- * Builds `dist/`: the H5P core from `vendor/h5p-core/`, which `scripts/sync-core.mjs` takes from
- * h5p/h5p-php-library at a pinned commit, the frame's boot script compiled from
- * `src/frame-boot.ts`, and the notices — everything the player loads inside its frame, and nothing
- * the player itself is made of. Then writes `index.js`, which names every one of those files with
- * a static `new URL` so that a bundler emits them.
- *
- * `frame.bundle.js` is the core's scripts in the order `H5PCore::$scripts` gives, joined into one
- * file under a licence comment and minified: the way an H5P site loads them, one global script
- * after another. Minifying keeps every top-level name, which is what the scripts share, and only
- * shortens the names inside functions; h5p-standalone's bundle was minified too, and unminified
- * the file costs every frame's first load about 20 kB more, gzipped. The player synthesizes the
- * document the scripts run in; this package does not patch H5P.
- *
- * Every file in `dist/` stands alone, because `index.js` names each one with its own
- * `new URL('./dist/<file>', import.meta.url)` and a consumer's bundler emits each under a hashed
- * name of its own, wherever it likes. The core stylesheet reaches its fonts and images through
- * `../fonts/` and `../images/`, which break the moment the sheet moves, so it is rebuilt:
- *
- * - The icon fonts and the throbber, 30 kB between them, are inlined as data URLs — what
- *   pdfjs-viewer-element does with its `viewer.css`.
- * - Inter and Open Sans are not. Twelve faces of 55–120 kB each would make a 1.4 MB sheet that
- *   base64 leaves all but incompressible, fetched whole on a cold load for the one or two faces a
- *   page renders — and the runtime does not wait for the sheet, so the content came up unstyled
- *   until it had arrived. Their `@font-face` rules are taken out; the files are copied to
- *   `fonts/` under short names and listed in `MANIFEST.json`. The player's frame document declares
- *   the faces itself against the URLs it resolved, so the browser still fetches only the faces in
- *   use.
- *
- * That is the only change made to H5P's files, and it changes no rule the content sees.
- *
- * Beside them, `l10n.js` holds the core's interface strings in every language this package has,
- * from the committed `l10n/`, which `scripts/build-l10n.mjs` writes.
- *
- * `dist/` also gets a `LICENSE.txt` and a `NOTICE.txt`, written here rather than kept by hand so
- * that they always name the h5p-php-library commit actually vendored — the corresponding source —
- * and so that they land beside the files they describe wherever `dist/` is copied or served.
+ * Builds `dist/` (the H5P core, the boot script, `l10n.js`, notices) and `index.js`, a static `new URL`
+ * per file. A bundler emits each alone, so the sheet's `../fonts/` and `../images/` URLs break: it is rebuilt.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
@@ -84,13 +50,8 @@ export async function buildRuntime({ quiet = false } = {}) {
   await rm(DIST_DIR, { recursive: true, force: true })
   await mkdir(DIST_DIR, { recursive: true })
 
-  // The core's scripts, one after another. A `;` between them, so that a file ending without one
-  // cannot run into the next: `})` followed by `(function` would call the one with the other.
-  // The file opens with a `/*! … */` comment naming its licences, because a consumer's bundler
-  // emits each file on its own under a hashed name and none of the text files in this directory
-  // travel with it — a user's build of the player's 0.1.5 shipped the GPL runtime with no notice
-  // at all. Bundlers keep a `/*!` comment in an asset they emit as is, and webpack's Terser, which
-  // minifies emitted `.js` assets too, moves it into a `.LICENSE.txt` it does ship.
+  // The core's scripts in order, a `;` between so a file ending without one cannot run into the
+  // next. The `/*!` header names the licences: bundlers emit each file alone (0.1.5 had none).
   const scripts = []
   for (const path of core.scripts) {
     const file = resolve(CORE_DIR, path)
@@ -115,14 +76,14 @@ export async function buildRuntime({ quiet = false } = {}) {
   }
   const stylesheet = 'vendor/h5p-core/styles'
 
-  // Rules are matched on the source text rather than parsed; `@font-face` bodies hold no braces.
+  // Rules are matched on the source text, not parsed (`@font-face` bodies hold no braces). Inter
+  // and Open Sans are taken out: 12 faces inlined make a 1.4 MB sheet, fetched whole.
   const FONT_FACE = /@font-face\s*\{([^}]*)\}/g
   const TEXT_FONT = /url\(['"]?\.\.\/fonts\/(inter|open-sans)\/([^'")]+\.woff2)['"]?\)/
   const descriptor = (body, name) => body.match(new RegExp(`${name}\\s*:\\s*['"]?([^;'"]+)['"]?\\s*;`))?.[1].trim()
 
-  // A face that does not fit the shape the player's frame document accepts fails the build here,
-  // where it is seen, rather than being dropped by the frame at runtime, where nothing would say
-  // why the text fell back.
+  // A face that does not fit what the player's frame document accepts fails the build here, where
+  // it is seen, not in the frame, which would drop it with nothing to say why the text fell back.
   const source = sheets.join('\n')
   const fonts = []
   const stripped = source.replace(FONT_FACE, (rule, body) => {
@@ -166,10 +127,8 @@ export async function buildRuntime({ quiet = false } = {}) {
     loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.gif': 'dataurl', '.svg': 'dataurl', '.png': 'dataurl' }
   })
 
-  // The frame's boot script: a self-contained classic script the player's Service Worker names
-  // with `<script nonce src>` in the document it synthesizes. It runs in the H5P document and
-  // calls the core's API, which is why it is here and not in the player: everything the player
-  // ships talks to this directory over HTTP and `postMessage` only.
+  // The frame's boot script, named by the Service Worker in `<script nonce src>`. It calls the
+  // core's API, so it lives here, not in the player, which only uses HTTP and `postMessage`.
   await build({
     entryPoints: [resolve(rootDir, 'src', 'frame-boot.ts')],
     outfile: resolve(DIST_DIR, 'frame-boot.js'),
@@ -188,14 +147,8 @@ export async function buildRuntime({ quiet = false } = {}) {
   await cp(resolve(CORE_DIR, 'fonts', 'inter', 'LICENSE.txt'), resolve(DIST_DIR, 'fonts', 'Inter-LICENSE.txt'))
   await cp(resolve(CORE_DIR, 'fonts', 'open-sans', 'OFL.txt'), resolve(DIST_DIR, 'fonts', 'OpenSans-OFL.txt'))
 
-  // The core's strings in other languages, from `l10n/` (`scripts/build-l10n.mjs`), all in one
-  // classic script with the aliases beside them: the player's frame document names it before the
-  // boot script when the element's language is not English, and the boot script picks the
-  // language from it. One file, so that the player needs no list of languages and a language
-  // added is a release of this package alone; the frame of a learner who is not reading English
-  // fetches it once, about 50 kB compressed, and a cache keeps it. A script rather than JSON
-  // because the frame's policy lets the runtime's origin run scripts and fetches nothing from it.
-  // It carries its notice, like the runtime's other files, since a bundler emits it on its own.
+  // The core's strings in every language, one classic script so the player needs no list; a script,
+  // not JSON, as the frame's policy lets this origin run scripts but fetch nothing. Has its notice.
   const l10n = JSON.parse(await readFile(resolve(rootDir, 'l10n', 'index.json'), 'utf8'))
   const languages = {}
   for (const tag of Object.keys(l10n.languages).sort()) {
@@ -226,8 +179,7 @@ export async function buildRuntime({ quiet = false } = {}) {
   await writeFile(resolve(DIST_DIR, 'NOTICE.txt'), distNotice(core, jquery, packageJson.version), 'utf8')
 
   // `index.js`: one static `new URL` per file, the one shape Vite, Rollup and webpack 5 emit as an
-  // asset and rewrite. Generated, because the font list comes from the sheet. Written only when
-  // it changes, so a build leaves the tree as it found it.
+  // asset. Generated, as the font list comes from the sheet.
   const indexPath = resolve(rootDir, 'index.js')
   const index = indexModule(packageJson.version, manifest.fonts)
   const currentIndex = (await exists(indexPath)) ? await readFile(indexPath, 'utf8') : ''
@@ -242,10 +194,8 @@ function indexModule(version, fonts) {
   return `// Written by scripts/build.mjs. Do not edit; run \`pnpm build\` in packages/runtime.
 /*! @missing-elements/h5p-runtime ${version}. Copyright (c) 2026 missing-elements. GPL-3.0-only (LICENSE in this package). */
 
-// Vite's dev server pre-bundles dependencies into \`node_modules/.vite/deps/\`, which rewrites
-// these URLs to files that were never put there. The package's own copy is still served at its
-// real path, so a URL that landed in the pre-bundle directory is pointed back at it. A Vite
-// build, Rollup and webpack never produce such a URL.
+// Vite's dev server pre-bundles dependencies into \`node_modules/.vite/deps/\`, where these URLs
+// point at files never put there: one that landed in it is pointed back at the real path.
 const VITE_DEPS = '/node_modules/.vite/deps/'
 const PACKAGE_DIST = '/node_modules/@missing-elements/h5p-runtime/dist/'
 

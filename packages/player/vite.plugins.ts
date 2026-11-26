@@ -8,12 +8,8 @@ import type { Connect, Plugin } from 'vite'
 import { build as esbuild } from 'esbuild'
 
 /**
- * The plugins the player's own Vite config uses, and which the demo app's config
- * (`apps/demo/vite.config.ts`) imports as well. `vite.config.ts` here is the library build and
- * the test runner; the demo is the dev server and the hosted site. Two of the package's three
- * artefacts are not modules the host imports — the Service Worker is registered by URL and the
- * Jobs worker is spawned from a blob — so both are bundled here with esbuild, and dev, test,
- * build and demo all see the same self-contained scripts.
+ * The plugins of the player's Vite config, which the demo's (`apps/demo/vite.config.ts`) uses too.
+ * Neither worker is a module a host imports, so both are bundled here with esbuild.
  */
 
 const JOBS_VIRTUAL_ID = 'virtual:h5p-jobs-worker'
@@ -55,9 +51,8 @@ export function jobsWorkerPlugin(): Plugin {
       return `export default ${JSON.stringify(source)};`
     },
 
-    // esbuild bundles this worker behind Vite's back, so Vite has no idea which files it is made
-    // of. Without this, editing anything the worker imports leaves the old bundle in the module
-    // cache and the page keeps running code that no longer exists on disk.
+    // esbuild bundles the worker behind Vite's back: without this, editing a file it imports leaves
+    // the old bundle in the module cache and the page runs code that is no longer on disk.
     handleHotUpdate({ file, server }) {
       if (!file.startsWith(resolve(rootDir, 'src'))) return
       const virtualModule = server.moduleGraph.getModuleById(RESOLVED_JOBS_VIRTUAL_ID)
@@ -67,16 +62,12 @@ export function jobsWorkerPlugin(): Plugin {
 }
 
 /**
- * Serves the Service Worker during dev and tests. In a built package `dist/h5p-sw.js` sits next
- * to the element and `new URL('./h5p-sw.js', import.meta.url)` finds it; in dev that same URL
- * points at `/src/h5p-sw.js`, which is this.
+ * Serves the Service Worker in dev and tests: `new URL('./h5p-sw.js', import.meta.url)` finds
+ * `dist/h5p-sw.js` in a built package and `/src/h5p-sw.js` in dev, which is this.
  */
 export function devServiceWorkerPlugin(): Plugin {
-  // `/versioned/h5p-sw.js` is the worker as an older release would answer: the same script with
-  // the version it reports replaced by the last `/versioned/__version?v=`, unset meaning the
-  // real one. One URL with changing bytes is what a player update looks like to the browser,
-  // which is what `tests/browser/worker-update.test.ts` needs. `&delay=` answers it that many
-  // milliseconds late, as a slow host does.
+  // `/versioned/h5p-sw.js` answers as an older release would, reporting the last
+  // `/versioned/__version?v=` (unset: the real one): one URL, changing bytes, as an update looks.
   let versionedAs: string | null = null
   let versionedDelay = 0
   // The worker's `VERSION` constant, which a release keeps equal to the package's own.
@@ -107,9 +98,8 @@ export function devServiceWorkerPlugin(): Plugin {
             // By value, not by name: esbuild renames the constant (`VERSION2`) when names collide.
             const source = as ? bundled.replaceAll(JSON.stringify(version), JSON.stringify(as)) : bundled
             res.setHeader('content-type', 'text/javascript; charset=utf-8')
-            // The registration already asks for an `h5p/` sub-scope under this file's directory,
-            // which needs no extra permission, but the header costs nothing and helps a host that
-            // places the file somewhere unexpected.
+            // The `h5p/` sub-scope needs no permission, but the header costs nothing and helps a
+            // host that places the file somewhere unexpected.
             res.setHeader('service-worker-allowed', '/')
             res.setHeader('cache-control', 'no-store')
             res.end(source)
@@ -124,14 +114,7 @@ export function devServiceWorkerPlugin(): Plugin {
   }
 }
 
-/**
- * Two stand-ins for hosts the tests cannot reach. `/no-range/` serves the demo content and the
- * test fixtures as a host that ignores `Range` would: status 200, whole body, no `Accept-Ranges`.
- * Vite's own static middleware honours Range, so without this the chunked adapter — the common
- * case in the wild, and the one that downloads before it can index — would never be exercised.
- * The same route exists on the hosted demo as `api/no-range.js`, for the demo content only.
- * `/compressing/` is a host that honours Range but compresses the archive; see below.
- */
+/** Writes `body` in 64 kB slices at about `bytesPerSecond`, for `?throttle=`. */
 async function sendThrottled(res: ServerResponse, body: Buffer, bytesPerSecond: number): Promise<void> {
   const slice = 64 * 1024
   for (let at = 0; at < body.length && !res.destroyed; at += slice) {
@@ -202,6 +185,10 @@ function fixtureName(pathname: string, prefix: string): string | null {
   return name.includes('/') || name.includes('..') ? null : name
 }
 
+/**
+ * `/no-range/` serves the demo content and fixtures as a host that ignores `Range` does: 200, whole
+ * body. Vite's server honours it, so the chunked adapter, the common case, would go unexercised.
+ */
 function noRangeHandler(dirs: readonly string[]): Connect.NextHandleFunction {
   const prefix = '/no-range/'
 
@@ -229,15 +216,8 @@ function noRangeHandler(dirs: readonly string[]): Connect.NextHandleFunction {
 }
 
 /**
- * Serves the demo content and the fixtures as GitHub Pages does: `Range` honoured, CORS open,
- * nothing exposed beyond the safelisted headers — and the archive gzipped on the way out for a
- * client that accepts it, ranges included. A ranged request against the gzipped copy is cut from
- * the gzipped bytes, and `Content-Length` and `Content-Range` then report that copy's length.
- * Browsers ask for `identity` on a ranged request and for gzip on a plain one, so the same
- * archive has two lengths depending on which request asked, and `Content-Encoding` is not
- * readable cross-origin to tell them apart. That is why the probe never takes a size from a
- * plain `GET`; see `source.ts`. The gzipped copies are kept per file, since a fixture is
- * compressed once and asked for many times.
+ * Serves as GitHub Pages does: `Range` honoured, CORS open, the archive gzipped for a client that
+ * accepts it, so it has two lengths and the probe takes no size from a plain `GET` (`source.ts`).
  */
 function compressingHostHandler(dirs: readonly string[]): Connect.NextHandleFunction {
   const prefix = '/compressing/'
@@ -299,11 +279,8 @@ function answerRange(rangeHeader: string | undefined, res: ServerResponse, body:
 }
 
 /**
- * A host that honours `Range` and writes down what it is asked, so a test can count what a load
- * costs: `/counted/<fixture>?log=<id>` serves the archive, and `/counted/__log?log=<id>` answers
- * the `Range` header of every request it took for that id, in the order they came. The id keeps
- * test cases apart, and makes each load a package of its own, with nothing cached from another.
- * `&etag=1` adds an `ETag`, the validator a host gives (#136); without it the host gives none.
+ * A host that honours `Range` and logs each request's `Range` header per `?log=<id>`, read at
+ * `/counted/__log?log=<id>`, so a test counts a load's cost. `&etag=1` adds an `ETag` (#136).
  */
 function countingHostHandler(dirs: readonly string[]): Connect.NextHandleFunction {
   const prefix = '/counted/'
@@ -337,17 +314,8 @@ function countingHostHandler(dirs: readonly string[]): Connect.NextHandleFunctio
 }
 
 /**
- * A host with an outage switch, for the tests that take the link away in the middle of a
- * transfer: `Range` honoured, CORS open, the body paced at `?rate=<bytes per second>` so that a
- * transfer is still under way when the outage begins. `/stalling/__outage?ms=<n>&mode=<m>` starts
- * one. In `silent` mode every response in flight stops writing and every new request waits,
- * headers included, until it is over — a link that has gone quiet. In `reset` mode the responses
- * in flight are destroyed and new requests are answered `503` — a host that is down. Either
- * way nothing is lost that a later request cannot ask for again.
- *
- * `&host=<name>` on both the archive URL and the switch scopes an outage to that name, so test
- * files running in parallel each take down a host of their own: the switch once was one timer,
- * and one file's `ms=0` cleanup ended another's 35-second outage early. No name is one host.
+ * A host with an outage switch (`/stalling/__outage?ms=<n>&mode=<m>`) for tests that cut the link
+ * mid-transfer: `silent` stalls, `reset` drops and answers 503. `&host=<name>` scopes it per file.
  */
 function stallingHostHandler(dirs: readonly string[]): Connect.NextHandleFunction {
   const prefix = '/stalling/'

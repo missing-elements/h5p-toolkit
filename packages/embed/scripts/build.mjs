@@ -4,20 +4,15 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
 /**
- * Builds `dist/scorm-page.js`: the SCORM page's script with everything it imports — the builder,
- * zip.js and the player's library rules — in one ES module, for the written site, which has no
- * bundler of its own and loads it as it loads `embed.js`. A host that bundles imports
- * `./scorm-page.js`, the source, instead. Run before the tests and before publishing; `buildSite`
- * refuses to write a site without it.
+ * Builds `dist/scorm-page.js`: the SCORM page's script and everything it imports in one ES module,
+ * as the written site has no bundler. A host that bundles imports `./scorm-page.js` instead.
  */
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
 /**
- * The notices on the one shipped file with third-party code in it: ours, and zip.js's licence in
- * full, as the player's workers carry it, since its clause 2 asks for the notice, the conditions
- * and the disclaimer to accompany a binary. Read from the installed package, so that it follows
- * the version actually bundled.
+ * The banner of the one shipped file with third-party code: ours and zip.js's licence in full, as
+ * its clause 2 asks of a binary, read from the installed package to follow the bundled version.
  */
 async function notices() {
   const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))

@@ -1,8 +1,6 @@
 /**
- * Which libraries a package's `h5p.json`, its `library.json` files and its content's parameters
- * name, and which addons go with the content. Pure and free of zip.js, so that the pack plan
- * (`sw/pack-plan.ts`) and the packages that write what the player plays, through `./plan`, take
- * the player's own rules without its archive reader.
+ * Which libraries a package's `h5p.json`, `library.json` files and content parameters name, and
+ * which addons go with the content. Pure, no zip.js, so `./plan` shares them without the reader.
  */
 
 export interface LibraryDependency {
@@ -19,9 +17,8 @@ export interface PackageManifest {
 }
 
 /**
- * Every library a content's parameters name, as sub-content does it: an object whose `library`
- * is `"<machineName> <major>.<minor>"`, anywhere in the tree. In archive order of discovery,
- * each once. Pure, and the parameters are untrusted, so anything else is ignored.
+ * Every library a content's parameters name, as sub-content does: an object whose `library` is
+ * `"<machineName> <major>.<minor>"` anywhere in the tree, each once, in first-seen order. The parameters are untrusted.
  */
 export function librariesNamedIn(params: unknown): LibraryDependency[] {
   const found = new Map<string, LibraryDependency>()
@@ -46,8 +43,7 @@ export function librariesNamedIn(params: unknown): LibraryDependency[] {
 
 /**
  * The patterns an addon's `library.json` gives under `addTo.content.types[].text.regex`, PHP's
- * `/…/flags` form made JavaScript's. A pattern JavaScript cannot read is left out, and so is one
- * with a flag it has no counterpart for.
+ * `/…/flags` made JavaScript's. A pattern JavaScript cannot read, or with a flag it lacks, is left out.
  */
 export function addonPatterns(library: unknown): RegExp[] {
   const types = (library as { addTo?: { content?: { types?: unknown } } } | null)?.addTo?.content?.types

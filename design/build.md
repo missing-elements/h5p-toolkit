@@ -145,6 +145,17 @@ went; `typecheck` and `prepack` both run it. Four rules, with TypeScript 7:
   the generated `pack-index.ts` too. The player's bundler resolution says nothing about a new
   import without one: the check catches it only where the public types reach it.
 
+## Comments
+
+**A comment is two lines at most, and says why** (#288). What the code does is the code's to say;
+the reason, the rule's name or the issue's number goes in the comment, and the rest in this folder.
+A JSDoc block's description is held to two lines and so is each tag; the tags and their types stay,
+since the plain-JS packages take their types from them. A licence notice is kept whole, and a
+line comment a tool reads, such as `@ts-expect-error` or `v8 ignore`, is not counted.
+`scripts/comments.mjs` (`pnpm comments`) lists every longer one, and CI's `checks` job runs it. It
+reads tracked code, styles, pages and workflows, and skips vendored code, build output and
+hand-written `.d.ts` files, whose comments are what an editor shows.
+
 ## Publishing and Node versions
 
 **The packages are published from CI, by trusted publishing** (#246). `publish.yml` is run by hand

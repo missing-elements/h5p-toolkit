@@ -11,10 +11,8 @@ import { host, type Host } from './helpers/host.js'
 import { changedQuiz, entriesOf, formulas, quiz } from './helpers/zip.js'
 
 /**
- * The SCORM package built in a page, run here in Node, which has what the builder needs of a
- * browser — `fetch`, `File`, `Blob`, `crypto.subtle` — against a written site served as a static
- * host serves one. Held to the command's zip entry for entry: the two are written by one code,
- * and this is what keeps them one. `scorm-page.test.ts` drives the page itself, in Chromium.
+ * The SCORM package built in a page, run in Node, which has the browser parts it needs, against a
+ * written site on a static host. Held to the command's zip entry for entry, as they share one code.
  */
 
 const require = createRequire(import.meta.url)

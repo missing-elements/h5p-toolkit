@@ -1,10 +1,6 @@
 /**
- * Authored text as H5P stores it. A field H5P's editor gives its rich-text widget holds markup, as
- * that widget writes it: the tags the field names, and the four the content check always keeps,
- * `div`, `span`, `p` and `br`. Anything else is refused by name, so a source never reaches a
- * learner in a form the platforms would have changed. Every other field is plain text, which the
- * platforms keep escaped (PHP's `htmlspecialchars`, existing entities left alone), whether or not
- * its semantics list `tags` (see `takesMarkup`).
+ * Authored text as H5P stores it: a rich-text field with `tags` listed holds markup (those and `div`,
+ * `span`, `p`, `br`, no others), every other field plain text, escaped as platforms keep it (`takesMarkup`).
  */
 
 /** An `&` that does not begin an entity. */
@@ -20,17 +16,14 @@ export function escapeText(value) {
 }
 
 /**
- * A tag, a comment, or a lone `<` or `>`: the pieces the content check reads markup in. A tag runs
- * from a `<` before a letter, `/` or `!` to the first `>`. A comment left open runs to the end, as a
- * browser reads it, so its end is looked for once and not again from every `<!--` after it.
+ * A tag, a comment, or a lone `<` or `>`: the pieces the content check reads markup in. A comment
+ * left open runs to the end, as a browser reads it, so its end is looked for once.
  */
 const PIECE = /(<(?=[^a-zA-Z!/])|<!--[\s\S]*?(?:-->|$)|<[^>]*(>|$)|>)/g
 
 /**
- * Text without its tags and comments, read as the content check splits markup (`PIECE`): each a
- * space, never nothing, so taking one out cannot join what was around it into another; a lone `<`
- * or `>` kept as text; every run of space one, trimmed. Entities are left as they are
- * (`decodeEntities` reads them).
+ * Text without its tags and comments, read as the content check splits markup (`PIECE`): each
+ * becomes a space, so removing one cannot join what was around it; a lone `<` or `>` stays text.
  * @param {string} html
  */
 export function stripTags(html) {
@@ -78,13 +71,8 @@ export function editorWidget(field) {
 }
 
 /**
- * Whether a text field holds markup: the editor gives it its rich-text widget, `html`, directly or
- * inside a ShowWhen, and its semantics list `tags`. Every other text field is a box an author types
- * plain text into: `ns.Text` and `ns.Textarea` store it with `htmlspecialchars` and wrap nothing,
- * even where the semantics list `tags`, which then tell the content check what to keep, not what
- * an author can write. Question Set 1.21's intro title, result message and progress text are such
- * fields, and it draws the first two with `textContent`, so markup written there is shown as
- * written. A rich-text field without `tags` is plain too: the content check escapes it.
+ * Whether a text field holds markup: rich-text widget (`html`) and listed `tags`. Others are plain,
+ * escaped even with `tags`, which only tell the check what to keep.
  * @param {any} field
  */
 export function takesMarkup(field) {
@@ -92,9 +80,8 @@ export function takesMarkup(field) {
 }
 
 /**
- * The tags a field keeps, as the content check derives them from its semantics: the four it
- * always keeps, the field's own, and those one of them implies. `null` for a field that lists none.
- * Which tags the check keeps is not whether an author writes markup there: `takesMarkup` says that.
+ * The tags a field keeps, as the content check derives them: the four it always keeps, the field's
+ * own and those one implies; `null` if none. Not whether an author writes markup: `takesMarkup`.
  * @param {any} field
  * @returns {Set<string> | null}
  */
@@ -110,9 +97,8 @@ export function allowedTags(field) {
 }
 
 /**
- * The block a line of text becomes in a markup field, as H5P's editor writes it
- * (h5peditor-html.js): `<p>` where the field asks for paragraphs or offers headings, `pre`, `p` or
- * `div`, `<div>` otherwise.
+ * The block a line of text becomes in a markup field (h5peditor-html.js): `<p>` where the field
+ * asks for paragraphs or offers headings, `pre`, `p` or `div`, else `<div>`.
  * @param {any} field
  */
 export function blockTag(field) {
@@ -149,16 +135,14 @@ function stylePatterns(field) {
 const ATTRIBUTE = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g
 
 /**
- * One attribute as a browser reads it in a tag: a name, which may begin with `=` and holds no
- * space, `/` or `=`; then, after an `=`, its value, quoted whole, bare to the next space, or a quote
- * that opens and does not close, captured.
+ * One attribute as a browser reads it: a name (may begin with `=`; no space, `/` or `=`), then
+ * after an `=` its value: quoted whole, bare to the next space, or an unclosed quote.
  */
 const ATTRIBUTE_READ = /[\s/]*=?[^\s/=]*\s*(?:=\s*(?:"[^"]*"|'[^']*'|(["'])|\S*))?/y
 
 /**
- * Whether a tag's attributes, as the content check cut them at the tag's first `>`, leave a quoted
- * value open, read in the order a browser reads them: a quote opens a value only where one begins,
- * after an attribute's `=`, so in `title=x='y` it is part of a bare value.
+ * Whether a tag's attributes, cut at its first `>` as the check does, leave a quoted value open, as
+ * a browser reads them: a quote opens a value only after an `=` (`title=x='y` is bare).
  * @param {string} attributes
  */
 function quoteLeftOpen(attributes) {
@@ -193,9 +177,8 @@ export function wrapText(value, block) {
 }
 
 /**
- * Stored markup as the plain text an author would type for it, where `wrapText` makes exactly that
- * markup of it again: blocks and line breaks alone, entities kept, which a build keeps. Otherwise
- * `undefined`: the markup is what a source writes.
+ * Stored markup as the plain text an author would type, where `wrapText` makes exactly that markup
+ * again: blocks and line breaks only, entities kept. Else `undefined`: the markup is the source.
  * @param {string} value
  * @param {string} block the field's, as `blockTag` says
  * @returns {string | undefined}
@@ -208,10 +191,8 @@ export function unwrapText(value, block) {
 }
 
 /**
- * A markup field's value as it is stored. Plain text is escaped and wrapped in the field's block,
- * a paragraph per blank line and a `<br>` per other line break. Markup is checked: a tag the field
- * does not take, an event handler, a style the field does not allow, a script URL or a comment is
- * reported; a lone `<` or `>` is escaped, as the content check would escape it.
+ * A markup field's value as stored. Plain text is escaped and wrapped in the field's block. Markup
+ * is checked: a disallowed tag, event handler, style, script URL or comment is reported.
  * @param {string} value
  * @param {any} field
  * @param {(message: string) => void} report
@@ -249,10 +230,8 @@ export function markupText(value, field, report, { saved = false } = {}) {
     if (!match[1]) {
       // The slash of `<br />` is not part of the last attribute, as the content check reads it.
       const attributes = match[3].trimEnd().replace(/\/$/, '')
-      // A quote the tag leaves open: a `>` inside a quoted value ended the tag here, as the content
-      // check splits markup, or the quote was never closed. A browser reads the value whole and the
-      // tag on to a later `>`, so the text in between is lost and what follows is drawn inside the
-      // tag's element (#222).
+      // A quote the tag leaves open: a `>` inside a quoted value ended the tag here, or the quote
+      // never closed. A browser reads to a later `>`, so the text between is lost (#222).
       if (quoteLeftOpen(attributes)) {
         once(`has <${tag}> with a quote it does not close: a > inside an attribute ends the tag there, so write &gt; for it`)
       }
@@ -275,25 +254,17 @@ export function markupText(value, field, report, { saved = false } = {}) {
 }
 
 /**
- * A plain text field's value as it is stored: escaped, as the platforms store what an author types
- * into it. A tag in it is shown to a learner as written, which is right for a quiz on HTML and a
- * mistake otherwise, so it is noted.
- *
- * `filtered`: the field is a plain text box whose semantics list `tags` (see `takesMarkup`), which
- * the content check filters as markup rather than escaping whole. That filter keeps an apostrophe
- * as it is, so it is stored as typed: escaped, as the editor's box escapes it (`&#039;`), it is
- * shown as written where a content type draws the field with `textContent`, as Question Set 1.21
- * draws its cover's title and its results heading. A `"` stays escaped all the same: the editor puts
- * a stored value back into its box as `value="…"`, unescaped (`ns.createText`), so a bare one would
- * cut the text short there. `&`, `<` and `>` stay escaped, as the filter would escape them, and are
- * noted, since such a field shows them as entities.
+ * A plain text field's value as stored: escaped, as the platforms store typing. A tag in it shows
+ * as written, right for a quiz on HTML and a mistake otherwise, so it is noted.
  * @param {string} value
  * @param {(message: string) => void} note
- * @param {{ filtered?: boolean }} [options]
+ * @param {{ filtered?: boolean }} [options] `filtered`: a plain box that lists `tags`
  */
 export function plainText(value, note, { filtered = false } = {}) {
   if (/<\/?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?\/?>/.test(value)) note('is plain text, so its tags are shown as written, not as markup')
   if (!filtered) return escapeText(value)
+  // The content check filters such a field as markup and keeps `'` as typed, which `textContent`
+  // shows as written (Question Set 1.21); `"` stays escaped: the editor sets `value="…"` from it.
   if (value.search(BARE_AMPERSAND) !== -1 || /["<>]/.test(value)) {
     note('stores &, ", < and > as entities, which a content type that draws this field as plain text shows as written, as Question Set does its title and results heading: write "and", and “ ” for quotes')
   }

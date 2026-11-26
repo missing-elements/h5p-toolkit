@@ -2,10 +2,8 @@ import { expect, vi } from 'vitest'
 import type { H5PPlayerElement, PlayerErrorDetail } from '../../src/h5p-offline-player'
 
 /**
- * Test support for the browser suite. Every test here drives the real element against the real
- * Service Worker and the real fixtures: the parts worth testing — a synthesized frame document,
- * a `206` assembled out of cache chunks, a worker that survives its own restart — have no
- * meaningful behaviour outside a browser.
+ * Test support: every test drives the real element, Service Worker and fixtures, as a synthesized
+ * frame document, a `206` from cache chunks and a worker restart mean nothing elsewhere.
  */
 
 export const FIXTURES = {
@@ -145,10 +143,8 @@ export function createPlayer(attributes: Record<string, string> = {}): H5PPlayer
 }
 
 /**
- * Mounts a player, gives it `src` and waits for the load to settle either way: the player and
- * the outcome, for a test about a load that is expected to fail or to be looked at before it is
- * judged. `prepare` runs between the mount and the `src`, for a listener that has to be in place
- * before the load starts.
+ * Mounts a player, gives it `src` and waits for the load to settle either way. `prepare` runs
+ * between the mount and the `src`, for a listener needed before the load starts.
  */
 export async function settle(src: string, attributes: Record<string, string> = {}, prepare?: (player: H5PPlayerElement) => void, timeoutMs = 30_000) {
   const player = createPlayer(attributes)
@@ -175,10 +171,8 @@ export const pressComplete = (player: H5PPlayerElement) =>
   frameDocument(player).querySelector<HTMLButtonElement>('.h5p-offline-test-complete')!.click()
 
 /**
- * Adds a script to the frame's document and says what became of it: `ran`, `refused` by the
- * browser (a type it will not run, a 404), or `blocked by the policy`. Every listener is taken
- * off on the first answer, so a violation for another URI in the meantime does not use up the
- * one for this script.
+ * Adds a script to the frame and says what became of it: `ran`, `refused` (wrong type, 404) or
+ * `blocked by the policy`. Listeners go on the first answer, so other violations do not count.
  */
 export function inject(doc: Document, src: string): Promise<'ran' | 'refused' | 'blocked by the policy'> {
   return new Promise((resolve) => {
@@ -214,9 +208,8 @@ export function frameWindow(player: H5PPlayerElement): Window {
 }
 
 /**
- * Absolute URL of an entry on the virtual file server, for a direct fetch: under the frame's own
- * load, `<pkgId>-<key>`, which is what the runtime's requests name, or the package id alone
- * before the frame has a document.
+ * Absolute URL of an entry on the virtual file server, for a direct fetch: under the frame's load
+ * (`<pkgId>-<key>`, as the runtime names it), or the package id before the frame has a document.
  */
 export function virtualUrl(player: H5PPlayerElement, entry: string): string {
   const load = /\/frame\/([0-9a-f-]+)/.exec(frameWindow(player).location.pathname)?.[1] ?? player.pkgId
@@ -239,9 +232,8 @@ export const requestedUrls = (spy: { mock: { calls: unknown[][] } }): string[] =
   spy.mock.calls.map(([input]) => String(input instanceof Request ? input.url : input))
 
 /**
- * Fetches through the frame, which is the client the Service Worker actually controls. The test
- * page itself sits outside the worker's scope — as a host page does — so a fetch made from here
- * would go to the network and 404.
+ * Fetches through the frame, the client the Service Worker controls: the test page sits outside its
+ * scope, as a host page does, so a fetch from here would go to the network and 404.
  */
 export function frameFetch(
   player: H5PPlayerElement,

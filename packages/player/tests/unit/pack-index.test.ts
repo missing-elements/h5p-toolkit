@@ -3,8 +3,7 @@ import { packLibrariesIn } from '../../src/shared/pack'
 
 /**
  * A pack index read from the network, held to the player's shape: what is kept of an entry, and
- * what the pack carries for an H5P site's upload check (#146), which the author's page build
- * reads through here too.
+ * what the pack carries for an upload check (#146), which the author's page build reads too.
  */
 const entry = {
   folder: 'H5P.QuestionSet-1.21',

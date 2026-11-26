@@ -1,14 +1,6 @@
 /**
- * A cmi5 assignable unit around the player, `/demo/cmi5.html`, on
- * `@missing-elements/h5p-cmi5`: the package does the protocol, this page shows it. What a host
- * needs is the three lines in `start` — `startCmi5(player)`, and `session.exit()` on an Exit
- * button — and the rest is the log, the status line and the simulated LMS.
- *
- * An LMS launches the page with cmi5's five query parameters appended to the URL in the course
- * structure, which names the package as `?src=`. Opened without a launch, the page explains one.
- * With `?simulate`, it runs the same code against a stand-in for the LMS that lives in this file,
- * so the sequence can be watched without an LMS: every statement that would have gone to the LRS
- * lands in the log instead.
+ * A cmi5 assignable unit around the player on `@missing-elements/h5p-cmi5`, which does the
+ * protocol: a host needs only the three lines in `start`. `?simulate` uses a stand-in LMS.
  */
 
 import { foreignHost, logInto, packageUrl, trustPrompt } from './page-common.js'
@@ -32,13 +24,8 @@ const say = (text) => {
 }
 
 /**
- * The package is named by whoever wrote the launch address (`?src=`) or runs the LMS it names
- * (`launchParameters`), and this page is public: anyone can link to it with cmi5 parameters of
- * their own. A package's own scripts would run on this origin, with its storage, so one from
- * another site plays `untrusted`, as data with the library pack's code, and waits for a click that
- * names the host only when it cannot play without its own; the site's own play as they are.
- * `startCmi5` is therefore told to leave `src` alone, and the page sets it once the launch has
- * said what to play.
+ * Anyone can link this page with cmi5 parameters, and a package's scripts would run on this origin:
+ * a package from another site plays `untrusted`, so `startCmi5` leaves `src` to the page.
  */
 const confirmBox = document.querySelector('#confirm-src')
 const urlSrc = new URLSearchParams(location.search).get('src')?.trim() || null

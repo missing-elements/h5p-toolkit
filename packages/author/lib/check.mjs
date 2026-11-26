@@ -3,11 +3,8 @@ import { noteMistakes } from './mistakes.mjs'
 import { LAYOUTS, placesOf } from './types.mjs'
 
 /**
- * Content checked in the form H5P stores it, as the build checks what it writes: every value
- * against its field in the libraries' semantics, the hidden fields the editor's widgets set, what
- * those widgets would not let an author save, and, as notes, what is almost surely a mistake. A tool that changes a saved package runs it on
- * what it is about to write, and the build runs it last, on what it is about to write, so that the
- * two hold content to one set of rules. No Node import of its own: the libraries are handed in.
+ * Content checked in the form H5P stores it, by the one set of rules the build and a tool that
+ * edits a package both run on what they write. No Node import: the libraries are handed in.
  */
 
 /**
@@ -15,8 +12,7 @@ import { LAYOUTS, placesOf } from './types.mjs'
  * @typedef {import('./libraries.mjs').LoadedLibraries} LoadedLibraries
  * @typedef {{ path: string, message: string }} Problem
  * @typedef {{ params: Record<string, any>, problems: Problem[], notes: Problem[] }} CheckedContent
- *   `params` the content as checked, which a tool writes; `problems` what H5P or the content type
- *   would not take; `notes` what is worth saying and is no reason not to write it
+ *   `params`, as checked; `problems`, what would not be taken; `notes`, what is only worth saying
  */
 
 /** @param {unknown} value @returns {value is Record<string, any>} */
@@ -49,23 +45,11 @@ export function layoutContext(entries, report, note) {
 }
 
 /**
- * Saved content checked, and what the editor's widgets would have set on it set. Files and
- * sub-content metadata are taken as saved and held to what the platforms keep of them; each part
- * keeps its `subContentId`, and one that has none, or one another part has, gets a new one; a text
- * is held to what its field takes as stored, and a markup field's is not wrapped again. Then each
- * content type's layout runs, placing what nobody placed and checking what its editor would check,
- * a part without a title takes its content type's, and a hidden field nothing set is a problem.
- *
- * The libraries are loaded for the content by `loadLibraries`: from a package's own folders where
- * it carries them (`packageLibraries`), since content is in the shape of the version it was saved
- * with. Where the content names an older minor of a library than the one checked against, as a
- * package without its libraries checked against the pack's does, a field the newer semantics do not
- * name is noted rather than refused: the player upgrades such content as it plays, with the
- * library's own steps, which this cannot run, being the runtime's (GPL) and run in its frame.
+ * Saved content checked, with what the editor's widgets would set on it. A field a newer library
+ * minor lacks is noted, not refused: the player upgrades older content as it plays, this cannot.
  * @param {LoadedLibraries} libraries as `loadLibraries` loaded them for this content
- * @param {{ type: string, params: unknown }} content `type` the content type, with the major and
- *   minor it was saved with, `H5P.QuestionSet 1.20`, as `h5p.json` names it; `params` its
- *   parameters, `content.json`, left as they are
+ * @param {{ type: string, params: unknown }} content `type`, as `h5p.json` names it with its saved
+ *   version, `H5P.QuestionSet 1.20`; `params`, `content.json`, left as it is
  * @returns {CheckedContent}
  */
 export function checkContent(libraries, { type, params }) {

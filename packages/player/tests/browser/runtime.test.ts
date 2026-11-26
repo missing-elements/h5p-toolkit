@@ -3,10 +3,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, createPlayer, frameDocument, waitForSettled } from './utils'
 
 /**
- * The runtime handed over as a property, the way a bundled host does it with the `runtime`
- * export of `@missing-elements/h5p-runtime`: the element then names those URLs in the package's
- * record, and the worker writes them into the frame document — the boot script among them, as a
- * `<script src>` under the nonce rather than a string, since it ships with the runtime.
+ * The runtime handed over as a property, as a bundled host does with the `runtime` export of
+ * `@missing-elements/h5p-runtime`: the worker writes those URLs into the frame.
  */
 describe('the runtime property', () => {
   const base = new URL('/frame-assets/', location.href).href
@@ -35,11 +33,8 @@ describe('the runtime property', () => {
   })
 
   it('plays a load that names the loader of runtime 0.2, on a host that has since upgraded', async () => {
-    // A page from before an upgrade, still open: its element registers its loads naming
-    // h5p-standalone's `main.bundle.js`, which the upgraded host no longer has, and the boot script
-    // at the URL it names is this runtime's by now. The worker writes the old kind of document for
-    // such a load, the route in it too, and this boot script boots from the route; without the
-    // route it stopped with "older than this runtime" (#49).
+    // A page from before an upgrade still names the old `main.bundle.js`, whose URL now serves this
+    // runtime's boot script: it must boot from the route in the document (#49).
     const player = createPlayer()
     player.runtime = { ...runtime, mainJs: `${base}main.bundle.js` } as typeof runtime
     const settled = waitForSettled(player)

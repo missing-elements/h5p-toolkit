@@ -104,11 +104,8 @@ describe('the launch in the address', () => {
 })
 
 describe('createCmi5Client', () => {
-  // 8.1.1.0-3, 8.1.2.0-4, 8.1.2.0-5, 8.1.3.0-3, 8.1.4.0-3, 8.1.5.0-6, 8.2.1.0-2, 8.2.1.0-5,
-  // 8.2.2.0-4, 8.2.2.0-5, 9.4.0.0-1, 9.4.0.0-2, 9.6.1.0-1, 9.6.2.0-1, 9.6.2.1-1, 10.2.1.0-4,
-  // 10.2.1.0-5, 11.0.0.0-1, 11.0.0.0-3, 11.0.0.0-4: the token
-  // by POST, then only reads, at the endpoint, with the token and the launch's actor, registration
-  // and activity.
+  // 8.1.2.0-4, 8.1.2.0-5, 8.2.1.0-2, 8.2.1.0-5, 8.2.2.0-4, 8.2.2.0-5: the token by POST to
+  // `fetch`, then in the Authorization header of every request.
   it('trades the token, reads the launch data and sends initialized', async () => {
     const net = fakeNetwork()
     const client = createCmi5Client({ url: LAUNCH_URL, fetch: net.fetch })
@@ -122,9 +119,12 @@ describe('createCmi5Client', () => {
       'GET https://lrs.example/xapi/statements',
       'POST https://lrs.example/xapi/statements'
     ])
+    // 8.1.1.0-3, 8.1.3.0-3, 8.1.4.0-3, 10.2.1.0-4, 10.2.1.0-5, 11.0.0.0-1: the launch data is only
+    // read, at the endpoint, with the launch's actor, registration and activity.
     const state = new URL(net.seen[1].url).searchParams
     expect(Object.fromEntries(state)).toEqual({ stateId: 'LMS.LaunchData', activityId: 'https://lms.example/au/1', agent: JSON.stringify(ACTOR), registration: 'reg-1' })
     expect(net.seen[1].headers).toMatchObject({ 'X-Experience-API-Version': '1.0.3', Authorization: 'Basic dG9rZW4=' })
+    // 11.0.0.0-3, 11.0.0.0-4: the learner preferences are read on startup, by their document name.
     expect(Object.fromEntries(new URL(net.seen[2].url).searchParams)).toEqual({ profileId: 'cmi5LearnerPreferences', agent: JSON.stringify(ACTOR) })
     expect(net.seen[2].headers).toMatchObject({ Authorization: 'Basic dG9rZW4=' })
     expect(net.seen[5].headers).toMatchObject({ 'Content-Type': 'application/json', Authorization: 'Basic dG9rZW4=' })
@@ -134,6 +134,8 @@ describe('createCmi5Client', () => {
     expect(net.seen[3].headers).toMatchObject({ Authorization: 'Basic dG9rZW4=' })
     expect(client.getRegistrationHistory?.()).toEqual({ completed: false, passed: false })
 
+    // 8.1.5.0-6, 9.4.0.0-1, 9.4.0.0-2, 9.6.1.0-1, 9.6.2.0-1, 9.6.2.1-1: the object is the AU, with
+    // the registration, the template's activities and the cmi5 category.
     const [initialized] = net.statements()
     expect(initialized).toMatchObject({
       actor: ACTOR,

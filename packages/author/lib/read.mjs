@@ -10,20 +10,15 @@ import { hasMarkup, wrapText } from './text.mjs'
 import { LAYOUTS, placesOf } from './types.mjs'
 
 /**
- * A package read back into a source (#236): the source a build would take to make the package
- * again, to change it and build it again. Its own fields come from `h5p.json`; its parameters from
- * `content.json`, less what a build fills in, by the generator's own rule walked back
- * (`ContentGenerator.written`) and the layouts' `read`. The source is then built in memory, and a
- * value that comes back otherwise is written as stored. No Node import of its own: the package's
- * files are read by the caller and the pack is handed in, as a build's are.
+ * A package read back into a source (#236): the one a build would take to make it again. Fields
+ * from `h5p.json`, parameters from `content.json` less what a build fills in; the rest as stored.
  */
 
 /**
  * @typedef {import('./build.mjs').Source} Source
  * @typedef {import('./build.mjs').Problem} Problem
  * @typedef {{ source: Source, files: string[], notes: Problem[] }} ReadContent
- *   `files`, the package's media the source names, by their paths in its `content/` folder, as
- *   the source names them; `notes`, what was left out or could not be read back as it is
+ *   `files`, the media the source names, by path in `content/`; `notes`, what was left out, reads back otherwise, or could not be read back
  */
 
 /** @param {unknown} value @returns {value is Record<string, any>} */
@@ -44,9 +39,8 @@ const OWN_METADATA = ['license', 'licenseVersion', 'authors', 'source', 'yearFro
 const says = (value) => value !== undefined && value !== null && !(typeof value === 'string' && !value.trim()) && !(Array.isArray(value) && !value.length)
 
 /**
- * The media a build of the read source is given: each file as the package stores it, found by the
- * path the source names it by, its copyright as a build makes one. Nothing is read: the check
- * compares content, and the files' bytes are the package's.
+ * The media a build of the read source is given: each file as the package stores it, by the
+ * source's path. Nothing is read: the check compares content, and the bytes are the package's.
  * @extends {MediaStore<never>}
  */
 class SavedMedia extends MediaStore {
@@ -222,9 +216,8 @@ function ownFields(manifest, language, note) {
 }
 
 /**
- * A note of the parts whose metadata says something of its own, a licence or authors, which a
- * build replaces with the source's. One that says nothing, the licence "U" and no authors as H5P's
- * editor saves a part, is not named.
+ * A note of the parts whose metadata says something of its own, a licence or authors, which a build
+ * replaces. One saying nothing (licence "U", no authors, as the editor saves a part) is not named.
  * @param {Record<string, any>} params as checked
  * @param {Source} source
  * @param {(path: string, message: string) => void} note
@@ -265,8 +258,7 @@ function ownMetadata(metadata, source) {
 
 /**
  * The paths at which content built from the read source is not the package's: equal but for each
- * part's id and the metadata a build gives it, its title apart, and a file's bytes, which are the
- * package's own.
+ * part's id, the metadata a build gives it (title apart) and a file's bytes.
  * @param {unknown} built
  * @param {unknown} saved
  * @param {Set<unknown>} files the saved content's files, as the generator collected them
@@ -307,10 +299,8 @@ function copyrightOf(copyright) {
 }
 
 /**
- * Whether a built text is the saved one as an author would write it: an empty text where nothing
- * is built, as H5P's editor saves a field nobody typed in; and text without markup in a markup
- * field, which a build wraps as the editor wraps typing, where a package made elsewhere kept it
- * bare. A learner sees the same.
+ * Whether a built text is the saved one as an author would write it: empty where nothing is built,
+ * as H5P's editor saves an untyped field, or bare text a build wraps as the editor wraps typing.
  * @param {unknown} built
  * @param {unknown} saved
  */

@@ -4,10 +4,8 @@ import '../../src/h5p-offline-player'
 import { FIXTURES, createPlayer, frameDocument, frameWindow, play, waitForEvent } from './utils'
 
 /**
- * The display and loading options, by the names h5p-standalone gave them, as the element's
- * attributes. Each is read off the
- * runtime's own configuration (`H5PIntegration`) or the frame's DOM, not off the element, so what
- * is pinned is what the content actually sees.
+ * The display and loading options, as the element's attributes, read off the runtime's own
+ * configuration (`H5PIntegration`) or the frame's DOM, so what is pinned is what the content sees.
  */
 
 interface Integration {
@@ -50,10 +48,8 @@ describe('the display and loading options', () => {
     expect(frameDocument(plain).querySelector('.h5p-actions')).toBeNull()
     expect(content(frameWindow(plain)).displayOptions?.frame).toBe(false)
 
-    // The copyright button shows because the fixture's h5p.json names a licence (CC BY): the
-    // runtime turns it off itself for content with no copyright information, which is what every
-    // package was until the manifest's metadata reached the frame. The embed button is subject to
-    // the runtime's checks too, so for it what is pinned is the request in the boot config.
+    // The copyright button shows because the fixture's h5p.json names a licence (CC BY); the
+    // runtime hides it otherwise. Embed is checked too, so the boot config's request is pinned.
     const player = await play(FIXTURES.basic, {
       frame: '',
       icon: '',

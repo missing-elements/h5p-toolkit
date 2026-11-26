@@ -1,10 +1,6 @@
 /**
- * The package as a TypeScript caller sees it under `node16` and `nodenext` resolution: imported by
- * its name, through the `types` condition of its `exports`, from the declarations `tsc -b` writes
- * into `types/`. Type-checked by `pnpm typecheck` with `tsconfig.consumer.json`; nothing here runs.
- * Those modes follow a relative import only when it names its file, so a source import written
- * without `.js` leaves what comes through it `any` for such a caller (#60), and an expected error
- * below then goes missing.
+ * The package as a `node16`/`nodenext` caller sees it, by name through `exports`' `types`; checked
+ * by `pnpm typecheck`, nothing runs. A source import without `.js` leaves its types `any` (#60).
  */
 import { H5PPlayerElement, type PackageMetadata, type PlayerErrorDetail, type ReadyDetail } from '@missing-elements/h5p-offline-player'
 import { mountH5P } from '@missing-elements/h5p-offline-player/sw'

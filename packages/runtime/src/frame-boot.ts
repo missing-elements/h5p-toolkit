@@ -1,23 +1,6 @@
 /**
- * Runs inside the frame. It boots the H5P core against the virtual file server, forwards xAPI to
- * the element and relays the worker's job requests — the Service Worker can only message a client,
- * and the element is the one that owns the Jobs worker.
- *
- * Booting is what a site's H5P plugin does for its iframe: it writes the core's settings,
- * `H5PIntegration`, loads the core's scripts and stylesheets and then each library's, and calls
- * `H5P.init`. What to load comes from the worker's `boot` route, which has walked the libraries
- * (`LibraryLoad` in the player); until the core was vendored (#37) h5p-standalone did all of it
- * here, and the settings are built as it built them, field for field, so content sees no change.
- *
- * Built by `scripts/build.mjs` to `dist/frame-boot.js`, a classic script the player's Service
- * Worker names with `<script nonce src>` in the document it synthesizes (`frame-document.ts` in
- * the player). The configuration comes from a JSON block in that document, `#h5p-boot-config`,
- * so the script is the same bytes for every package. That block, and the messages posted to the
- * parent, are the contract between the two packages: a change to either here is a change to the
- * player's `frame-document.ts` and `h5p-offline-player.ts` with it.
- *
- * It lives in this package, under the GPL with the core, rather than in the MIT player, because
- * it is the one script that runs in the H5P document and calls the core's API directly.
+ * Runs in the frame: boots the core, forwards xAPI and relays job requests to the element. GPL with
+ * the core, not in the MIT player; its config block and messages are the player's contract.
  */
 
 import { checkContent, checkContentMetadata, libraryKey, librariesIn, parseLibrary, type LibraryName, type SemanticField } from './content-check'
@@ -54,9 +37,8 @@ interface BootConfig {
   /** The package's root on the virtual file server, without a trailing slash. */
   h5pJsonPath: string
   /**
-   * The worker's `boot` route for this load, which answers what to load (`LibraryLoad`). Absent
-   * from a worker of a player that pairs with runtime 0.2, which wrote the document for
-   * h5p-standalone's loader.
+   * The worker's `boot` route, which answers what to load (`LibraryLoad`); absent from a worker of
+   * a player pairing with runtime 0.2, which wrote the old loader's document.
    */
   boot?: string
   frameJs: string
@@ -68,22 +50,19 @@ interface BootConfig {
   options?: FrameOptions
   /**
    * The frame's language, which H5P's own strings follow, when the worker named `l10n.js`: the
-   * content's, as `h5p.json` names it, or the element's for a package that names none. The same
-   * tag as the document's `lang`.
+   * content's, as `h5p.json` names it, or the element's. The same tag as the document's `lang`.
    */
   language?: string
   /**
-   * Played as data: the package's own code is withheld, and this script checks its content against
-   * the semantics of the libraries served before the runtime reads it. Absent from a worker older
-   * than the check, which never plays a package so.
+   * Played as data: the package's own code is withheld and this script checks its content against
+   * the served semantics first. Absent from a worker older than the check.
    */
   untrusted?: boolean
 }
 
 /**
- * The header the content is asked for with when it is to be checked. The worker serves an
- * untrusted package's `content.json` only to a request that carries it, so a boot script older
- * than the check — which would play the content as written — gets no content at all.
+ * The header content is asked for with when it is to be checked: the worker serves an untrusted
+ * `content.json` only with it, so a boot script older than the check gets none.
  */
 var CONTENT_CHECK_HEADER = 'X-H5P-Content-Check';
 
@@ -189,10 +168,8 @@ interface RunnableExtras {
 
 const config = JSON.parse(document.getElementById('h5p-boot-config')!.textContent!) as BootConfig
 
-// To this document's own origin, never '*'. The element's page is same-origin by construction
-// (the worker script must be, and this frame lives under its scope), so nothing legitimate is
-// lost — but package ids are derived from the URL and therefore guessable, and a third-party
-// page that framed this URL directly would otherwise be handed every xAPI statement.
+// To this document's own origin, never '*': package ids are derived from the URL and so guessable,
+// and a third-party page framing it would otherwise be handed every xAPI statement.
 var post = function (message: object) {
   try { parent.postMessage(Object.assign({ channel: 'h5p-player', pkgId: config.pkgId }, message), location.origin); }
   catch (error) { /* a detached parent is not worth reporting */ }
@@ -217,33 +194,21 @@ var flag = function (value: boolean | undefined, otherwise: boolean) {
   return typeof value === 'boolean' ? value : otherwise;
 };
 
-// The core's own strings in the frame's language, when this package has them: the worker names
-// `l10n.js` ahead of this script for any language but English, and the strings for the language
-// the configuration names are picked from it. They are laid over the core's English key by key,
-// so a string a language lacks stays English, and before the core's ready handler builds the
-// licence names from them.
+// The core's strings in the frame's language when there are some (`l10n.js` is named for any but
+// English), laid over the English key by key, before the ready handler builds the licence names.
 var translations = coreTranslations(window.H5PRuntimeL10n, config.language);
 
 /**
- * The content's id. A site gives each content its row's number, the same on every load, and
- * content types rely on both: Interactive Book keeps its place under the id, in its saved state and
- * in the address, and takes it back only when the id matches (#127); Cornell Notes reads the copy
- * of its notes it keeps by the id only when the id is a number. So a number made from the package's
- * id, which names the same package on every load and is what the learner's state is kept under:
- * twelve of its hex digits, which a double holds exactly, since the core reads the id back through
- * jQuery's `.data()`, which turns a string of digits into a number. Until #127 it was random, as
- * h5p-standalone gave it, and nothing that kept a place by it ever found it again.
+ * The content's id, a number the same on every load (Interactive Book and Cornell Notes need it,
+ * #127): twelve hex digits of the package's id, which a double holds exactly.
  */
 var contentIdOf = function (pkgId: string): number {
   return parseInt(String(pkgId).slice(0, 12), 16) || 1;
 };
 
 /**
- * The core's settings for this one content, as a site's H5P plugin writes them and as
- * h5p-standalone wrote them here before the core was vendored. `url` is the package's root rather
- * than the content's id: the core joins it with `/content/<id>` only where a content's own
- * `contentUrl` is missing, and `H5P.getContentPath`, which joins it always, is answered from
- * `contentUrl` below.
+ * The core's settings for this content, as a site's plugin writes them. `url` is the package's
+ * root: the core adds `/content/<id>` only without a `contentUrl`, which `getContentPath` uses.
  */
 var integrationFor = function (load: LibraryLoad, jsonContent: string, preload: UserDataPreload | null): Integration {
   var contentId = contentIdOf(config.pkgId);
@@ -282,9 +247,8 @@ var integrationFor = function (load: LibraryLoad, jsonContent: string, preload: 
     urlLibraries: base,
     libraryDirectories: load.directories || {},
     contents: {},
-    // A number, and the runtime hands the saved state to the content, asks it for its state that
-    // often, and saves as the document goes away — that last handler it registers as its ready
-    // handler runs, on the value it sees then, which is why the element is asked first.
+    // A number: the runtime asks the content for its state that often and saves as the document
+    // goes away, on the value it sees when its ready handler runs, so the element is asked first.
     saveFreq: preload && resume && preload.saveInterval ? preload.saveInterval : false,
     // No result endpoint exists here. xAPI leaves as events; nothing is posted.
     postUserStatistics: false,
@@ -299,11 +263,8 @@ var integrationFor = function (load: LibraryLoad, jsonContent: string, preload: 
 };
 
 /**
- * The content for the element the core initialises: a `.h5p-content` naming the content, in a
- * `.h5p-iframe` wrapper, as a plugin writes it for content embedded as a div rather than an inner
- * frame. Div, not iframe: with an inner frame the core writes the content into an `about:blank`
- * document, and whether such a child inherits this document's Service Worker controller differs
- * between browsers. With a div this document is the H5P document.
+ * A `.h5p-content` in a `.h5p-iframe` wrapper, as a plugin writes a div embed. Div, not iframe:
+ * whether an inner `about:blank` child inherits the Service Worker controller differs by browser.
  */
 var mountContent = function (integration: Integration) {
   var wrapper = document.createElement('div');
@@ -327,9 +288,8 @@ var addStyles = function (urls: string[]) {
 };
 
 /**
- * Scripts, run in order and waited for: not async, so the browser runs them as they were added
- * while it fetches them all at once. Each is marked, so the listener at the end of this file
- * reports one that does not load; until then nothing would end the wait.
+ * Scripts, in order: not async, so they run as added while fetched at once. Each is marked so the
+ * listener at the end of the file reports a failed load, which nothing else would end the wait on.
  */
 var addScripts = function (urls: string[]): Promise<void> {
   return Promise.all(
@@ -373,23 +333,16 @@ var readContent = function (): Promise<string> {
 };
 
 /**
- * Whether the element opened this frame with `resume`. In the URL rather than in the boot
- * configuration so that an element older than the worker, which never sets it, boots as before,
- * and a worker older than the element, whose boot script does not know it, ignores it.
+ * Whether the element opened this frame with `resume`, in the URL rather than the boot
+ * configuration so an element or worker older than the other boots as before.
  */
 var resume = /[?&]resume=1(?:&|$)/.test(location.search);
 /** Whether the element has a learner to name; the same reply carries it, so the frame asks for it the same way. */
 var wantsUser = /[?&]user=1(?:&|$)/.test(location.search);
 
 /**
- * The saved state lives with the element, which either keeps it on this device or takes it from
- * the host page; the runtime asks for it through `H5P.getUserData` and saves it through
- * `H5P.setUserData`. Those normally reach a site's `contentUserData` endpoint by AJAX, and refuse
- * to run at all without a signed-in `H5PIntegration.user` — which would also rewrite the actor of
- * every xAPI statement. So the three are replaced with versions that talk to the element instead,
- * keeping the semantics the runtime relies on: a value is handed over synchronously, a save goes
- * out only when it differs from the last, and `null` in a preload means "saved against another
- * build", which the runtime answers with its own "starting over" dialog.
+ * The user-data functions talk to the element, not a site's AJAX endpoint or a signed-in
+ * `H5PIntegration.user` (that would rewrite every actor), keeping the runtime's semantics.
  */
 var installUserData = function (preload: UserDataPreload) {
   var H5P = window.H5P!;
@@ -443,11 +396,8 @@ var askForUserData = function (): Promise<UserDataPreload | null> {
 };
 
 /**
- * Where the upgrade learns what runs. A library's `library.json`, asked for under the version the
- * content names, says which version answered: the worker serves a newer minor when the exact one
- * is absent, and the bare folder name is tried after the versioned one, as the worker tries them.
- * Its `upgrades.js` is fetched only from a folder the worker listed, so nothing is asked for that
- * is not there.
+ * Where the upgrade learns what runs: `library.json` names the version that answered (a newer
+ * minor, or the bare name); `upgrades.js` is fetched only from a folder the worker listed.
  */
 var librarySource = function (base: string, listed: string[]): UpgradeSource & { semantics(folder: string): Promise<SemanticField[] | null> } {
   var served: Record<string, Promise<ServedLibrary | null>> = {};
@@ -455,9 +405,8 @@ var librarySource = function (base: string, listed: string[]): UpgradeSource & {
   var semantics: Record<string, Promise<SemanticField[] | null>> = {};
 
   var readLibrary = function (folder: string, machineName: string): Promise<ServedLibrary | null> {
-    // Bounded, and a read that runs out fails the upgrade rather than passing for "not served":
-    // on a host without `Range` a miss waits until the download proves the entry absent, and a
-    // library the content names but nothing carries would hold the boot back that long.
+    // Bounded, and a timeout fails the upgrade, not "not served": without `Range` a miss waits
+    // until the download proves the entry absent, holding the boot back that long.
     return boundedFetch(base + '/' + folder + '/library.json')
       .then(function (response) {
         // Not JSON is not a library; the runtime fails on it in its own way.
@@ -502,11 +451,8 @@ var librarySource = function (base: string, listed: string[]): UpgradeSource & {
         steps[url] = boundedFetch(url).then(function (response) {
           if (!response.ok) throw new Error('could not load ' + library.folder + '/upgrades.js (' + response.status + ')');
           return response.text().then(function (code) {
-            // Evaluated, not added as a script: the platforms' upgrade worker loads these with
-            // `importScripts` inside a try, so one that throws as it loads fails the upgrade
-            // rather than the content. An uncaught error here would reach the listener below,
-            // which reports it as the boot failing. The script declares `H5PUpgrades` itself as
-            // a rule; one that only assigns to it still finds it.
+            // Evaluated, not added as a script, as platforms use `importScripts` in a try: a throw
+            // rejects this chain, so `upgradeToServed`'s catch takes it and the boot is not hit.
             window.H5PUpgrades = window.H5PUpgrades || {};
             (0, eval)(code + '\n//# sourceURL=' + url);
             return window.H5PUpgrades[machineName] || null;
@@ -549,9 +495,8 @@ var writtenFor = function (manifest: Manifest): LibraryName | null {
 };
 
 /**
- * Brings the content's parameters up to the library versions served, before the runtime reads
- * them, the way the platforms upgrade content when they install a newer minor. A failure leaves
- * them as written, which is how every package played before this ran, and says so in the console.
+ * Brings the parameters up to the library versions served, before the runtime reads them, as
+ * platforms do. A failure leaves them as written, as before this ran, and says so in the console.
  */
 var upgradeToServed = function (): Promise<void> {
   // `const`, so the check below still holds inside the callbacks that follow.
@@ -573,9 +518,8 @@ var upgradeToServed = function (): Promise<void> {
         content.metadata === undefined ? undefined : JSON.parse(JSON.stringify(content.metadata)),
         libraries
       ).then(function (result) {
-        // The version served, in full: a name that leaves out a major or a minor of 0 —
-        // "H5P.Accordion 1", as h5p-standalone wrote it — the core turns into the folder
-        // `H5P.Accordion-1.undefined`, the category every statement then carries.
+        // The version served, in full: a name without a minor of 0 ("H5P.Accordion 1") becomes the
+        // folder `H5P.Accordion-1.undefined`, which every statement's category then carries.
         if (result.library) content.library = result.library;
         if (result.changed) {
           content.jsonContent = JSON.stringify(result.params);
@@ -589,11 +533,8 @@ var upgradeToServed = function (): Promise<void> {
 };
 
 /**
- * For a package played `untrusted`: its content checked against the semantics of the libraries
- * served, as the H5P platforms check an author's content before showing it (`content-check.ts`).
- * After the upgrade, so the parameters are the shape the served versions' semantics describe, and
- * before `H5P.init`, which is the first thing to read them. Content that cannot be checked does not
- * play: the main library's semantics are required, and sub-content without any is removed.
+ * For `untrusted` packages: the content checked against the served semantics (`content-check.ts`) after
+ * the upgrade. It does not play without the main library's; a sub-content library without any is removed.
  */
 var checkUntrusted = function (): Promise<void> {
   if (!config.untrusted) return Promise.resolve();
@@ -635,10 +576,8 @@ var checkUntrusted = function (): Promise<void> {
 };
 
 /**
- * The core and the content's libraries, in place: the settings written, the content's element
- * mounted, the stylesheets added and the scripts run, the core's first. `preventInit` is set
- * before the core loads, since its ready handler initialises everything unless told not to, and
- * the saved state has to be in place first.
+ * The core and the libraries in place. `preventInit` is set before the core loads, or its ready
+ * handler would initialise before the saved state is in.
  */
 var bootCore = function (preload: UserDataPreload | null): Promise<void> {
   if (!config.boot) {
@@ -661,10 +600,8 @@ var bootCore = function (preload: UserDataPreload | null): Promise<void> {
 askForUserData()
   .then(function (preload) {
     return bootCore(preload).then(function () {
-      // Whenever the element answered, not only under `resume`: with a user set, the runtime
-      // takes itself to be on a site and sends every user-data call to an AJAX URL that does not
-      // exist here, and the boot died on it. Without `resume` the shim holds nothing and saves
-      // reach an element that keeps none; the actor is what the user was for.
+      // Whenever the element answered, not only under `resume`: with a user set the runtime sends
+      // user-data calls to an AJAX URL that does not exist here, and the boot died on it.
       if (preload) installUserData(preload);
     });
   })
@@ -672,13 +609,8 @@ askForUserData()
   .then(upgradeToServed)
   .then(checkUntrusted)
   .then(function (): Promise<void> {
-    // Behind the runtime's own ready handler, not merely after its scripts have loaded. The core
-    // registers that handler as it loads and the frame's document is often still `interactive`
-    // then — its own scripts and styles delay `load` — so jQuery runs it at `load`, which can
-    // fall after the scripts above have run. The handler builds `H5P.copyrightLicenses`, which
-    // `H5P.init` reads for the copyright button of any package whose licence is not
-    // "Undisclosed"; initialised before it, such a package died on `copyrightLicenses['MIT']`.
-    // Queued behind it, the init below runs once it has; preventInit keeps it from initialising.
+    // Behind the core's ready handler, which builds `H5P.copyrightLicenses`: initialised before it,
+    // a package whose licence is not "Undisclosed" died on `copyrightLicenses['MIT']`.
     var H5P = window.H5P!;
     return new Promise(function (resolve) {
       if (H5P.jQuery) H5P.jQuery(document).ready(function () { resolve(); });
@@ -688,11 +620,8 @@ askForUserData()
   .then(function () {
     // The core's own start, which `preventInit` held back.
     var H5P = window.H5P!;
-    // `reportingIsEnabled` reaches a content type as `extras.isReportingEnabled` on h5p.com,
-    // whose core sets it; this core never does, and of the hub's content types only Interactive
-    // Book and Documentation Tool read the integration flag themselves. Question Set, Interactive
-    // Video, Course Presentation and Game Map read the extras, so the top-level instance — the
-    // one `H5P.init` creates, marked `standalone` — gets it here.
+    // This core never sets `extras.isReportingEnabled` as h5p.com's does, but Question Set,
+    // Interactive Video, Course Presentation and Game Map read it: the `standalone` one gets it.
     if (window.H5PIntegration!.reportingIsEnabled && typeof H5P.newRunnable === 'function') {
       var newRunnable = H5P.newRunnable;
       H5P.newRunnable = function (library, contentId, attachTo, skipResize, extras) {
@@ -700,12 +629,8 @@ askForUserData()
         return newRunnable.call(H5P, library, contentId, attachTo, skipResize, extras);
       };
     }
-    // The core builds a content's folder as `H5PIntegration.url + '/content/' + id`, as on a
-    // site, where `url` is the site's H5P folder and each content has a folder below it; here the
-    // content is the package's own `content/`, one level below `url`. The core's own
-    // `H5P.getPath` reads the content's `contentUrl` first, which is set above, and so does this.
-    // IFrame Embedder is the one content type that asks, for a page the package carries — which,
-    // played untrusted, is not served.
+    // The core builds a content's folder as `url + '/content/' + id`, not where the package keeps
+    // it, so this reads `contentUrl` first, as `getPath` does.
     var getContentPath = H5P.getContentPath;
     if (typeof getContentPath === 'function') {
       H5P.getContentPath = function (contentId) {
@@ -729,18 +654,8 @@ askForUserData()
         }
       });
     }
-    // Sizing is H5P's own: it talks the resizer protocol to the element over postMessage,
-    // driven by the resize events content types raise when they actually change. Watching the
-    // DOM from here would miss those and fire on changes that are not resizes.
-    //
-    // A font arriving is the one change no content raises one for. The frame's faces load once
-    // text asks for them, and H5P's first measurement can run before they have: text laid out
-    // in the fallback face wraps differently in its own, and the frame kept the earlier height
-    // with the overflow hidden. In Chrome a Column of text played after another package lost
-    // its bottom 47 px, its action bar, every time. So once the faces in flight have arrived,
-    // every instance is asked to resize, and H5P measures and reports as it always does. On
-    // `loading` rather than `loadingdone`, which WebKit never fires, and two frames after
-    // `ready`, which WebKit resolves before its layout has taken the face.
+    // Sizing is H5P's own, from content resize events; a font arriving raises none, so text
+    // measured in the fallback face kept its height (47 px lost): resize all once faces load.
     var fonts = document.fonts;
     if (fonts && typeof H5P.trigger === 'function') {
       var afterFonts = function () {
@@ -754,6 +669,8 @@ askForUserData()
           });
         });
       };
+      // On `loading`, as WebKit never fires `loadingdone`; two frames after `ready`, as WebKit
+      // resolves it before its layout has taken the face.
       fonts.addEventListener('loading', afterFonts);
       if (fonts.status === 'loading') afterFonts();
     }
@@ -763,12 +680,8 @@ askForUserData()
     post({ type: 'error', message: errorText(error) });
   });
 
-// Capture phase, because a resource that fails to load fires 'error' on its own element and
-// never bubbles: the runtime's script loader waits on 'load' alone, so a library script the
-// server could not deliver would otherwise leave the boot hanging without a word. Only the
-// tags the runtime injected itself count (it marks them data-h5p); a content image that 404s,
-// or an optional script a content type reaches for, is the content's business, not a failure
-// of the player.
+// Capture phase: a failed resource's 'error' does not bubble and the loader waits on 'load' alone,
+// so a lost library would hang the boot. Only tags marked data-h5p count.
 window.addEventListener('error', function (event: Event) {
   var target = event.target as (HTMLElement & { src?: string; href?: string }) | null;
   if (target && target !== (window as unknown)) {

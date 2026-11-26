@@ -1,7 +1,6 @@
 /**
- * The page a preview's webview frames: the element, set as the preview's mode says, telling the
- * webview what it reached. It is told to the webview and nothing else — the first of the page's
- * ancestor origins — and the webview takes it only from this page's origin.
+ * The page a preview's webview frames: the element as the mode says, telling only the webview (at the
+ * first ancestor origin) what it reached; the webview takes it from this origin only.
  * @param {object} settings
  * @param {string} settings.name the file's name
  * @param {string} settings.src the package's address on the server, a path
@@ -23,9 +22,8 @@ export function viewPage(settings) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Preview</title>
-    <!-- The demo's page styles, from the player's files the extension carries: the page's colours,
-         light or dark as VS Code is, and the player's box while it loads. The bar above is the
-         webview's, in VS Code's own colours. -->
+    <!-- The demo's page styles, from the player's files: light or dark as VS Code is, and the
+         player's box while it loads. The bar above is the webview's. -->
     <link rel="stylesheet" href="/page.css" />
     <script type="module" src="/h5p-player.js"></script>
     <style>
@@ -45,9 +43,8 @@ export function viewPage(settings) {
         if (webview) parent.postMessage({ source: 'h5p-preview', ...message }, webview)
       }
 
-      // VS Code's theme as it changes, sent by the webview so that a switch does not reload the
-      // content: the one message this page takes, from the window around it at the webview's
-      // origin, and as one of the two names only.
+      // VS Code's theme as it changes, so that a switch does not reload the content: the one
+      // message this page takes, from the webview's window and origin, as one of the two names.
       window.addEventListener('message', (event) => {
         if (!webview || event.origin !== webview || event.source !== parent) return
         const message = event.data
@@ -66,11 +63,8 @@ export function viewPage(settings) {
       // set now would stay on it, in front of the element's own, which reads the attribute.
       if (settings.untrusted) player.setAttribute('untrusted', '')
 
-      // The media VS Code does not play in full, as its kinds: \`mp4\` (the picture without sound),
-      // \`webm\`, \`aac\` (M4A audio) and \`youtube\`, which do not play at all. Measured in VS Code 1.143
-      // on macOS: its media stack opens no WebM and decodes no AAC, and YouTube's player never
-      // starts, while it says yes to every type it is asked about. MP3 plays. Read from the content's
-      // parameters, so a video on a slide or tab not yet shown counts.
+      // Media VS Code 1.143 on macOS fails: \`mp4\` plays without sound; \`webm\`, \`aac\`, \`youtube\` not at all.
+      // Read from the content's parameters, as it says yes to every type asked, so a hidden slide counts.
       function unplayableMedia() {
         let contents = null
         try {

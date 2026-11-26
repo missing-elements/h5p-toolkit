@@ -1,8 +1,6 @@
 /**
- * An mp4 as boxes, its index after its media unless `faststart`. With `seconds` its index says how
- * long it is, and with `tracks` what each track holds, by its handler and its codec, where a reader
- * looks for them; without, it says neither. Nothing here decodes, and nothing needs Node: the
- * page's build is given one too.
+ * An mp4 as boxes, its index after its media unless `faststart`. `seconds` and `tracks` (a list of
+ * [handler, codec] pairs) go in the index. Nothing decodes or needs Node: a page's build gets one too.
  */
 export function mp4(faststart: boolean, { seconds, tracks = [] }: { seconds?: number, tracks?: [handler: string, codec: string][] } = {}) {
   const text = (value: string) => new TextEncoder().encode(value)

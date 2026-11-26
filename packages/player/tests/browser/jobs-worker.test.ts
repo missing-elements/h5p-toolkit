@@ -7,9 +7,8 @@ import { openSource } from '../../src/shared/source'
 import { PackageReader, locationOf } from '../../src/sw/package-reader'
 
 /**
- * The Jobs worker driven directly, without an element in front of it. The element's own tests
- * cover the happy path; this is for the message-ordering cases that only show up when two
- * messages land in the same breath.
+ * The Jobs worker driven directly, without an element: its other tests cover the happy path, this
+ * the message-ordering cases that only show when two messages land in the same breath.
  */
 
 const PKG = 'jobs-worker-race-test'
@@ -143,9 +142,8 @@ describe('the Jobs worker', () => {
       jobs.post({ type: 'download', pkgId: PKG, source })
       await jobs.next((message) => message.type === 'progress' && message.pkgId === PKG)
 
-      // Back to back, the way a second press of Play sends them. The abort takes several tasks
-      // to unwind; a key held until then made the new download look like a duplicate of a job
-      // that was already dying, and nothing ever answered it.
+      // Back to back, as a second press of Play sends them. The abort takes tasks to unwind, and a
+      // key held until then made the new download look like a duplicate of a dying job.
       jobs.post({ type: 'abort', pkgId: PKG })
       jobs.post({ type: 'download', pkgId: PKG, source })
 

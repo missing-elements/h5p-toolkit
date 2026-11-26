@@ -149,8 +149,7 @@ describe('the pure parts', () => {
 
 describe('startCmi5', () => {
   // 7.1.1.0-1, 7.1.2.0-1, 7.1.3.0-1, 9.3.0.0-5, 9.3.3.0-1, 9.3.8.0-1, 9.3.8.0-2, and in Normal mode
-  // 10.2.2.0-1, 10.2.2.0-6, 10.2.2.0-7: initialized, then the content, the outcome on
-  // completion, terminated last and nothing after it.
+  // 10.2.2.0-1, 10.2.2.0-6, 10.2.2.0-7: initialized, the content, the outcome once, terminated.
   it('sends initialized, relays the content\'s statements, records the outcome once and terminates', async () => {
     const { client, calls } = fakeClient()
     const player = new FakePlayer()

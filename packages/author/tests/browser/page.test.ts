@@ -5,10 +5,8 @@ import { commands } from 'vitest/browser'
 import { buildPackage, openPack } from '../../lib/browser.mjs'
 import { mp4 } from '../helpers/mp4'
 
-// The page's build in Chromium, as a page runs it: the pack a bundler emits, a picture the page
-// was given as a `File`, the package back as a `Blob`. Its bytes go to Node, where the verifier
-// plays them untrusted, as a site that did not make them plays them (`playUntrusted`, in
-// vitest.config.ts). tests/page.test.ts runs the same build in Node, against the build there.
+// The page's build in Chromium: a bundler's pack, a picture as a `File`, the package back as a
+// `Blob`, played untrusted by the verifier in Node. tests/page.test.ts is the Node build.
 
 declare module 'vitest/browser' {
   interface BrowserCommands {

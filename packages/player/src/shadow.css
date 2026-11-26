@@ -1,19 +1,6 @@
 /*
- * The element's own box. Imported as `?inline` and adopted as a constructable stylesheet — see
- * `adoptShadowStyles` — so Vite minifies it for the build and a host page's `style-src 'self'`
- * cannot block it. Three things here are easy to undo by accident:
- *
- * - The layout lives on `.viewport`, not on `:host`. Any rule in the host page that names the
- *   element beats a `:host` rule however specific, so a host writing
- *   `h5p-player { display: block; height: 400px }` — the obvious thing — must not be able to
- *   collapse the frame.
- * - `.viewport` has both `height: 100%`, for a host given an explicit height, and
- *   `min-height: inherit`, for one given only a min-height, where a percentage height resolves
- *   to auto and leaves the frame at an iframe's intrinsic 150px.
- * - `:host(:fullscreen)` is for a host page that calls `requestFullscreen()` on the element;
- *   H5P's own fullscreen targets the frame, which the browser sizes itself. Without `!important`
- *   the inline height auto-resize writes would pin it to the content height while it is meant
- *   to fill the screen.
+ * The element's own box, adopted as a constructable stylesheet (`adoptShadowStyles`) so a host's
+ * `style-src 'self'` cannot block it. Three rules here are easy to undo, and say why beside them.
  */
 
 :host {
@@ -26,15 +13,18 @@
   display: none !important;
 }
 
+/* For a host's `requestFullscreen()`; !important beats the inline height auto-resize sets. */
 :host(:fullscreen) {
   height: 100% !important;
   width: 100% !important;
 }
 
+/* Layout is here, not on `:host`: a host rule naming the element beats any `:host` rule. */
 .viewport {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* A percentage height is auto under a host's min-height alone: an iframe's intrinsic 150px. */
   min-height: inherit;
 }
 

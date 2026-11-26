@@ -1,14 +1,7 @@
 #!/usr/bin/env node
 /**
- * Rewrites a `.h5p` so that it streams well: media stored rather than deflated, mp4 indexes at
- * the front, libraries before content and content media last. Run it once, by whoever
- * publishes the package. See `lib/normalize.mjs` for what each step is for.
- *
- *   h5p-normalize course.h5p
- *   h5p-normalize https://example.org/course.h5p -o course.h5p
- *   h5p-normalize course.h5p --dry-run
- *
- * From the repository root, `pnpm normalize course.h5p` runs the same command.
+ * Rewrites a `.h5p` so that it streams well, run once by whoever publishes the package. From the
+ * repository root `pnpm normalize course.h5p` runs it; `--help` lists the options.
  */
 import { createWriteStream } from 'node:fs'
 import { mkdtemp, rename, rm, stat } from 'node:fs/promises'

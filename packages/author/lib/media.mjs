@@ -2,15 +2,8 @@ import { mp4Info } from '@missing-elements/h5p-normalize/mp4'
 import { escapeText } from './text.mjs'
 
 /**
- * The files content shows: images, video, audio and other files, named in a source by a path
- * beside it, by a name among the files a page was given, or by a web address, copied into the
- * package's `content/` folder with what H5P records of each — its type, an image's size, its
- * copyright. A video on YouTube, Vimeo, Panopto or Echo360 stays there and is played from there, as
- * H5P's editor embeds it (h5peditor-av.js, its `providers`), at an address H5P.Video plays. Where
- * the files are, and where a download is kept, is the environment's (`MediaAccess`): `node.mjs`
- * reads them from disk and keeps downloads in a temporary folder, `browser.mjs` takes `File`s and
- * keeps downloads as `Blob`s. A page can also name a video or a recording that stays at a web
- * address of its own and is played from there (`linked`, #263): a preview, with no download first.
+ * The files content shows, copied into `content/` with what H5P records of each; a video on
+ * YouTube, Vimeo, Panopto or Echo360 stays an address, as the editor embeds it (`linked`: #263).
  */
 
 /** The types H5P accepts for content (`H5PCore::$defaultContentWhitelist`), by what a field takes. */
@@ -44,18 +37,8 @@ const NOT_EVERYWHERE = /** @type {Record<string, string>} */ ({ hvc1: 'HEVC (H.2
 const under = (host, domains) => domains.some((domain) => host === domain || host.endsWith(`.${domain}`))
 
 /**
- * Video a host plays itself, which H5P.Video embeds by address. H5P.Video chooses the player for
- * an address by its own pattern for each host, and gives one no pattern matches to its HTML5
- * player, which cannot play a page. So `plays` takes only addresses H5P.Video 1.6's pattern for
- * the host takes as well, and any other address on the host (`on`, told by its name, with no
- * pattern to backtrack through its labels) is refused, naming the form. `oembed` is where the
- * host says whether it has the video, for the two hosts that answer anyone (#218), and `answers`
- * what each status it answers there means, as seen on 2026-11-20: a problem (`gone`) or a note
- * (`closed`), each with the words for it. A status not listed says nothing. `sends` is how the
- * host itself sends such a status, its body and the type it gives it, by which its own answer is
- * told from one a box in between gives for it (`#ask`). `length` reads a video's length in seconds
- * from the host's answer for one it has, where that answer carries it (#260): Vimeo's does, in
- * whole seconds, and YouTube's does not.
+ * Video a host plays itself, embedded by address: `plays` takes only what H5P.Video 1.6's pattern
+ * takes, as it gives any other to its HTML5 player, which cannot play a page.
  * @type {{ host: string, mime: string, plays: RegExp, on: (url: URL) => boolean, form: string, oembed?: (address: string) => string, sends?: { type: string, body: (status: number) => string }, answers?: Record<number, { gone?: string, closed?: string }>, length?: (answer: any) => number | undefined }[]}
  */
 const HOSTED = [
@@ -69,9 +52,8 @@ const HOSTED = [
     oembed: (address) => `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(address)}`,
     // Its 404 is a page of the words alone.
     sends: { type: 'text/html', body: (status) => `${status} ${STATUS_WORDS[status]}` },
-    // 404 for no such video, a private one, and an unlisted one asked of without the rest of its
-    // link (Vimeo's help centre). A video behind a password or let to some sites only answers
-    // 200, and a 403 is Vimeo refusing the asker's network, which says nothing of the video.
+    // 404: no such video, a private one, or an unlisted one without its full link (Vimeo's help). A
+    // password or domain limit answers 200; a 403 is Vimeo refusing the network.
     answers: {
       404: { gone: 'has no video there that others can play: give https://vimeo.com/ and the number of a public video, or all of an unlisted video\'s link, which has more after the number' }
     },
@@ -92,9 +74,8 @@ const HOSTED = [
     },
     // The status's words alone, under the type of the answer it would have given.
     sends: { type: 'application/json', body: (status) => STATUS_WORDS[status] },
-    // Seen: 400 for an id it never had, 404 for a video taken down, 403 for a private one, and
-    // 200 for one that asks a viewer's age. 401 was not seen: it is said to be a video whose
-    // owner has turned embedding off.
+    // Seen: 400 for an id it never had, 404 for a taken-down video, 403 for a private one, 200 for
+    // an age-gated one. 401 not seen: said to be embedding turned off.
     answers: {
       400: { gone: 'has no video there: give https://www.youtube.com/watch?v= and the id of a public or unlisted video' },
       404: { gone: 'has no video there any more: give https://www.youtube.com/watch?v= and the id of a public or unlisted video' },
@@ -125,11 +106,8 @@ const YOUTUBE_ID = /(?:[?&]v=|\/embed\/|\/v\/|youtu\.be\/)([\w-]{11})/i
 const ASK_MS = 10_000
 
 /**
- * A status's words, which YouTube and Vimeo send alone with an answer that is no video ("Bad
- * Request" under YouTube's JSON type, "404 Not Found" as Vimeo's page): each host's `sends`. A box
- * between the build and the host, a sandbox's proxy or a school's filter, answers with a page of
- * its own or under a type of its own, and so does Vimeo where it refuses the asker's network: none
- * of those is the host speaking of the video.
+ * A status's words, which YouTube and Vimeo send alone with an answer that is no video (`sends`). A
+ * proxy, a filter or Vimeo refusing a network answers otherwise.
  */
 const STATUS_WORDS = /** @type {Record<number, string>} */ ({ 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found' })
 
@@ -146,11 +124,8 @@ const COPYRIGHT_FIELDS = ['license', 'author', 'title', 'year', 'source', 'versi
 const COPYRIGHT_SOURCE = /^https?:\/\/.+/i
 
 /**
- * A saved file's copyright as a source writes it (#236): its parts that hold text, and nothing
- * where that is the licence "U" alone, which a build gives a file with none. H5P's editor saves
- * every part, empty where nobody wrote it, and a build refuses an empty one. A part a build
- * refuses, a licence H5P does not list for a file or a source that is no web address, is left out,
- * and `left` is told; a licence goes with its version.
+ * A saved file's copyright as a source writes it (#236): parts with text, none for the licence "U"
+ * alone. Empty parts go quietly; an unlisted licence, with its version, or a non-web source goes and `left` is told.
  * @param {unknown} copyright
  * @param {(key: 'license' | 'source', value: string) => void} [left]
  * @returns {Record<string, string> | undefined}
@@ -184,16 +159,12 @@ const IDLE_MS = 60_000
  */
 
 /**
- * @typedef {{ file: string, seconds: number, host?: string }} MediaLength a video's or a
- *   recording's length: `file`, as the source names it; `seconds`, from its index, or as `host`
- *   said it, which is in whole seconds
+ * @typedef {{ file: string, seconds: number, host?: string }} MediaLength a video's or recording's
+ *   length: `file` as the source names it, `seconds` from its index or its `host`
  * @typedef {{
  *   source: string, kind?: 'image' | 'video' | 'audio', format?: string, width?: number, height?: number,
  *   seconds?: number, host?: string, notes: string[], problem?: string
- * }} MediaFacts what a file is (`MediaStore.describe`): `source`, as it was named; `format`, a
- *   picture's type or a played file's container; a picture's `width` and `height` in pixels;
- *   `seconds`, an mp4's length, or a hosted video's as its `host` said it; `notes`, what is worth
- *   saying besides; `problem`, why it is none a source can name, with nothing else read
+ * }} MediaFacts what a file is (`MediaStore.describe`), with a `problem` if no source can name it
  */
 
 /**
@@ -208,14 +179,7 @@ const IDLE_MS = 60_000
  *   linked?(source: string): string | undefined,
  *   unread?: boolean
  * }} MediaAccess
- *   `what`, what a source's path names, for problems; `name`, the file's own name it names;
- *   `local`, that file, or why there is none; `keep`, a download's bytes kept; `open`, a kept
- *   file's length, and its bytes read from an offset, fewer at its end; `linked`, the web address
- *   a file the source names stays at and is played from, where it has one (#263); `unread`, for
- *   a check of a source whose files are elsewhere (#270): none is looked for, none downloaded and
- *   no host asked; one named by a path is judged by its name alone, a problem where its field
- *   takes no such type and listed where it does, and one named by a web address is left as
- *   written
+ *   `linked`: where a file stays and plays from (#263). `unread`: judged by name, none read (#270).
  */
 
 /**
@@ -251,9 +215,8 @@ function lastSegment(path) {
 }
 
 /**
- * An image's width and height, read from its header: PNG, JPEG, GIF and BMP. A JPEG's are in its
- * frame header, which any number of other segments may come before, a colour profile or XMP among
- * them, so its segments are walked by their lengths, as far into the file as they go.
+ * An image's width and height from its header: PNG, JPEG, GIF, BMP. A JPEG's are in its frame
+ * header, past any number of segments (a colour profile, XMP), so they are walked by length.
  * @param {(offset: number, length: number) => Promise<Uint8Array>} read the file's bytes from an offset, fewer at its end
  * @returns {Promise<{ width: number, height: number } | null>}
  * @internal
@@ -296,10 +259,8 @@ const mpegFrame = (head) => head.length >= 4 && head[0] === 0xff && (head[1] & 0
   (head[1] & 0x06) !== 0 && (head[2] & 0xf0) !== 0xf0 && (head[2] & 0x0c) !== 0x0c
 
 /**
- * What a video's or a recording's first bytes say it is: its container, a web page, or none known.
- * An mp4 or an m4a starts with `ftyp`, WebM with EBML's mark, Ogg with `OggS`, WAV with RIFF's
- * `WAVE`, MP3 with an ID3 tag or a frame header; a page with `<`, in UTF-8 or, after its
- * byte-order mark, in UTF-16.
+ * What a video's or recording's first bytes say it is: its container, a web page, or none known:
+ * `ftyp` (mp4, m4a), EBML (WebM), `OggS`, RIFF `WAVE`, an ID3 tag or frame (MP3), `<` (a page).
  * @param {Uint8Array} head the file's first 16 bytes, or all of a shorter one
  * @returns {'mp4' | 'webm' | 'ogg' | 'wav' | 'mp3' | 'page' | undefined}
  */
@@ -317,9 +278,8 @@ function containerOf(head) {
 }
 
 /**
- * The types `describe` reads: a picture's, a video's and a recording's. A name's extension says
- * which; of a web address with none, the type its server gives, a video's before a recording's
- * where both have one (`.webm`, `.ogg`).
+ * The types `describe` reads. A name's extension says which; a web address with none gets the type
+ * its server gives, a video's before a recording's (`.webm`, `.ogg`).
  */
 const DESCRIBED = { ...TYPES.image, ...TYPES.audio, ...TYPES.video }
 
@@ -339,9 +299,8 @@ const FORMATS = /** @type {Record<string, string>} */ ({ png: 'PNG', jpg: 'JPEG'
 const rounded = (seconds) => Math.round(seconds * 100) / 100
 
 /**
- * The line a build's output says of the video an Interactive Video's times were held to (#260),
- * so that whoever changes them next starts from its length: a file's as its index gives it, a
- * hosted video's as its host said it, in whole seconds.
+ * The line a build's output says of the video an Interactive Video's times were held to (#260), so
+ * the next change starts from its length: a file's from its index, a host's as it said it.
  * @param {MediaLength} length
  */
 export function lengthLine({ file, seconds, host }) {
@@ -445,9 +404,8 @@ export class MediaStore {
   }
 
   /**
-   * A written file made what H5P stores: `{ path, mime, width?, height?, copyright }`, its bytes
-   * staged for the package. A picture's size is read from its bytes, and a video's or a
-   * recording's container; an mp4's index too, for its length and what its tracks hold.
+   * A written file made what H5P stores (`{ path, mime, width?, height?, copyright }`), its bytes
+   * staged for the package; sizes, containers and an mp4's length and tracks are read from them.
    * @param {any} field the image, video, audio or file field
    * @param {{ path: string, copyright?: any }} value as written
    * @param {string} at where it is written, for problems
@@ -556,11 +514,8 @@ export class MediaStore {
   }
 
   /**
-   * What a file is, before a source names it (#260): a picture's size, a video's or a recording's
-   * container, and for an mp4 its length and what is worth saying of its tracks, by the readers a
-   * build holds a source's files to; of a video on YouTube, Vimeo, Panopto or Echo360, its host,
-   * and its length where the host's answer gives one. A file named by a web address is downloaded
-   * as a build downloads it. Nothing is staged for a package.
+   * What a file is, before a source names it (#260): a picture's size, a video's or recording's
+   * container, an mp4's length and tracks, a hosted video's host and length.
    * @param {string} written a path, or a web address
    * @returns {Promise<MediaFacts>}
    */
@@ -611,10 +566,8 @@ export class MediaStore {
   }
 
   /**
-   * A video's or a recording's bytes held to what its field takes: its container, from its first
-   * bytes, a problem where it is none of those; for an mp4, its index, a problem where there is
-   * none to read, and a note for a file with no sound, no picture, or a picture not every browser
-   * plays. A file whose index lists no track says nothing either way.
+   * A video's or recording's bytes held to what its field takes: its container from its first bytes
+   * and, for an mp4, its index; notes for no sound, no picture or one not every browser plays.
    * @param {{ size: number, read(offset: number, length: number): Promise<Uint8Array> }} file
    * @param {'video' | 'audio'} kind
    * @param {string} source as written
@@ -674,11 +627,8 @@ export class MediaStore {
   }
 
   /**
-   * A file that is not looked at (#270): a check of a source whose files are elsewhere, as an
-   * attachment in a chat is, which only the person's browser reads. One named by a path is judged
-   * by its name, which must be of a type the field takes, and listed in `unread`; one named by a
-   * web address is left as written, since its type is what its host says it is. Nothing of
-   * either is read, so a picture has no size and a video no length.
+   * A file not looked at (#270), for a source whose files are elsewhere, as a chat attachment: by
+   * path, judged by name and listed in `unread`; by web address, left as written.
    * @param {string} source
    * @param {boolean} web
    * @param {Record<string, string>} types
@@ -698,12 +648,8 @@ export class MediaStore {
   }
 
   /**
-   * A file left at a web address of its own and played from there (#263), as a video on YouTube
-   * is: a video or a recording only, since a picture's size is read from its bytes, its type taken
-   * from the name the source gives it. None of its bytes are read, so nothing of it is checked, and
-   * the package is a preview: the address may stop answering. An address on YouTube, Vimeo, Panopto
-   * or Echo360 is no file's: the source names such a video itself, where its form is checked. No
-   * problem quotes the address: it can be one that lets whoever has it read the file.
+   * A file left at a web address and played from there (#263): a video or recording only, as a
+   * picture's size needs its bytes. Nothing is checked, so the package is a preview.
    * @param {string} kind
    * @param {string} source
    * @param {string} address
@@ -736,12 +682,8 @@ export class MediaStore {
   }
 
   /**
-   * Whether a host has a video, asked of its oEmbed endpoint where it has one (#218): an address
-   * holds to its form only, so a made-up id built and showed a dead player. What an answer means
-   * is the host's own list (`answers`): a video that is not there is a problem, and one nobody
-   * else can play yet a note, since its owner can open it. Any other answer, one that is not the
-   * host's own (`#ask`), no network, or no answer in ten seconds says nothing either way, and the
-   * build goes on without it.
+   * Whether a host has a video, asked of its oEmbed (#218): a made-up id built a dead player. Not
+   * there is a problem, private a note; no answer, or not the host's, says nothing.
    * @param {(typeof HOSTED)[number]} hosted
    * @param {string} address as H5P.Video will play it
    * @param {string} source as written
@@ -769,11 +711,8 @@ export class MediaStore {
   }
 
   /**
-   * The status a host's oEmbed endpoint answers; 0 where it does not answer in time, and -1 where
-   * a status that would say something of the video is not sent as the host sends it (`sends`):
-   * that status's own words and nothing else, under the host's type. With it, the video's length
-   * in seconds, where the host's answer for a video it has carries one (`length`, #260): JSON
-   * that names the host, so a box in between that answers 200 for it says no length.
+   * The status a host's oEmbed answers: 0 if it fails or is late, -1 for a status in `answers` not sent as
+   * the host sends it (`sends`). Also the length in seconds, where the answer gives one (`length`, #260).
    * @param {string} url
    * @param {(typeof HOSTED)[number]} hosted
    * @returns {Promise<{ status: number, seconds?: number }>}

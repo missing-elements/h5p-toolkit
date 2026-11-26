@@ -1,10 +1,6 @@
 /**
- * A source's own fields, declared once: the outer shape of what a build takes. `sourceOf` holds
- * each field to it and says its message where the field was written, it is the `Source` type, and
- * an app is shown it as the shape of a source before one is written (#230).
- *
- * In zod/mini, since a build runs in a page too, where zod's chained API weighs four times as
- * much. Its messages are the build's problems, each with what to write.
+ * A source's own fields, declared once (#230): `sourceOf` holds each to it, and it is the `Source`
+ * type. In zod/mini, as a build runs in a page, where zod's chained API weighs four times as much.
  */
 import * as z from 'zod/mini'
 import { CC_VERSIONS, LICENSES, ROLES } from './metadata.mjs'
@@ -68,10 +64,8 @@ export const NO_FIELD = `is not a field of a source; the fields are ${Object.key
 export const NO_SOURCE = 'expected an object: { "type", "title", "language", "license", "authors", "params" }'
 
 /**
- * What a source says of itself, and its content's fields in `params`, and nothing else, as a build
- * refuses any other field. What a field cannot say alone stays in `sourceOf`: a content type named
- * loosely, a licence written with its version, a version for a licence that takes none, and fields
- * written in the wrong place.
+ * What a source says of itself and its content's fields in `params`, nothing else. What a field
+ * cannot say alone stays in `sourceOf`: loose type names, licence versions, misplaced fields.
  */
 export const sourceSchema = z.strictObject(fields, {
   error: (issue) => (issue.code === 'unrecognized_keys' ? NO_FIELD : NO_SOURCE)

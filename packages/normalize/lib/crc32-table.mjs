@@ -3,8 +3,7 @@ let table
 
 /**
  * CRC-32 of `bytes`, continuing from `previous`, by a table: no Node import, so a page can import
- * it, as `@missing-elements/h5p-normalize/crc32` resolves there. Node takes `lib/crc32.mjs`, which
- * runs zlib's where Node has it.
+ * it (`@missing-elements/h5p-normalize/crc32` resolves there). Node takes `lib/crc32.mjs`, zlib's.
  *
  * @param {Uint8Array} bytes
  * @param {number} [previous]

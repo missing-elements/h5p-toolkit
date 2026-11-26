@@ -9,11 +9,8 @@ import { PAGES } from './lib/pages.mjs'
 const RESIZER = resolve(import.meta.dirname, '../../../packages/embed/site/resizer.js')
 
 /**
- * Builds the hosted demo into `dist-demo/`: the pages through `vite.config.ts`, then the Service
- * Worker, the runtime and the demo content placed where the pages and the element expect them.
- * The player's `sync:assets` has to have run first — `pnpm build:demo` runs it — so that the
- * runtime package is built: its `dist/` is copied to `frame-assets/` at the site root, beside
- * `h5p-player.js`, which is where the element looks when told nothing.
+ * Builds the hosted demo into `dist-demo/`: the pages, workers, demo content, and the runtime in
+ * `frame-assets/`, where the element looks by default. `sync:assets` runs first, to build it.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
@@ -34,8 +31,7 @@ await buildJobsWorker(resolve(outDir, 'h5p-jobs.js'))
 await rm(resolve(outDir, 'frame-assets'), { recursive: true, force: true })
 await cp(RUNTIME_DIST, resolve(outDir, 'frame-assets'), { recursive: true })
 
-// The demo content, and nothing from the player's `public/fixtures/`: those are the test suite's stub
-// archives, and they are not what a visitor should see.
+// The demo content only, not the player's `public/fixtures/`: those are test stubs.
 const contentDir = resolve(rootDir, 'demo', 'content')
 const packages = (await readdir(contentDir)).filter((name) => name.endsWith('.h5p'))
 await mkdir(resolve(outDir, 'demo', 'content'), { recursive: true })
@@ -48,16 +44,12 @@ for (const name of packages) {
 await cp(resolve(rootDir, 'app', 'manifest.webmanifest'), resolve(outDir, 'app', 'manifest.webmanifest'))
 await cp(resolve(rootDir, 'app', 'icons'), resolve(outDir, 'app', 'icons'), { recursive: true })
 await cp(resolve(rootDir, 'app', 'screenshots'), resolve(outDir, 'app', 'screenshots'), { recursive: true })
-// The library pack the app attaches to packages without their own is not copied here: the page
-// imports it from `@missing-elements/h5p-libraries` as a URL, so Vite emits it under `assets/`
-// and the precache below picks it up from the manifest with everything else the page pulls in.
+// The pack's archives are not copied here: the page imports the pack, so Vite emits them under
+// `assets/` and the precache below picks them up from the manifest.
 
 /**
- * What the app needs to start with no network: the page, everything it pulls in — read from
- * Vite's manifest, so the hashed names are the real ones, and from the page itself for the
- * links Vite rewrote but does not list — the runtime and fonts under `frame-assets/`, and the
- * manifest and icons. The version is a hash over all of it, so the worker's bytes change, and
- * the browser installs it again, exactly when something it caches has.
+ * What the app needs offline: its page, what Vite's manifest lists (the real hashed names), the links the
+ * page loads that it does not, `frame-assets/`, manifest and icons. Their hash is the version of the worker.
  */
 async function appPrecache() {
   const manifestPath = resolve(outDir, '.vite', 'manifest.json')
@@ -95,14 +87,11 @@ async function appPrecache() {
   return { version: hash.digest('hex').slice(0, 12), urls: ['/app/', ...[...files].sort().map((name) => `/${name}`)] }
 }
 
-// The theme switch's script and the Star's count run before the first paint, so every page links
-// them as classic scripts with `vite-ignore` — Vite bundles modules only — and they are copied as
-// they are. Before the precache is read: the app page links them too, and the list is hashed over
-// the files it names.
+// theme.js and stars.js run before the first paint, so pages link them as classic scripts (Vite
+// bundles modules only). Copied before the precache is read: the app page links them too.
 for (const name of ['theme.js', 'stars.js']) await cp(resolve(rootDir, 'demo', name), resolve(outDir, 'demo', name))
-// The page-side half of the resizer protocol, for sites that frame /embed: a classic script at
-// the site root, named by the embed snippets, so an embedding page sends nothing to h5p.org. The
-// embed package's copy, the one a host's own player domain serves.
+// The resizer protocol's page-side script for sites that frame /embed, at the site root where the
+// embed snippets name it, so an embedding page sends nothing to h5p.org. The embed package's copy.
 await cp(RESIZER, resolve(outDir, 'resizer.js'))
 
 const precache = await appPrecache()

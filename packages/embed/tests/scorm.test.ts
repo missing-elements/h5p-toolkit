@@ -16,10 +16,8 @@ import { buildScorm } from '../lib/scorm.mjs'
 import { changedQuiz, entriesOf, formulas, quiz } from './helpers/zip.js'
 
 /**
- * The SCORM package `--scorm` writes: what is in the zip and what is refused, in Node; and in
- * Chromium, the launch page framed by a stand-in for an LMS's player page, which puts the SCORM
- * 1.2 API in its window and keeps the values, as Moodle's does, across launches. The same zip
- * built in a page is `scorm-browser.test.ts`'s and `scorm-page.test.ts`'s.
+ * The SCORM package `--scorm` writes: the zip and what is refused, in Node; in Chromium, the launch
+ * page framed by a stand-in LMS that keeps the values across launches, as Moodle's does.
  */
 
 const bin = resolve(import.meta.dirname, '../bin/h5p-embed.mjs')
@@ -313,9 +311,8 @@ describe('the command', () => {
 })
 
 /*
- * In an LMS. The zip is unpacked onto a static host, as an LMS serves a SCORM package, and played
- * from `/lms.html`: a page that puts the API in its window and frames the launch page, as Moodle's
- * player page does, keeping every call and the values between launches.
+ * In an LMS: the zip is unpacked onto a static host and played from `/lms.html`, a page that puts
+ * the API in its window and frames the launch page, as Moodle's does, keeping every call and value.
  */
 
 const MIME: Record<string, string> = {
@@ -444,10 +441,8 @@ describe('in an LMS', () => {
 
   beforeAll(async () => {
     const root = join(dir, 'unpacked')
-    // The quiz at the host's root, and the export without its libraries in a folder of its own,
-    // as an LMS gives each package a path of its own.
-    // And the quiz with the options, each in a folder of its own: 1.2 with a pass mark and
-    // completion as 100, 2004 with completion as 100, and 2004 with a pass mark.
+    // Each zip in a folder of its own, as an LMS gives each package a path: the quiz at the root,
+    // the export without its libraries, and the quiz with the options (1.2 graded, 2004 two ways).
     const zips: Array<[string, string, Parameters<typeof buildScorm>[0] | null]> = [
       [quiz, root, null],
       [formulas, join(root, 'formulas'), null],
@@ -584,10 +579,8 @@ describe('in an LMS', () => {
     expect(kept['cmi.interactions.0.id']).toMatch(/^Q1_[a-z0-9_]{1,40}$/)
     expect(kept['cmi.interactions.2.id']).toMatch(/^Q3_[a-z0-9_]{1,40}$/)
     expect(kept).toMatchObject({ 'cmi.interactions.0.type': 'choice', 'cmi.interactions.0.result': 'correct', 'cmi.interactions.1.type': 'true-false', 'cmi.interactions.1.result': 'correct', 'cmi.interactions.2.type': 'fill-in', 'cmi.interactions.2.result': 'correct' })
-    // The typed-in answer with its response and the right one, as text a person reads: the blanks
-    // listed, and H5P's `{case_matters=false}` gone. The right one is each blank's first answer; the
-    // learner's "deflated" is the second the third blank takes. The choice and the true-false with
-    // their result alone, since 1.2 writes those answers in a form of its own.
+    // The typed answer and the right one as text, `{case_matters=false}` gone; the choice and the
+    // true-false carry their result alone, as 1.2 writes those answers in a form of its own.
     expect(kept['cmi.interactions.2.student_response']).toBe('stored, Range, deflated, front')
     expect(kept['cmi.interactions.2.correct_responses.0.pattern']).toBe('stored, Range, compressed, front')
     for (const index of [0, 1]) {
@@ -633,10 +626,8 @@ describe('in an LMS', () => {
   })
 
   /*
-   * Two of the bridge's rules that no package here reaches headless: content that finishes with no
-   * score, and a state past what SCORM 1.2 keeps. The element's events are dispatched as it
-   * dispatches them, each within one call into the page, so no save of the content's own comes
-   * between.
+   * Two bridge rules no package here reaches headless: a finish with no score, and a state past
+   * what 1.2 keeps. Events go in one call into the page, so no content save comes between.
    */
 
   it('records a result without a score as completed, and no score', async () => {
@@ -768,8 +759,7 @@ describe('in an LMS', () => {
     expect(kept['cmi.interactions.0.student_response']).toBeUndefined()
 
     // Answered again: the same index, the new result, nothing added. What an earlier answer left
-    // there, here a choice's response and right one in H5P's notation as a zip before 1.2's answers
-    // were held to their types wrote them in an attempt it began, is emptied, not left beside it.
+    // there (H5P's notation, from a zip before 1.2 answers were typed) is emptied, not kept.
     await page.evaluate(() => Object.assign((window as unknown as { values: Record<string, string> }).values, { 'cmi.interactions.0.student_response': '0[,]1', 'cmi.interactions.0.correct_responses.0.pattern': '0[,]2' }))
     await answer(first.sco, 'a', 'Which <em>rivers</em> cross Germany?', {}, { response: '0[,]2', success: true, score: { raw: 2, max: 2 } })
     kept = await values(page)
@@ -779,10 +769,8 @@ describe('in an LMS', () => {
     expect(kept['cmi.interactions.1.student_response']).toBeUndefined()
     expect(kept['cmi.interactions.1.correct_responses.0.pattern']).toBeUndefined()
 
-    // An Essay's long answer, as `fill-in`, its response cut to what 1.2 keeps; a type 1.2 has not,
-    // left out, with its response; a question with no words, named by its number alone; a result
-    // that says nothing, neutral; one that says nothing but scores, as Fill in the Blanks does, by
-    // its marks.
+    // An Essay as `fill-in`, its response cut to what 1.2 keeps; a type 1.2 lacks, left out with
+    // its response; no words, the number alone; no result, neutral; a score alone, its marks.
     await answer(first.sco, 'c', '', { interactionType: 'long-fill-in', correctResponsesPattern: [] }, { response: 'x'.repeat(300), success: undefined, score: undefined, duration: undefined })
     await answer(first.sco, 'd', 'Other', { interactionType: 'other' }, { success: undefined, score: { raw: 1, max: 2 } })
     kept = await values(page)

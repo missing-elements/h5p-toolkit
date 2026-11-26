@@ -4,11 +4,8 @@ import type { H5PPlayerElement } from '../../src/h5p-offline-player'
 import { FIXTURES, frameDocument, frameFetch, frameWindow, messageOf, virtualUrl, waitForSettled } from './utils'
 
 /**
- * Several players showing one package at once. The bytes are the same, so the package's row and
- * cache are shared; what each load asked for is its own — trust, language, display options, the
- * bundle attached — kept under a key its frame's URLs carry. Until it was, the last player to
- * register set all of it for every frame of the package: a player asked for French showed German,
- * and one asked to play the package untrusted could be served the package's own code.
+ * Several players showing one package: the bytes are shared, but each load's trust, language,
+ * options and bundle are its own, keyed in its frame's URLs. Once the last to register won.
  */
 
 type Marked = Window & { ownLibraryRan?: boolean }

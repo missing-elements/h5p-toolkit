@@ -2,9 +2,8 @@ import { STORED } from './local-header.js'
 import type { ByteRange } from './range.js'
 
 /**
- * Restricts a byte stream to an inclusive range without buffering it. Used to answer a `Range`
- * request from an entry the cache holds in one piece: the body is sliced as it flows rather than
- * read into memory and cut.
+ * Restricts a byte stream to an inclusive range without buffering it, to answer a `Range` request
+ * from an entry the cache holds in one piece.
  */
 export function sliceStream(
   source: ReadableStream<Uint8Array>,
@@ -43,9 +42,8 @@ export function sliceStream(
 }
 
 /**
- * A stream opened only once something reads it. A stream is otherwise pulled as soon as it is
- * constructed, and one nobody consumes would open a request for its whole span and leave it
- * hanging; the virtual server and the span reader both hand out streams that may never be read.
+ * A stream opened only once read: a constructed stream is pulled at once, so one nobody consumes
+ * would open a request for its whole span and hang. The server and span reader hand out those.
  */
 export function deferredStream(open: () => Promise<ReadableStream<Uint8Array>>): ReadableStream<Uint8Array> {
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
@@ -66,9 +64,8 @@ export function deferredStream(open: () => Promise<ReadableStream<Uint8Array>>):
 }
 
 /**
- * An entry's bytes as the archive stored them, inflated when the entry is deflated: the native
- * codec, which is what zip.js would have used. The lib types the codec's input as `BufferSource`,
- * stricter than the plain views it gets, so the one cast for it lives here.
+ * An entry's bytes as stored, inflated when deflated, by the native codec zip.js would use. The lib
+ * types its input as `BufferSource`, stricter than the views it gets, so the one cast is here.
  */
 export function inflated(stored: ReadableStream<Uint8Array>, method: number, compressedSize: number): ReadableStream<Uint8Array> {
   if (method === STORED || compressedSize === 0) return stored

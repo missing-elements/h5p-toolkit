@@ -408,9 +408,8 @@ describe('content authored from semantics', () => {
     ])
     expect(held.params.elements[0]).toMatchObject({ x: 5, action: { library: 'H5P.AdvancedText 1.1', params: { text: '<h1>One</h1>' } } })
 
-    // A title beside it, with its parameters beside the name, in `params` or with `library`, is
-    // its own where it is no field of the group or of its library: its `metadata.title`, said
-    // where it is written, and not a field of the group or a parameter.
+    // A title beside sub-content, its parameters beside the name, is its own where it is no field
+    // of the group or library: its `metadata.title`, said where it is written.
     const titledHeld = generate(slide, { elements: [
       { type: 'H5P.AdvancedText', title: 'One', text: 'First' },
       { contentType: 'H5P.AdvancedText', title: 'Two', params: { text: 'Second' } },

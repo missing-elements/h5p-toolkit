@@ -26,29 +26,16 @@ import { JobQueue, type ExtractJob } from './job-queue.js'
 import { warmPackage } from './warm.js'
 
 /**
- * The Jobs worker. Everything that takes longer than a Service Worker event is allowed to lives
- * here: downloading an archive from a host that ignores `Range`, warming the libraries, and
- * inflating a large deflated entry into chunks. It runs in the page, so it lives as long as the
- * tab and can be killed only by the user navigating away.
- *
- * It carries no zip.js and reads no index. Every job is told where in the archive its bytes are
- * — the warm gets its spans, an extraction gets its entry's location — by the Service Worker,
- * which has the central directory already; the worker steps over a local header and inflates
- * with the native `DecompressionStream`. Reading the index here as well cost a round of ranged
- * requests per worker and a hundred and sixty kilobytes in every page that embeds the element.
- *
- * Jobs are guarded by a Web Lock named after the package and entry, so two tabs playing the same
- * package share one extraction instead of racing to write the same chunks.
+ * The Jobs worker: what outlives a Service Worker event (downloads, warming, big inflates), in the
+ * page, with no zip.js or index: the Service Worker says where each job's bytes are.
  */
 
 const scope = self as unknown as DedicatedWorkerGlobalScope
 
 const inFlight = new Map<string, AbortController>()
 /**
- * Extractions waiting their turn. They run one at a time — see `JobQueue` for the order — and
- * while they wait they announce themselves as queued on the watermark channel, so a request that
- * is waiting on one hears a live job rather than a silent one. Downloads and warming are not
- * queued: both happen before the frame boots, with nothing to compete against.
+ * Extractions waiting their turn, one at a time (see `JobQueue`). They announce themselves queued,
+ * so a waiting request hears a live job. Downloads and warming run before boot, unqueued.
  */
 const queue = new JobQueue()
 let extracting: string | null = null
@@ -60,9 +47,8 @@ function send(message: FromJobsMessage): void {
   scope.postMessage(message)
 }
 
-// The large writes happen here, so this is where quota runs out: the policy has to be installed
-// here as well as in the Service Worker, or a full disk evicts whatever the browser lists first.
-// Nothing to forget on an eviction: this worker keeps no reader or index per package.
+// The large writes happen here, so quota runs out here: without the policy a full disk evicts
+// whatever the browser lists first. Nothing to forget on eviction: no reader or index per package.
 installEvictionPolicy()
 
 /**
@@ -83,10 +69,8 @@ scope.addEventListener('message', (event: MessageEvent<ToJobsMessage>) => {
     for (const [key, controller] of inFlight) {
       if (!key.startsWith(packageLockPrefix(message.pkgId))) continue
       controller.abort()
-      // Released now, not once the abort has finished unwinding. That takes several tasks — the
-      // pipe has to tear down — and a fresh request for the same key can land in between: a
-      // second press of Play posts `abort` and `download` back to back. Left in the map, the
-      // new one is dropped as a duplicate of a job that is already dying, and nothing answers it.
+      // Released now, not once the abort unwinds: a second press of Play posts `abort` and
+      // `download` back to back, and the new job would be dropped as a duplicate of a dying one.
       inFlight.delete(key)
     }
     return
@@ -195,12 +179,8 @@ async function run(message: Exclude<ToJobsMessage, { type: 'abort' }>): Promise<
 /* ------------------------------------------------------------------ download */
 
 /**
- * Downloads an archive into the chunk store. The central directory sits at the end of a zip, so
- * a host that ignores `Range` forces the whole file down before anything can be indexed.
- *
- * A partial download is resumable: the watermark is always a chunk-aligned prefix, so the retry
- * asks for `bytes=N-`. A host that answers `200` to that ignored the header, and the download
- * starts over.
+ * Downloads an archive into the chunk store, as a host ignoring `Range` forces the whole file
+ * down. Resumes from the chunk-aligned watermark (`bytes=N-`); a `200` to that restarts.
  */
 async function downloadArchive(
   pkgId: string,
@@ -217,9 +197,8 @@ async function downloadArchive(
   const existing = await store.getArchiveMeta()
 
   if (existing?.complete) {
-    // A part kept whole but never checked — its worker stopped between the last write and the
-    // check, or a player from before parts were marked kept it — is checked now, and downloaded
-    // again if it fails.
+    // A part kept whole but never checked (its worker stopped between the last write and the
+    // check, or an old player kept it) is checked now, and downloaded again if it fails.
     if (sha256 && existing.checked !== sha256) {
       try {
         await checkHash(store, existing, sha256, source.url)
@@ -256,16 +235,13 @@ async function downloadArchive(
     throw new PlayerError('network', 'The archive response had no body')
   }
 
-  // The probe's size first: it was measured through a ranged request, which browsers make with
-  // `Accept-Encoding: identity`. This response is a plain `GET` when nothing is being resumed,
-  // and a host that compresses the archive answers that with the compressed copy's length.
+  // The probe's size first: it was measured by a ranged request (`identity`), while a plain `GET`
+  // here may be answered with a compressing host's shorter length.
   const declared = response.headers.get('content-length')
   const totalSize = source.size ?? (declared ? Number(declared) + startOffset : null)
 
-  // Index the archive as it passes: a host that ignores `Range` would otherwise keep every entry
-  // hostage until the central directory arrives, at the very end. The scanner reads the local
-  // headers off the same bytes on their way to the chunk store, and what it has found is
-  // published beside the watermark so the Service Worker can start serving from it.
+  // Index the archive as it passes: a host ignoring `Range` would hold every entry hostage until
+  // the central directory arrives. The Service Worker serves from what the scanner finds.
   const scanner = new LocalHeaderScanner()
   if (startOffset > 0) {
     // A resumed download starts mid-archive; the scanner has to have seen the prefix.
@@ -307,11 +283,8 @@ async function downloadArchive(
   }
   await index.publish(true)
 
-  // Read back, because WebKit can lose it: measured on 2026-10-13 in Playwright's WebKit, a
-  // package downloaded whole, its element removed — which terminates this worker — and played
-  // again at once had the first download's entries gone and the second's never kept, the record
-  // missing straight after its own write. No context deleted the cache; deleting it by name and
-  // writing again kept everything, every time. Once, so a store that keeps nothing fails here.
+  // Read back, as WebKit can lose it (a package downloaded whole, element removed, played again:
+  // record gone). Once, so a store that keeps nothing fails here.
   const meta = await store.getArchiveMeta()
   if (!meta?.complete && !afresh) {
     await store.destroy()
@@ -323,12 +296,8 @@ async function downloadArchive(
 }
 
 /**
- * Reads a downloaded part of the library pack back and refuses it unless its bytes hash to what
- * the pack's index says, dropping what was stored: the part is library code the host's site will
- * run, and the index — the one this release pins, or the host's — is what names it. Read whole,
- * which is the one buffering here and is bounded by the pack's largest part, a few megabytes;
- * nothing streams SHA-256 in a browser. A match is recorded on the part, which is then known by
- * its hash and not checked again.
+ * Reads a downloaded pack part back and refuses it unless it hashes as the pack's index says: it
+ * is library code the site will run. Read whole (a few MB; SHA-256 cannot stream).
  */
 async function checkHash(store: ChunkStore, meta: ChunkMeta, expected: string, url: string): Promise<void> {
   const size = meta.size ?? meta.available
@@ -345,11 +314,8 @@ async function checkHash(store: ChunkStore, meta: ChunkMeta, expected: string, u
 /* ------------------------------------------------------------------ warming */
 
 /**
- * Pulls the spans the index named into the cache before the frame boots. `warm.ts` holds the
- * walk; this is the job around it: the marker that spares a repeat, the handle, the reports.
- * Whatever stops it short of the end — no room, a host that stops answering, a span that is not
- * what the index said — the frame boots anyway and the virtual server serves the rest on demand,
- * so a warm ends in `done` or in an abort, and only a job that could not start ends in `failed`.
+ * Pulls the spans the index named into the cache before boot. However it stops short, the server
+ * serves the rest, so a warm ends in `done` or an abort; `failed` only if it cannot start.
  */
 async function warmJob(
   pkgId: string,
@@ -382,9 +348,8 @@ async function warmJob(
 /* ------------------------------------------------------------------ extraction */
 
 /**
- * Inflates one large deflated entry into chunks. A single pass: zip.js streams the inflate and
- * the chunk writer publishes the watermark behind it, so the Service Worker can start serving a
- * prefix while the rest is still coming.
+ * Inflates one large deflated entry into chunks in a single pass: the native codec streams it and
+ * the chunk writer publishes the watermark behind it, so a prefix is served while the rest comes.
  */
 async function extractEntry(
   pkgId: string,
@@ -405,11 +370,8 @@ async function extractEntry(
     throw new PlayerError('bad-archive', `${entryName} is compressed with a method this player cannot extract`)
   }
 
-  // A job only ever extracts from the archive it was asked about: the Service Worker resolves
-  // which archive an entry lives in, addresses the job at that one, and says where in it the
-  // entry is. `partial`: an entry the forward index named lies below the watermark of an archive
-  // that is still downloading, and is whole there — the index only names an entry once its
-  // bytes have all arrived.
+  // The Service Worker names the archive and where the entry is. `partial`: an entry the forward
+  // index named is whole below the watermark of an archive still downloading.
   const handle = await openSource(pkgId, source, files.get(pkgId), { partial: true })
   const start = location.dataStart ?? (await dataStartOf(handle, entryName, location))
   const end = start + location.compressedSize - 1
@@ -417,9 +379,8 @@ async function extractEntry(
     throw new PlayerError('bad-archive', `${entryName} extends past the end of the archive`)
   }
 
-  // A deflate stream has no restart points, so a partial extraction is discarded rather than
-  // resumed. This is the reason extraction never runs in the Service Worker: a kill mid-inflate
-  // would repeat this from zero on every attempt.
+  // A deflate stream cannot resume, so a partial extraction is discarded: why this never runs in
+  // the Service Worker, where a kill mid-inflate would restart from zero each time.
   await store.setMeta(entryName, { size: location.size, available: 0, complete: false })
 
   const stopReporting = reportRunning(handle, pkgId, entryName)
@@ -453,12 +414,8 @@ async function dataStartOf(handle: SourceHandle, entryName: string, location: En
 }
 
 /**
- * Announces, every `INPUT_LIVENESS_MS` while a job runs, that it is running — with the bytes it
- * has taken from the network when the source counts them — so the Service Worker's stall bound
- * can tell a job that is alive from one that died with its tab. Whether bytes are arriving is not
- * the question: the job's own reads bound a silent link and give up on their own terms, and a
- * waiter that gave up first ended a media element's response with an error it never recovers
- * from. Nothing is written; the notice rides the watermark channel.
+ * Announces every `INPUT_LIVENESS_MS` that the job runs, so a stall bound tells it from one dead
+ * with its tab. Bytes are not the test: a waiter giving up first ends a media response for good.
  */
 function reportRunning(handle: SourceHandle, pkgId: string, entry: string): () => void {
   const announce = () => announceRunning(pkgId, entry, handle.received)
@@ -468,10 +425,8 @@ function reportRunning(handle: SourceHandle, pkgId: string, entry: string): () =
 }
 
 /**
- * Leaves a failed extraction's verdict where the Service Worker will look for it. Its chunks go —
- * a deflate stream cannot be resumed, and until the next attempt they only hold space the rest of
- * the package may need — and the meta stays, carrying the failure, so a request for the entry is
- * answered with it at once rather than after a stall, and retried only once it has aged.
+ * Records a failed extraction's verdict: its chunks go (a deflate stream cannot resume), the meta
+ * keeps the failure, so a request is answered at once and retried once it has aged.
  */
 async function recordFailure(pkgId: string, entry: string, code: ErrorCode, message: string): Promise<void> {
   const store = new ChunkStore(pkgId)

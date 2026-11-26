@@ -1,7 +1,6 @@
 /**
- * The H5P hub as the build scripts read it: the host, the cache under the OS temp directory, and
- * a download that keeps a copy there. `build-demo-content.mjs` and `build-libraries.mjs` both
- * fetch bundles from it, and each kept its own copy of this until 2026-10-15.
+ * The H5P hub as the build scripts read it: the host, the cache under the OS temp directory, and a
+ * download that keeps a copy there. `build-demo-content.mjs` and `build-libraries.mjs` share it.
  */
 import { createWriteStream } from 'node:fs'
 import { mkdir, stat } from 'node:fs/promises'
@@ -11,9 +10,8 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 /**
- * The hub's current host, which moved here in 2026. A Node fetch needs no CORS headers, which is
- * why the build reads it and the element never does: `libraries="pack"` is the pack this
- * repository builds from it with `pnpm libraries`.
+ * The hub's current host. A Node fetch needs no CORS headers, which is why the build reads it and
+ * the element never does: `libraries="pack"` is the pack built from it.
  */
 export const HUB = 'https://hub-api.h5p.org/v1/content-types/'
 
@@ -24,9 +22,8 @@ export const cacheDir = join(tmpdir(), 'h5p-hub-cache')
 export const exists = (path) => stat(path).then(() => true, () => false)
 
 /**
- * A file, kept under `name` in the cache. With `refresh`, fetched again; with `optional`, `null`
- * when its host says there is no such file — the old hub host said 404, and S3 behind the new one
- * says 403 for a missing key.
+ * A file, kept under `name` in the cache; `refresh` fetches it again, `optional` gives `null` for a
+ * file its host lacks: the old hub said 404, and S3 behind the new one says 403 for a missing key.
  * @param {string} url
  * @param {string} name
  * @param {{ refresh?: boolean, optional?: boolean, log?: string }} [options]

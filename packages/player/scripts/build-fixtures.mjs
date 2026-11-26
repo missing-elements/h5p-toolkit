@@ -5,18 +5,14 @@ import { splitPack } from '../../libraries/scripts/parts.mjs'
 import { GENERATED_FIXTURES, LARGE_ENTRY_SIZE } from './lib/fixture-names.mjs'
 
 /**
- * Builds the `.h5p` archives the browser tests play. They are generated rather than committed
- * because two of them need entries no ordinary zip tool will write — a path traversal, and media
- * large enough to take the slice and chunk paths — and because a 20 MB fixture does not belong
- * in git.
+ * Builds the `.h5p` archives the browser tests play. Generated, as two need entries no zip tool
+ * writes (a path traversal, media for the slice and chunk paths) and 20 MB does not belong in git.
  */
 
 const rootDir = resolve(import.meta.dirname, '..')
 const sourceDir = resolve(rootDir, 'tests', 'fixtures', 'src', 'basic')
 const extraLibDir = resolve(rootDir, 'tests', 'fixtures', 'src', 'extra')
 const outDir = resolve(rootDir, 'public', 'fixtures')
-
-/** Comfortably past the 16 MB inline threshold, so these take the large-entry paths. */
 
 async function collectFiles(dir, prefix = '') {
   const found = []
@@ -64,9 +60,8 @@ const randomBytes = (size = LARGE_ENTRY_SIZE) => {
   return bytes
 }
 
-// Only the archives this script owns are cleared. `public/fixtures/` is where a real `.h5p`
-// gets dropped to try against the demo, and wiping the directory would delete it on the next
-// `pnpm dev`.
+// Only the archives this script owns are cleared: a real `.h5p` dropped into `public/fixtures/` to
+// try against the demo would otherwise be deleted on the next `pnpm dev`.
 
 await mkdir(outDir, { recursive: true })
 for (const name of GENERATED_FIXTURES) {
@@ -83,10 +78,8 @@ built.push([
   })
 ])
 
-// 1a. As h5p-author writes a package (#146): after the content, the libraries an H5P site's upload
-//     check wants and nothing reads as the package plays, here the content type's editor and what
-//     it needs, two of them, each with a script of 100 kB that does not compress, so the run lies
-//     past the index's first block and before its last. The content type names its editor.
+// 1a. As h5p-author writes a package (#146): unread editor libraries after the content, two scripts
+//     of 100 kB that do not compress, so the run lies between the index's first and last block.
 built.push([
   'installable.h5p',
   await writeArchive('installable.h5p', async (writer) => {
@@ -114,10 +107,8 @@ built.push([
   })
 ])
 
-// 1b. A result and its parts: the content type with its Answer button, which reports `answered`
-//     as a single question does, a child of itself run as sub-content, whose Complete reports
-//     `completed` with the parent named, and another run without a parent, as Interactive Book
-//     runs its chapters. Only the content's own statements are its result.
+// 1b. A result and its parts: `answered` from Answer, a child's `completed` with its parent, and a
+//     parentless one, as Interactive Book runs chapters. Only the content's own statements count.
 built.push([
   'finished.h5p',
   await writeArchive('finished.h5p', async (writer) => {
@@ -136,9 +127,8 @@ built.push([
   })
 ])
 
-// 1c. The ordinary case saying which language it is in, as `h5p.json`'s `defaultLanguage` does:
-//     H5P's own strings follow it, whatever the page's language (#55). `basic.h5p` names none,
-//     so it plays in the element's.
+// 1c. Names its language in `h5p.json`, so H5P's own strings follow it whatever the page's (#55);
+//     `basic.h5p` names none and plays in the element's.
 for (const [name, language] of [
   ['german.h5p', 'de'],
   ['english.h5p', 'en']
@@ -153,10 +143,8 @@ for (const [name, language] of [
   ])
 }
 
-// 1d. The German package with its `h5p.json` behind a megabyte of media, as `boardgame.h5p` has
-//     it at entry 200: on a host without Range the worker opens its reader at the first progress
-//     report, before the manifest has arrived, and the frame still has to boot in German (#57).
-//     More media after it, so the frame boots while the download is still under way.
+// 1d. German, `h5p.json` behind a megabyte of media as in `boardgame.h5p`: without Range the worker
+//     opens its reader before the manifest arrives, and the frame must still boot in German (#57).
 built.push([
   'german-late-manifest.h5p',
   await writeArchive('german-late-manifest.h5p', async (writer) => {
@@ -168,9 +156,8 @@ built.push([
   })
 ])
 
-// 1e. The ordinary case with empty files, as real exports carry them (a book in the local corpus has
-//     three empty images): the content type loads an empty script beside its own, and `content/`
-//     holds an empty file deflated, as most writers leave one, and another stored.
+// 1e. Empty files, as real exports carry them: an empty script beside the content type's own, and
+//     empty files in `content/`, one deflated as most writers leave it and one stored.
 built.push([
   'empty-files.h5p',
   await writeArchive('empty-files.h5p', async (writer) => {
@@ -217,9 +204,8 @@ built.push([
   })
 ])
 
-// 3b. A large deflated entry that does not compress: its compressed span is long enough to be
-//     fetched in segments over HTTP, which the compressible one above never is — 20 MB of zeros
-//     deflate to 20 kB. This is the archive that exercises `segmentedStream` end to end.
+// 3b. A large deflated entry that does not compress, so its span is fetched in segments over HTTP
+//     (20 MB of zeros deflate to 20 kB): this exercises `segmentedStream` end to end.
 built.push([
   'segmented.h5p',
   await writeArchive('segmented.h5p', async (writer) => {
@@ -234,10 +220,8 @@ built.push([
   })
 ])
 
-// 3c. Every entry with a data descriptor — the layout a writer that streams produces, and what
-//     h5p.com's exporter ships: sizes after the data, nothing in the local header to skip by.
-//     Libraries first and media last, so a host that ignores Range can boot it before the media
-//     lands, which is the forward index's whole point.
+// 3c. Every entry with a data descriptor, as h5p.com's exporter writes it: sizes after the data.
+//     Libraries first and media last, so a host that ignores Range boots before the media lands.
 built.push([
   'streamed.h5p',
   await writeArchive('streamed.h5p', async (writer) => {
@@ -358,12 +342,8 @@ built.push([
   })
 ])
 
-// 6. A whole package whose content type asks, in its own library.json, for a library the package
-//    does not carry and h5p.json does not name: the top-level check passes, and the runtime, which
-//    follows every library's dependencies, would end its boot on the 404. The bundle has it.
-//    Laid out as an export is, the library folder first and media last, so on a host without
-//    `Range` the frame could boot from the forward index while the media is still arriving —
-//    before the download is done and the dependency is found missing.
+// 6. A content type needing a library h5p.json does not name (the bundle has it): the runtime would
+//    end its boot on the 404. Media last, so a host without `Range` boots the frame early.
 const NEEDS_DEPENDENCY_LIBRARY = 'H5P.OfflineTest-1.0/library.json'
 const libraryNeedingExtra = JSON.parse(await readFile(resolve(sourceDir, NEEDS_DEPENDENCY_LIBRARY), 'utf8'))
 libraryNeedingExtra.preloadedDependencies = [{ machineName: 'H5P.OfflineExtra', majorVersion: 1, minorVersion: 0 }]
@@ -381,10 +361,8 @@ built.push([
   })
 ])
 
-// 6a. A package to play `untrusted`: its own copy of the fixture content type, rewritten to leave
-//     a mark when it runs and to say so on screen, which must never happen there — the bundle's
-//     copy plays instead — and a file of each kind under `content/`, only some of which may be
-//     served. A tiny PNG, so an image is among them.
+// 6a. To play `untrusted`: its own copy of the content type marks the page if it runs (the bundle's
+//     must play instead), and a file of each kind under `content/`, only some of them servable.
 const PIXEL_PNG = Uint8Array.from(
   atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='),
   (character) => character.charCodeAt(0)
@@ -441,9 +419,8 @@ built.push([
   })
 ])
 
-// 6a'''. One whose `h5p.json` names a newer minor of the content type than the folder it carries,
-//        as an export whose manifest and folders disagree: nothing has 1.1, so its own 1.0 plays
-//        it, with no library bundle attached, or it is refused with `downgrade-libraries="off"`.
+// 6a'''. `h5p.json` names a newer minor than the folder it carries, as a disagreeing export does:
+//        nothing has 1.1, so its own 1.0 plays, or it is refused with `downgrade-libraries="off"`.
 built.push([
   'older-own.h5p',
   await writeArchive('older-own.h5p', async (writer) => {
@@ -454,11 +431,8 @@ built.push([
   })
 ])
 
-// 6a''. Content to check against the content type's semantics, played with the bundle: markup a
-//       field does not allow — a script, a handler, a form asking for a password — a scheme off
-//       the list, a field the semantics do not name, and the same in sub-content. Played trusted,
-//       all of it reaches the page, where only the frame's policy stops the scripts; untrusted,
-//       none of it does.
+// 6a''. Content to check against the semantics: markup a field does not allow, a scheme off the
+//       list, a stray field, in sub-content too. Trusted, all reaches the page; untrusted, none.
 const MARKUP_CONTENT = {
   message: 'Checked against its semantics.',
   html:
@@ -495,10 +469,8 @@ built.push([
   })
 ])
 
-// 6b. Content written for older minors than a bundle serves. The bundle carries the fixture
-//     content type at 1.2 and a sub-content type at 1.1, each with an `upgrades.js`, and the
-//     exports name 1.0 and 1.1: the frame has to run the steps in between before the runtime reads
-//     the parameters, as the platforms do when they install a newer minor.
+// 6b. Content for older minors than the bundle serves (1.2 and 1.1, each with `upgrades.js`): the
+//     frame must run the steps in between before the runtime reads the parameters.
 const upgradeLibFiles = await collectFiles(resolve(rootDir, 'tests', 'fixtures', 'src', 'upgrade'))
 const offlineTestLibrary = JSON.parse(await readFile(resolve(sourceDir, 'H5P.OfflineTest-1.0', 'library.json'), 'utf8'))
 
@@ -582,12 +554,8 @@ built.push([
   })
 ])
 
-// 7a. The same, carrying the extra library too, which h5p.json lists after the content type. Played
-//     with the pack, its content type plays at the pack's 1.2, from a folder named with its
-//     version, and the extra library, which the pack has at the same version, from the package's
-//     own folder named without one. h5p-standalone named every folder one way, by whether the first
-//     dependency answered under its versioned name, so the two kinds of folder side by side ended
-//     its boot on the extra library's 404 (#37).
+// 7a. The same plus the extra library: with the pack, the content type plays from a versioned
+//     folder and the extra one from a bare one; one naming rule for both ended boot on a 404 (#37).
 const UNVERSIONED_MANIFEST = { ...JSON.parse(await readFile(resolve(sourceDir, 'h5p.json'), 'utf8')) }
 UNVERSIONED_MANIFEST.preloadedDependencies = [
   ...UNVERSIONED_MANIFEST.preloadedDependencies,
@@ -623,19 +591,14 @@ const garbage = new TextEncoder().encode('this is not a zip archive, not even cl
 await writeFile(resolve(outDir, 'corrupt.h5p'), garbage)
 built.push(['corrupt.h5p', garbage.length])
 
-// 10. An HTML page where the archive should be: a login wall or an error page a host serves
-// with status 200 is the common version of this in the wild. The test once got it from the dev
-// server's SPA fallback, answering a missing file with the repository's index.html; that page
-// moved to the demo app, and a fixture does not depend on where any page lives.
+// 10. An HTML page where the archive should be: a login wall or error page a host serves with
+// status 200. Written here, so it does not depend on the dev server's SPA fallback.
 const page = new TextEncoder().encode('<!doctype html>\n<html><head><title>Sign in</title></head><body><form>…</form></body></html>\n')
 await writeFile(resolve(outDir, 'html-page.h5p'), page)
 built.push(['html-page.h5p', page.length])
 
-// 11. A library pack, split the way the real one is (`splitPack` in packages/libraries): the
-//     fixture content type at 1.2 with its upgrade steps, the sub-content type at 1.1, and the
-//     extra library. A package carrying the content type at 1.0 plays the pack's 1.2 with the
-//     steps run, which its message shows. `pack-tampered/` is the same with one hash wrong in its
-//     index. Directories, not archives: neither is in the list below, and the demo ships neither.
+// 11. A pack split as the real one is (`splitPack`): content type 1.2 with upgrades, sub-content
+//     1.1, the extra library; `pack-tampered/` has a wrong hash. Directories, so not listed below.
 const packWriter = new ZipWriter(new BlobWriter('application/zip'))
 for (const { entryName, path } of baseFiles) {
   if (!entryName.startsWith('H5P.OfflineTest-1.0/') || entryName.endsWith('/library.json')) continue

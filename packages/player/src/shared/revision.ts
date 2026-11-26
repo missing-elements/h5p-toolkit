@@ -1,11 +1,6 @@
 /**
- * Which build of a package a learner completed, in the two fields xAPI defines for it.
- *
- * `context.revision` — "revision of the learning activity associated with this Statement. Format
- * is free" — carries a fingerprint of the archive's index; `context.platform` names the player.
- * Neither is set by H5P core, and both are allowed on every H5P statement, whose object is an
- * Activity. *When* a build was the current one is not the statement's to say: that is the
- * publishing organisation's version record, which an audit compares these against.
+ * Which build of a package a learner completed, in xAPI's `context.revision` (a fingerprint of the
+ * archive's index) and `context.platform` (the player). H5P core sets neither.
  */
 import { hex } from './pkg-id.js'
 
@@ -21,18 +16,8 @@ export interface FingerprintEntry {
 }
 
 /**
- * SHA-256 over the central directory's records, in archive order: per entry the name's length
- * (u32) and bytes, the CRC-32 (u32), the compressed and uncompressed sizes (u64) and the method
- * (u16), all little-endian. Written as `sha256:<hex>`.
- *
- * The index, not the whole file, because it is already read at index time and is a few
- * kilobytes, while a range-read package is never read whole. It changes with any entry's name,
- * size, checksum, method or place in the archive, so it identifies a build; zipping the same
- * files again in another order is another build. Dates, comments and extra fields stay out: they
- * say nothing about what the learner was shown. It is not proof against forgery — CRC-32 can be
- * matched on purpose — which is why the original `.h5p` is what an audit keeps and recomputes
- * this from. The normalizer's `lib/fingerprint.mjs` is the same recipe for Node; keep the two in
- * step, as the shared test vector checks.
+ * SHA-256 of the index (a range-read package is never read whole), as `sha256:<hex>`: each entry's
+ * name, CRC-32, sizes and method in archive order, no dates. Keep in step with the normalizer's `lib/fingerprint.mjs`.
  */
 export async function indexFingerprint(entries: Iterable<FingerprintEntry>): Promise<string> {
   const parts: Uint8Array[] = []
@@ -67,20 +52,16 @@ export async function indexFingerprint(entries: Iterable<FingerprintEntry>): Pro
 }
 
 /**
- * The revision of what was played: the package's fingerprint, and what supplied its libraries
- * after it — an attached bundle's fingerprint, or `librariesFingerprint` over the parts of the
- * pack it used. The libraries are part of what the learner saw, so the same package played
- * against others is another revision.
+ * The revision of what was played: the package's fingerprint, then what supplied its libraries (a
+ * bundle's, or `librariesFingerprint` of the pack parts). Other libraries make another revision.
  */
 export function revisionOf(content: string, libraries: readonly string[] = []): string {
   return libraries.length === 0 ? content : `${content}; libraries ${libraries.join(', ')}`
 }
 
 /**
- * One fingerprint for several archives' — the parts of the library pack a package used: SHA-256
- * over their fingerprints, sorted, joined by a line feed, as UTF-8, written `sha256:<hex>`. Sorted,
- * so it names the set and not the order the parts were attached in; a pack release that changes
- * none of the parts a package uses leaves its revision, and the state saved against it, alone.
+ * One fingerprint for the library pack parts a package used, sorted so it names the set, not the
+ * order. A pack release changing none of the used parts keeps the revision and the saved state.
  */
 export async function librariesFingerprint(fingerprints: readonly string[]): Promise<string> {
   const text = new TextEncoder().encode([...fingerprints].sort().join('\n'))
@@ -98,9 +79,8 @@ type Statement = Record<string, unknown> & {
 }
 
 /**
- * A copy of `statement` with `context.revision` and `context.platform` filled in. Only where the
- * spec allows them — the object is an Activity, which is also what an absent `objectType` means —
- * and never over a value the content set itself.
+ * A copy of `statement` with `context.revision` and `context.platform` filled in, only where the
+ * spec allows (the object is an Activity, as no `objectType` means) and never over content's own.
  */
 export function withProvenance(statement: unknown, revision: string | null, platform: string): unknown {
   if (!statement || typeof statement !== 'object') return statement
