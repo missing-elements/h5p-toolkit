@@ -270,8 +270,10 @@ describe('h5p-verify', () => {
     })
     const report = await verifyPackage({ file: late })
     expect(report.verdict).toBe('pass')
-    const times = report.warnings.filter((warning) => warning.startsWith('video time'))
-    // Playwright's own Chromium plays no H.264: the video is named as not checked, and that covers its times.
+    const times = report.warnings.filter((warning) => warning.startsWith('video time: '))
+    // The length was read, or the video is named as not checked, which covers its times.
+    expect(report.warnings.filter((warning) => warning.startsWith('video times not checked'))).toEqual([])
+    // Playwright's own Chromium plays no H.264, and reads no length.
     if (report.warnings.some((warning) => warning.startsWith('video not checked'))) expect(times).toEqual([])
     else {
       expect(times).toEqual([
@@ -280,7 +282,7 @@ describe('h5p-verify', () => {
       ])
     }
     // The demo's own video holds every time within it.
-    expect((await verifyPackage({ file: video })).warnings.filter((warning) => warning.startsWith('video time'))).toEqual([])
+    expect((await verifyPackage({ file: video })).warnings.filter((warning) => /^video times?[: ]/.test(warning))).toEqual([])
   })
 
   it('fails a file that is not an archive', async () => {

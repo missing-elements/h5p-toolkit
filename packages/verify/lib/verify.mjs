@@ -376,8 +376,8 @@ export async function verifyPackage(options) {
       for (const { path, time, says } of timed.times) {
         if (time > timed.seconds + (timed.exact ? 0 : 1)) report.warnings.push(`video time: ${path}: ${says} ${time} s, after ${end}`)
       }
-    } else if (timed && media.failed.length === 0) {
-      // A video that failed is already named, and that says why its times were not held to it.
+    } else if (timed && !timed.failed) {
+      // A video the browser gave up on is already named, and that says why its times were not held to it.
       report.warnings.push("video times not checked: the video's player did not say its length")
     }
     for (const { url, status, error } of failedRequests) report.warnings.push(`request failed: ${url} (${status ?? error})`)
@@ -434,7 +434,7 @@ export function videoTimes(params) {
  * which a build cannot ask (YouTube's answer to a build names no length, #283). A player still
  * loading is waited for, a little. `null` for any other content, and where there are no times.
  * @param {import('playwright-core').Frame} frame
- * @returns {Promise<{ times: ReturnType<typeof videoTimes>, seconds: number | null, exact: boolean } | null>}
+ * @returns {Promise<{ times: ReturnType<typeof videoTimes>, seconds: number | null, exact: boolean, failed: boolean } | null>}
  */
 async function timedVideo(frame) {
   const read = () =>
@@ -461,7 +461,7 @@ async function timedVideo(frame) {
   for (const until = Date.now() + LENGTH_WAIT; video && video.seconds === null && !video.failed && Date.now() < until; video = await read()) {
     await frame.page().waitForTimeout(250)
   }
-  return { times, seconds: video?.seconds ?? null, exact: video?.exact === true }
+  return { times, seconds: video?.seconds ?? null, exact: video?.exact === true, failed: video?.failed === true }
 }
 
 /**

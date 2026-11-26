@@ -38,7 +38,7 @@ not.
   The server listens on 127.0.0.1 alone, and Chromium, Firefox and WebKit each reach it by the
   name. The VS Code extension shares the server and keeps the address ([vscode.md](vscode.md)).
 - **An Interactive Video's times are held to its video's length, which its own player says.** A
-  build holds them to a file's length and to Vimeo's, and YouTube's answer to a build names none
+  build holds them only to a length it can read with no browser, and YouTube gives a build none
   ([author.md](author.md)). The library's player has the length once it has loaded, with nothing
   played: on YouTube one to two seconds after `ready`. So for content that is an Interactive Video
   the check reads `video.getDuration()` in the frame, waiting up to five seconds past the settle
@@ -48,8 +48,8 @@ not.
   warning says the length is the player's word. An end screen past the end is no warning: the
   library moves it to the end (`addEndscreen`). Where the player says no length, as for a video
   its host does not have, or with no network, one warning says the times were not checked; a
-  video already named as not playing needs none. An Interactive Video inside another type is not
-  read.
+  video the browser gave up on is already named, and needs none. An Interactive Video inside
+  another type is not read.
 - **The browser is Chrome or Edge if installed, else Playwright's Chromium**, through
   `playwright-core` rather than `playwright`, so installing the package downloads nothing; the
   error names `npx playwright install chromium` as the way to get one.
