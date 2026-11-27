@@ -290,11 +290,24 @@ describe('Drag and Drop', () => {
     })
     const [placed, laid] = content.question.task.elements
     const [water] = content.question.task.dropZones
-    expect(placed).toMatchObject({ x: 10, y: 10, width: 6, height: 2.25 })
+    expect(placed).toMatchObject({ x: 10, width: 6, height: 2.25 })
+    expect((placed.y / 100) * content.question.settings.size.height).toBeCloseTo(31, -1)
     expect(laid.y).toBeGreaterThan(placed.y)
     // A label written as hidden stays so, and a zone for two words holds both.
     expect(water.showLabel).toBe(false)
     expect(water.width * water.height).toBeGreaterThan(2 * (laid.width + 1.6) * (laid.height + 0.8))
+  })
+
+  it('keeps a box placed by hand where it was when the task grows', async () => {
+    const built = await result('H5P.DragQuestion', {
+      question: { task: { elements: words.map((each, i) => (i ? word(each, String(i)) : { ...word(each, '0'), x: 10, y: 50 })), dropZones: labels.map((each, i) => zone(each, [String(i)])) } }
+    })
+    const { question } = built.content as Record<string, any>
+    const { size } = question.settings
+    expect(size.height).toBeGreaterThan(310)
+    // Half of the 310 px it was written for, not half of the grown task.
+    expect((question.task.elements[0].y / 100) * size.height).toBeCloseTo(155, -1)
+    expect(built.notes).toEqual([])
   })
 
   it('sizes a box placed by hand with no size written, and keeps a size written alone', async () => {

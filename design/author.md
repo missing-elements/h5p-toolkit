@@ -67,8 +67,8 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     are numbered.
   - A Drag and Drop's boxes with no place are laid out (#295), and those with no size sized:
     the elements in rows, each at least as wide as its text by widths measured per character in
-    the player; the zones below, as wide as their labels or their words and tall enough for the
-    words right in them. With no background picture the task grows as tall as they need, and a
+    the player; the zones below, each at least as wide as its label or its words and tall enough
+    for the words right in it. With no background picture the task grows as tall as they need, and a
     zone laid out shows its label, the one thing that tells it apart. `x` and `y` are percent of
     the task, `width` and `height` em at 16 px to `size.width`; models wrote all four as
     percent, so written boxes past the task or over each other get one note. Asked for

@@ -854,6 +854,8 @@ const dragQuestion = {
         context.note(`${path}.question.settings.background`, `is under the boxes the build laid out in rows, which know nothing of the picture: place each by its x and y (percent) on what it names${need > tall ? `, since the rows need ${Math.ceil(need * 16)} px of the task's ${size.height}` : ''}`)
       } else if (need > tall) {
         size.height = Math.ceil(need * 16)
+        // A written y is percent of the task as written: kept in em, so the rows stay clear of it.
+        for (const box of placed) box.y = round((box.y * tall * 16) / size.height)
       }
       const height = size.height / 16
       const place = (/** @type {any} */ box, /** @type {{ x: number, y: number }} */ at) => Object.assign(box, { x: round((at.x / across) * 100), y: round((at.y / height) * 100) })
