@@ -351,7 +351,7 @@ let asked = 100
 function open(href) {
   let origin = ''
   try { origin = new URL(href).origin } catch { /* not an address */ }
-  if (typeof href !== 'string' || (origin !== SITE && origin !== BUILD)) return
+  if (typeof href !== 'string' || origin === 'null' || (origin !== SITE && origin !== BUILD)) return
   try {
     if (typeof openai()?.openExternal === 'function') void Promise.resolve(openai().openExternal({ href })).catch(() => {})
     else toHost({ id: ++asked, method: 'ui/open-link', params: { url: href } })

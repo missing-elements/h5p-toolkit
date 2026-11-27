@@ -93,9 +93,15 @@ function attached(file) {
  * @param {AppOptions} [options]
  */
 export async function createApp(options = {}) {
-  const site = new URL(options.site ?? SITE).origin
+  // A web address each: any other has the origin "null", which would let the card open any such link.
+  const web = (/** @type {string} */ address, /** @type {string} */ what) => {
+    const url = new URL(address)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`${what} is not a web address, as https://example.org: ${address}`)
+    return url
+  }
+  const site = web(options.site ?? SITE, 'site').origin
   // A host may serve the play page and send people to another site's build page (#299).
-  const build = new URL(options.build ?? `${site}/h5p/build/`).href
+  const build = web(options.build ?? `${site}/h5p/build/`, 'build').href
   const title = options.title ?? TITLE
   // A Worker's bundle (#272) has no package folder for `import.meta` to find: it passes `version` and `card`.
   const version = options.version ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version

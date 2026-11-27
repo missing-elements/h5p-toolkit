@@ -1,6 +1,6 @@
 # Development
 
-A pnpm workspace of ten packages and three apps:
+A pnpm workspace of ten packages and two apps:
 
 - **`packages/`**: `player`, `runtime`, `libraries`, `normalize`, `verify`, `author`, `mcp`,
   `cmi5`, `embed` and `vscode`.

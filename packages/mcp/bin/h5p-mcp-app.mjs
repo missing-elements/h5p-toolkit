@@ -55,11 +55,12 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   console.error(`h5p-mcp-app: ${values.port ?? process.env.PORT} is not a port`)
   process.exit(2)
 }
-if (values.site !== undefined && !URL.canParse(values.site)) {
+const web = (/** @type {string} */ address) => URL.canParse(address) && /^https?:$/.test(new URL(address).protocol)
+if (values.site !== undefined && !web(values.site)) {
   console.error(`h5p-mcp-app: ${values.site} is not an origin, as https://example.org`)
   process.exit(2)
 }
-if (values.build !== undefined && !URL.canParse(values.build)) {
+if (values.build !== undefined && !web(values.build)) {
   console.error(`h5p-mcp-app: ${values.build} is not an address, as https://example.org/h5p/build/`)
   process.exit(2)
 }

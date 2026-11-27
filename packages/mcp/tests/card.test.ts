@@ -54,7 +54,7 @@ beforeAll(async () => {
     if (!request.url?.startsWith('/h5p/play/')) { response.statusCode = 404; return response.end() }
     played++
     response.setHeader('Content-Type', 'text/html; charset=utf-8')
-    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => { parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'); for (const href of ${JSON.stringify(links)}) parent.postMessage({ source: 'h5p-play', type: 'open', href }, '*') }, ${lateBy})</script>`)
+    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => { parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'); for (const href of ${inScript(links)}) parent.postMessage({ source: 'h5p-play', type: 'open', href }, '*') }, ${lateBy})</script>`)
   })
   await listening(site, '127.0.0.1')
   SITE = `http://127.0.0.1:${port(site)}`

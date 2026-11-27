@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { createServer, type AddressInfo, type Server } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -300,6 +300,27 @@ describe('the app server', () => {
     // A chat that did not say whether it draws cards is told the build page too.
     expect((await ask('tools/call', { name: 'h5p_play', arguments: { source: QUIZ } })).content[0].text).toContain('open https://tools.example/h5p/build/, choose "Paste your chat\'s JSON"')
     await app.close()
+    // An address of another scheme has the origin "null", which would let the card open any such link.
+    await expect(createApp({ build: 'javascript:alert(1)' })).rejects.toThrow(/build is not a web address/)
+    await expect(createApp({ site: 'data:text/html,<p>x</p>' })).rejects.toThrow(/site is not a web address/)
+  })
+
+  it('takes the build page and the title as the command\'s options, and refuses an address that is not the web\'s', async () => {
+    const other = spawn(process.execPath, [COMMAND, '--port', '0', '--build', 'https://tools.example/h5p/build/', '--title', 'A Lesson'], { stdio: ['ignore', 'pipe', 'pipe'] })
+    try {
+      let said = ''
+      const at = await new Promise<string>((found) => other.stdout!.on('data', (chunk: Buffer) => {
+        said += chunk.toString()
+        const match = /on (http:\/\/\S+)\/mcp/.exec(said)
+        if (match) found(match[1]!)
+      }))
+      expect(await (await fetch(`${at}/`)).text()).toBe('A Lesson: the MCP endpoint is /mcp\n')
+    } finally {
+      other.kill()
+    }
+    const refused = spawnSync(process.execPath, [COMMAND, '--build', 'javascript:alert(1)'], { encoding: 'utf8' })
+    expect(refused.status).toBe(2)
+    expect(refused.stderr).toContain('javascript:alert(1) is not an address')
   })
 
   it('takes its card, its version and its type files from a host that carries them', async () => {

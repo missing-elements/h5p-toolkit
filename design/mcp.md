@@ -154,15 +154,17 @@ command is that handler on a port. Its endpoint is `/mcp`.
   would refuse the call unread. One file is taken: a source that names several gets the
   attachment under its own name, and the page asks the person for the rest.
 - **The card is the play page's way to the chat, and holds nothing of the activity.**
-  `lib/card.html` frames `/h5p/play/` of the org site with the source in its fragment; the page
+  `lib/card.html` frames `/h5p/play/` of its site, the org site's by default, with the source in
+  its fragment; the page
   builds and plays in the person's browser, and its rules are that site's. The card gives it
   what only the chat has, by the page's messages: the attached file's address, asked of the chat
   by the file's id, and what it weighs, its bytes where the page needs them or that they did not
-  come, the chat's theme, a save (`ui/download-file`), and an open tab for a link of the site's
-  and no other (`openExternal`). The answer carries the source for it in `_meta`, which a chat
+  come, the chat's theme, a save (`ui/download-file`), and an open tab for a link of the site's or
+  of the build page's, and no other (`openExternal`). The answer carries the source for it in `_meta`, which a chat
   shows the card and not the model, so a card drawn from the result alone, with no input, plays
   all the same (#276). It sends nothing to the server it came from and calls no tool. Its policy
-  names the one site it frames and the chat's file store. A chat keeps a card by its address, so
+  names the one site it frames, the build page's among the sites it may open, and the chat's file
+  store. A chat keeps a card by its address, so
   the address carries the card's hash; and an earlier card's address gets this card, since a chat
   may ask one it kept from before the card changed (#278): Grok could not load the app after #277
   was deployed ("read-resource failed: 400", 2026-11-25), while ChatGPT's old replies played on.
@@ -222,5 +224,6 @@ command is that handler on a port. Its endpoint is `/mcp`.
 - **A host runs `createApp()`, the package's `./app`, with its own site and name.** It takes the
   play page's `site`, the `build` page a chat with no card is sent to, which the card may open
   too, and the server's `title`; and, for a bundle such as a Cloudflare Worker, what
-  `import.meta` cannot find there: `version`, `card` and `references`. No deployment of it is
+  `import.meta` cannot find there: `version`, `card`, `references` and `libraries`, the pack's
+  `parts/` folder. No deployment of it is
   kept in this repository.
