@@ -548,7 +548,12 @@ export class ContentGenerator {
         // A group of one field is saved as that field's value (h5peditor-group.js), unless it is
         // sub-content. It is still a level for `showWhen`.
         const flattened = children.length === 1 && !field.isSubContent
-        if (written === undefined && field.default !== undefined) return structuredClone(field.default)
+        // A default can carry its widget's setting beside the values, as `dimensions` its `field`,
+        // which the content check drops (#295): only the group's fields are kept.
+        if (written === undefined && field.default !== undefined) {
+          const value = structuredClone(field.default)
+          return isObject(value) && !flattened ? Object.fromEntries(Object.entries(value).filter(([key]) => children.some((/** @type {any} */ child) => child.name === key))) : value
+        }
         if (flattened) {
           const [only] = children
           return this.#level(children, written === undefined ? {} : { [only.name]: written }, () =>

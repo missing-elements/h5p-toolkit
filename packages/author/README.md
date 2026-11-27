@@ -89,9 +89,10 @@ is the workflow around it.
 - **Interface texts** (Check, Retry…): leave them out. They come from the libraries'
   translations, and the build lists what stayed English. A source may still set one by name.
 - **Layout**: the build does what the editor's own widgets do. It lays out a Course
-  Presentation's slides, places Interactive Video interactions, joins Game Map stages, numbers
-  Branching Scenario end screens and names untitled Question Set questions. It refuses what they
-  would: a scenario path with no end, a map with no start, a hotspot question with no right area.
+  Presentation's slides and a Drag and Drop's words and zones, places Interactive Video
+  interactions, joins Game Map stages, numbers Branching Scenario end screens and names untitled
+  Question Set questions. It refuses what they would: a scenario path with no end, a map with no
+  start, a hotspot question with no right area.
 
 The quiz format the skill published first (`{ "kind": "question-set", "questions": [ … ] }`) is
 still taken.

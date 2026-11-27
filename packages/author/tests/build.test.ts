@@ -694,8 +694,8 @@ describe('notes for what builds and is almost surely a mistake (#241)', () => {
     expect(await agamotto(2)).toEqual([])
     // Drag and Drop: a right element and a zone that are not there, and an element that can be
     // dropped in none of the zones it is right in.
-    const element = (text: string, zones: string[]) => ({ type: { library: 'H5P.AdvancedText', params: { text: `<p>${text}</p>` } }, x: 5, y: 5, width: 10, height: 3, dropZones: zones })
-    const zone = (label: string, right: string[]) => ({ label, x: 40, y: 10, width: 20, height: 10, correctElements: right })
+    const element = (text: string, zones: string[]) => ({ type: { library: 'H5P.AdvancedText', params: { text: `<p>${text}</p>` } }, dropZones: zones })
+    const zone = (label: string, right: string[]) => ({ label, correctElements: right })
     expect(await notesOf({ ...META, type: 'H5P.DragQuestion', params: { question: { settings: { size: { width: 620, height: 310 } }, task: {
       elements: [element('Danube', ['0']), element('Garda', ['0']), element('Seine', ['0', '3'])],
       dropZones: [zone('Rivers', ['0', '2', '5']), zone('Lakes', ['1'])]
