@@ -499,7 +499,7 @@ describe('the schema a source is written from', () => {
     const size = { name: 'size', type: 'group', widget: 'dimensions', default: { width: 620, height: 310, field: 'background' }, fields: [{ name: 'width', type: 'number' }, { name: 'height', type: 'number' }] }
     expect(schemaLines([size]).lines).toEqual(['- `size` group', '  - `width` number = 620', '  - `height` number = 310'])
     // The same for a list's item.
-    expect(schemaLines([{ name: 'sizes', type: 'list', field: { ...size, name: 'size' } }]).lines).toContain('  - `width` whole number = 620')
+    expect(schemaLines([{ name: 'sizes', type: 'list', field: { ...size, name: 'size' } }]).lines).toEqual(['- `sizes` list of, required', '  - `width` whole number = 620', '  - `height` whole number = 310'])
   })
 
   it('puts a type file\'s section between its markers, or after a file with none, and refuses broken markers (#162)', () => {
