@@ -1,11 +1,10 @@
 # Development
 
-A pnpm workspace of ten packages and three apps:
+A pnpm workspace of ten packages and two apps:
 
 - **`packages/`**: `player`, `runtime`, `libraries`, `normalize`, `verify`, `author`, `mcp`,
   `cmi5`, `embed` and `vscode`.
 - **`apps/demo`**: the demo site.
-- **`apps/mcp-worker`**: the Cloudflare Worker that hosts the MCP app server ([how](mcp-worker.md)).
 - **`apps/skills`**: the tests of the agent skills, run from a project as a skill's user runs them:
   every h5p-author type file's example built and played, and the h5p-to-scorm commands run and
   their zips played under a stand-in LMS.

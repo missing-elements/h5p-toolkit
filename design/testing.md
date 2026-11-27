@@ -53,8 +53,6 @@ cmi5 page also against CATAPULT (`pnpm cmi5:catapult`). Where a page's test was 
 package's behaviour, the test lives in the package: the embed page asking before it plays a
 package that needs its own code, and `resizer.js` answering a frame that loaded before it, are in
 `packages/embed/tests/site.test.ts`; the cmi5 page's are in `packages/cmi5/tests/`.
-The app server's Worker (`apps/mcp-worker`) is tested as well, in the Workers runtime: it answers
-for a listed app, from files read in another runtime's file system ([mcp](mcp.md)).
 The skills are source too, tested from `apps/skills`, a project of their own: what they tell an
 agent to write builds and plays. For h5p-to-scorm that is its commands, run as it writes them, and
 their zips, played as a learner under a stand-in LMS with real content. h5p-author's own code is

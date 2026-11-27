@@ -1,6 +1,6 @@
 # Layout
 
-A pnpm workspace of ten packages and three apps. Nine packages are published to npm; the VS Code
+A pnpm workspace of ten packages and two apps. Nine packages are published to npm; the VS Code
 extension is a `.vsix`. Paths in `design/` are relative to their part: `src/…` and `scripts/…`
 mean the player's unless a file says otherwise. `dist/`, `types/`, the player's `public/` and the
 runtime's `index.js` are generated and not in git.
@@ -48,8 +48,6 @@ apps/demo/             the dev server and the hosted site: index.html the player
                        partials/ the shared markup, scripts/ the builds and the sweep, sweep/ its files
 apps/skills/           the skills' test project: author-verify, author-playback, to-scorm,
                        front-matter
-apps/mcp-worker/       the app server as a Cloudflare Worker: src/worker.mjs, wrangler.jsonc its
-                       config, scripts/stage.mjs what it carries, gathered into staged/
 skills/                the agent skills, at the root, where `npx skills add` looks
 docs/                  the README's longer sections, for integrators
 scripts/               published.mjs, the check before a package is published that npm serves the

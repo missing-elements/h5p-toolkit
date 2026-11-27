@@ -62,6 +62,8 @@ window.addEventListener('error', () => {
 (() => {
 // The site whose play page is framed: the server writes its origin in.
 const SITE = '__SITE__'
+// The build page's origin, the one other site whose link the page may ask the chat to open.
+const BUILD = '__BUILD__'
 const PLAY = SITE + '/h5p/play/'
 const $ = (id) => document.getElementById(id)
 const frame = $('page')
@@ -344,12 +346,12 @@ function sayWhatTheChatDoes() {
     toPage({ type: 'saves', max: MOST })
   }
 }
-// A link of the page's, opened by the chat: an address of the site, and nothing else.
+// A link of the page's, opened by the chat: an address of the site or of the build page's, and nothing else.
 let asked = 100
 function open(href) {
   let origin = ''
   try { origin = new URL(href).origin } catch { /* not an address */ }
-  if (typeof href !== 'string' || origin !== SITE) return
+  if (typeof href !== 'string' || origin === 'null' || (origin !== SITE && origin !== BUILD)) return
   try {
     if (typeof openai()?.openExternal === 'function') void Promise.resolve(openai().openExternal({ href })).catch(() => {})
     else toHost({ id: ++asked, method: 'ui/open-link', params: { url: href } })
