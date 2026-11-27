@@ -470,9 +470,11 @@ const placedOn = (on) => (one) => `placed by numbers, which a build cannot hold 
 /**
  * What a source puts on a picture or a video by numbers alone (#260): places and times. A build
  * cannot hold them to what is shown, so it notes each list once, for the preview.
- * @type {Record<string, { at: string, what: [one: string, many: string], on: (one: boolean) => string }>}
+ * @type {Record<string, { at: string, what: [one: string, many: string], on: (one: boolean) => string, when?: (params: any) => boolean }>}
  */
 const BY_NUMBER = {
+  // Its zones mean something only against a background picture (#295).
+  'H5P.DragQuestion': { at: 'question.task.dropZones', what: ['drop zone', 'drop zones'], on: placedOn('picture'), when: (params) => Boolean(params?.question?.settings?.background) },
   'H5P.ImageHotspots': { at: 'hotspots', what: ['hotspot', 'hotspots'], on: placedOn('picture') },
   'H5P.ImageHotspotQuestion': { at: 'imageHotspotQuestion.hotspotSettings.hotspot', what: ['area', 'areas'], on: placedOn('picture') },
   'H5P.ImageMultipleHotspotQuestion': { at: 'imageMultipleHotspotQuestion.hotspotSettings.hotspot', what: ['area', 'areas'], on: placedOn('picture') },
@@ -488,7 +490,7 @@ const BY_NUMBER = {
  */
 export function byNumber(library, params) {
   const rule = Object.hasOwn(BY_NUMBER, library) ? BY_NUMBER[library] : undefined
-  if (!rule) return undefined
+  if (!rule || (rule.when && !rule.when(params))) return undefined
   const list = rule.at.split('.').reduce((value, key) => (isObject(value) ? value[key] : undefined), params)
   if (!Array.isArray(list) || !list.length) return undefined
   return { at: rule.at, message: `holds ${list.length} ${rule.what[list.length === 1 ? 0 : 1]} ${rule.on(list.length === 1)}` }
@@ -699,6 +701,198 @@ const imageHotspotQuestion = {
   }
 }
 
+/* ---------------------------------------------------------------- Drag and Drop */
+
+// Measured in H5P.DragQuestion 1.15's player (#295), in the task's em, 16 px to `size.width`: what
+// a draggable's handle and padding add to the size written, and a line of its text.
+const DRAGGABLE_EDGE = { width: 1.6, height: 0.8 }
+const DQ_LINE = 1.25
+/** The editor's new text box, H5PEditor.DragQuestion 1.10's, and the room around boxes. */
+const DQ_BOX = { width: 5, height: 2.25 }
+const DQ_MARGIN = 0.5
+const DQ_GAP = 1
+
+/**
+ * A line's width in em at 1 em, by the widths measured per character in the player (#295):
+ * within 4 % on words, wider on runs of narrow letters.
+ * @param {string} text
+ */
+function emWidth(text) {
+  let width = 0
+  for (const c of text) width += c === ' ' ? 0.3 : /[mwMW]/.test(c) ? 0.9 : /[ijlft.,;:!|'I1]/.test(c) ? 0.3 : c === 'r' ? 0.4 : /[A-Z]/.test(c) ? 0.72 : 0.58
+  return width
+}
+
+/** A text's lines, a block or a break ending one. @param {unknown} html */
+function linesOf(html) {
+  if (typeof html !== 'string') return []
+  return html.split(/<\/(?:p|li|h\d|div)>|<br\s*\/?>/i).map((line) => textOf(line).replace(/\s+/g, ' ').trim()).filter(Boolean)
+}
+
+/**
+ * A draggable's size where none is written, in em: a picture 6 across in its shape, a text as
+ * wide as its longest line up to `most`, as tall as its lines wrap to.
+ * @param {any} element
+ * @param {number} most
+ */
+function draggableSize(element, most) {
+  if (machineName(element?.type?.library) === 'H5P.Image') {
+    const file = element.type.params?.file
+    const shape = file?.width > 0 && file?.height > 0 ? file.height / file.width : 1
+    return shape > 1 ? { width: round(6 / shape), height: 6 } : { width: 6, height: round(6 * shape) }
+  }
+  const lines = linesOf(element?.type?.params?.text)
+  const width = Math.max(DQ_BOX.width, Math.min(most, Math.max(0, ...lines.map(emWidth)) + 0.5))
+  // A line that wraps can take one more than its width says, so it is counted a tenth wider.
+  const count = lines.reduce((sum, line) => sum + (emWidth(line) + 0.5 <= width ? 1 : Math.ceil((emWidth(line) * 1.1 + 0.5) / width)), 0) || 1
+  return { width: round(width), height: round(Math.max(DQ_BOX.height, count * DQ_LINE + 0.5)) }
+}
+
+/**
+ * Boxes in rows across the task, each row centred, from `top`: their places and the last row's
+ * bottom, in em. The rows take as many each as they can share evenly, 3 and 2 rather than 4 and 1.
+ * @internal
+ * @param {{ width: number, height: number }[]} boxes outer sizes
+ * @param {number} across the task's width
+ * @param {number} top
+ */
+export function inRows(boxes, across, top) {
+  const room = across - 2 * DQ_MARGIN
+  /** The boxes' indices in rows, in order, at most `cap` to a row. @param {number} cap */
+  const pack = (cap) => {
+    /** @type {number[][]} */
+    const rows = []
+    let used = Infinity
+    boxes.forEach((box, i) => {
+      const row = rows.at(-1)
+      if (row && row.length < cap && used + DQ_GAP + box.width <= room) {
+        row.push(i)
+        used += DQ_GAP + box.width
+      } else {
+        rows.push([i])
+        used = box.width
+      }
+    })
+    return rows
+  }
+  const greedy = pack(Infinity)
+  // Shared evenly only where that takes no more rows, as it can with boxes of other widths.
+  const even = pack(Math.ceil(boxes.length / Math.max(1, greedy.length)))
+  /** @type {{ x: number, y: number }[]} */
+  const places = []
+  let y = top
+  for (const row of even.length === greedy.length ? even : greedy) {
+    let x = Math.max(DQ_MARGIN, (across - row.reduce((sum, j) => sum + boxes[j].width, 0) - DQ_GAP * (row.length - 1)) / 2)
+    for (const j of row) {
+      places[j] = { x, y }
+      x += boxes[j].width + DQ_GAP
+    }
+    y += Math.max(...row.map((j) => boxes[j].height)) + DQ_GAP
+  }
+  return { places, bottom: boxes.length ? y - DQ_GAP : top }
+}
+
+/**
+ * The editor sets every box's place and size in a picture of the task (#295): `x`, `y` in percent
+ * of it, `width`, `height` in em. Boxes with no place are laid out, words above and zones below.
+ * @type {Layout}
+ */
+const dragQuestion = {
+  sets: ['elements', 'dropZones'].flatMap((list) => ['x', 'y', 'width', 'height'].map((key) => `question.task.${list}[].${key}`)),
+  // A zone laid out in a row, with no picture under it, is told apart by its label alone.
+  before(written) {
+    if (!isObject(written?.question) || written.question.settings?.background || !Array.isArray(written.question.task?.dropZones)) return
+    for (const zone of written.question.task.dropZones) {
+      if (isObject(zone) && zone.showLabel === undefined && (typeof zone.x !== 'number' || typeof zone.y !== 'number')) zone.showLabel = true
+    }
+  },
+  after(params, path, context) {
+    const settings = params?.question?.settings
+    const task = params?.question?.task
+    const size = settings?.size
+    if (!isObject(task) || !isObject(size) || !(size.width > 0) || !(size.height > 0)) return
+    const elements = Array.isArray(task.elements) ? task.elements.filter(isObject) : []
+    const zones = Array.isArray(task.dropZones) ? task.dropZones.filter(isObject) : []
+    const free = (/** @type {any} */ box) => typeof box.x !== 'number' || typeof box.y !== 'number'
+    const loose = elements.filter(free)
+    const open = zones.filter(free)
+    const across = size.width / 16
+    // Every box with no size gets one, placed or not. Words share a size, and pictures theirs, so
+    // a row reads as one bank.
+    const sized = (/** @type {any} */ box) => typeof box.width === 'number' && typeof box.height === 'number'
+    const most = Math.max(DQ_BOX.width, (across - 2 * DQ_MARGIN - DQ_GAP) / 2 - DRAGGABLE_EDGE.width)
+    for (const image of [true, false]) {
+      const same = elements.filter((element) => !sized(element) && (machineName(element.type?.library) === 'H5P.Image') === image)
+      const wanted = same.map((element) => draggableSize(element, most))
+      const width = Math.max(0, ...wanted.map((each) => each.width))
+      const height = Math.max(0, ...wanted.map((each) => each.height))
+      for (const element of same) Object.assign(element, { width: element.width ?? width, height: element.height ?? height })
+    }
+    // A zone holds the elements right in it; a shown label is drawn above it, outside its box.
+    const widest = Math.max(DQ_BOX.width, ...elements.map((element) => element.width)) + DRAGGABLE_EDGE.width
+    const tallest = Math.max(DQ_BOX.height, ...elements.map((element) => element.height)) + DRAGGABLE_EDGE.height
+    const wanted = zones.filter((zone) => !sized(zone)).map((zone) => {
+      const label = zone.showLabel ? emWidth(textOf(String(zone.label ?? ''))) + 1.5 : 0
+      const width = Math.min(across - 2 * DQ_MARGIN, Math.max(widest + 1, label))
+      const columns = Math.max(1, Math.floor((width - 0.5) / (widest + 0.5)))
+      const rows = Math.ceil(Math.max(1, Array.isArray(zone.correctElements) ? zone.correctElements.length : 0) / columns)
+      return { zone, width, height: rows * (tallest + 0.5) + 0.5 }
+    })
+    for (const { zone } of wanted) Object.assign(zone, { width: zone.width ?? round(Math.max(...wanted.map((one) => one.width))), height: zone.height ?? round(Math.max(...wanted.map((one) => one.height))) })
+    if (loose.length || open.length) {
+      // Written boxes keep their places, and the rest go below them.
+      const tall = size.height / 16
+      const placed = [...elements, ...zones].filter((box) => !free(box))
+      const bottom = (/** @type {any} */ box) => (box.y / 100) * tall + (box.height ?? 0) + (elements.includes(box) ? DRAGGABLE_EDGE.height : 0)
+      const top = placed.length ? Math.max(...placed.map(bottom)) + 2 * DQ_GAP : DQ_MARGIN
+      const outer = (/** @type {any} */ box) => ({ width: box.width + DRAGGABLE_EDGE.width, height: box.height + DRAGGABLE_EDGE.height })
+      const above = (/** @type {any} */ zone) => (zone.showLabel ? DQ_LINE : 0)
+      const words = inRows(loose.map(outer), across, top)
+      const targets = inRows(open.map((zone) => ({ width: zone.width, height: zone.height + above(zone) })), across, loose.length ? words.bottom + 2 * DQ_GAP : top)
+      const need = (open.length ? targets.bottom : words.bottom) + DQ_MARGIN
+      if (settings.background) {
+        context.note(`${path}.question.settings.background`, `is under the boxes the build laid out in rows, which know nothing of the picture: place each by its x and y (percent) on what it names${need > tall ? `, since the rows need ${Math.ceil(need * 16)} px of the task's ${size.height}` : ''}`)
+      } else if (need > tall) {
+        size.height = Math.ceil(need * 16)
+        // A written y is percent of the task as written: kept in em, so the rows stay clear of it.
+        for (const box of placed) box.y = round((box.y * tall * 16) / size.height)
+      }
+      const height = size.height / 16
+      const place = (/** @type {any} */ box, /** @type {{ x: number, y: number }} */ at) => Object.assign(box, { x: round((at.x / across) * 100), y: round((at.y / height) * 100) })
+      loose.forEach((element, i) => place(element, words.places[i]))
+      open.forEach((zone, i) => place(zone, { x: targets.places[i].x, y: targets.places[i].y + above(zone) }))
+    }
+    noteDragQuestionBoxes(elements, zones, /** @type {{ width: number, height: number }} */ (size), `${path}.question.task`, context.note)
+  }
+}
+
+/**
+ * Boxes past the task's edge or over each other, the elements by their place at the start (#295).
+ * @param {any[]} elements
+ * @param {any[]} zones
+ * @param {{ width: number, height: number }} size
+ * @param {string} at
+ * @param {(path: string, message: string) => void} note
+ */
+function noteDragQuestionBoxes(elements, zones, size, at, note) {
+  const across = size.width / 16
+  const tall = size.height / 16
+  const units = `x and y are percent of the task, width and height em, and it is ${round(across)} by ${round(tall)} em (${size.width} by ${size.height} px); leave all four out and the build lays the boxes out`
+  // A zone's shown label is drawn above its box.
+  const boxes = [
+    ...elements.map((box, i) => ({ box, path: `${at}.elements[${i}]`, name: `element ${i}`, edge: DRAGGABLE_EDGE, lift: 0 })),
+    ...zones.map((box, i) => ({ box, path: `${at}.dropZones[${i}]`, name: `drop zone ${i}`, edge: { width: 0, height: 0 }, lift: box.showLabel ? DQ_LINE : 0 }))
+  ].filter(({ box }) => ['x', 'y', 'width', 'height'].every((key) => typeof box[key] === 'number'))
+    .map((each) => ({ ...each, left: (each.box.x / 100) * across, top: (each.box.y / 100) * tall - each.lift, width: each.box.width + each.edge.width, height: each.box.height + each.edge.height + each.lift }))
+  // A quarter em either way is rounding, not a box over another.
+  const slack = 0.25
+  const past = boxes.filter((one) => one.left < -slack || one.top < -slack || one.left + one.width > across + slack || one.top + one.height > tall + slack)
+  const over = boxes.filter((one) => boxes.some((other) => other !== one && Math.min(one.left + one.width, other.left + other.width) - Math.max(one.left, other.left) > slack && Math.min(one.top + one.height, other.top + other.height) - Math.max(one.top, other.top) > slack))
+  const names = (/** @type {typeof boxes} */ list) => list.map((one) => one.name).join(', ')
+  const found = [past.length && `past the task's edge (${names(past)})`, over.length && `over each other (${names(over)})`].filter(Boolean)
+  if (found.length) note(at, `has boxes ${found.join(' and ')}: ${units}`)
+}
+
 /* ---------------------------------------------------------------- Fill in the Blanks */
 
 /**
@@ -833,6 +1027,7 @@ export const LAYOUTS = {
   'H5P.BranchingScenario': branchingScenario,
   'H5P.GameMap': gameMap,
   'H5P.ImageHotspotQuestion': imageHotspotQuestion,
+  'H5P.DragQuestion': dragQuestion,
   'H5P.Video': video,
   'H5P.Row': row,
   'H5P.RowColumn': rowColumn

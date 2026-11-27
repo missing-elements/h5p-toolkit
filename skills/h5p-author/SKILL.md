@@ -32,6 +32,7 @@ choose, and wait: "a quiz" or "flash cards" says what they want, not which type.
 | H5P.TrueFalse | one statement, true or false |
 | H5P.Blanks | typing the missing words of a text |
 | H5P.DragText | dragging words into the gaps of a text |
+| H5P.DragQuestion | dragging words or pictures onto zones: matching, sorting |
 | H5P.MarkTheWords | clicking the words of a text that fit a rule |
 | H5P.SingleChoiceSet | quick questions, one right answer each |
 | H5P.Summary | building a summary from true statements |

@@ -49,8 +49,8 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   value back into its box unescaped (`ns.createText`); `&`, `<` and `>` stay escaped and are
   noted. Letters are stored as typed everywhere.
 - **Some types need what their editor widget does.** Course Presentation, Interactive Video, Game
-  Map and Branching Scenario are edited on a slide, a video, a map and a tree, which set fields the
-  form hides (`widget: "none"`). `lib/types.mjs` does each one's work on the generated content,
+  Map, Branching Scenario and Drag and Drop are edited on a slide, a video, a map, a tree and a
+  picture of the task, which set fields the form hides (`widget: "none"`). `lib/types.mjs` does each one's work on the generated content,
   wherever the type appears:
   - A slide's unplaced elements are stacked: text as tall as its lines as CP 1.27's stylesheet
     draws them (10.8 px per 640 in lines of 1.25em, `SLIDE_TEXT`), pictures shrunk in shape, a
@@ -65,6 +65,15 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     editor's 10 by 10 hid a question's Check button behind a scroll.
   - Stages get ids and types, neighbours named by label become indices both ways, and end screens
     are numbered.
+  - A Drag and Drop's boxes with no place are laid out (#295), and those with no size sized:
+    the elements in rows, each at least as wide as its text by widths measured per character in
+    the player; the zones below, each at least as wide as its label or its words and tall enough
+    for the words right in it. With no background picture the task grows as tall as they need, and a
+    zone laid out shows its label, the one thing that tells it apart. `x` and `y` are percent of
+    the task, `width` and `height` em at 16 px to `size.width`; models wrote all four as
+    percent, so written boxes past the task or over each other get one note. Asked for
+    five English words to match on route 1, Haiku left the places out in 5 of 5 runs with the
+    type file, and the 3 played had no box over another.
   - It checks what those widgets would not let pass: a scenario node with no next, a link to no
     node, a loop no path leaves; a map with no start; a hotspot question with no right area; a
     hidden field nothing set. Lists such a widget draws start empty.
@@ -157,8 +166,8 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     Interactive Video's video, by the name the source gives it, and the command line and both
     servers say each (`lengthLine`), so that whoever changes the times next starts from it.
   - **What is placed or timed by numbers alone is a note of the build's**, one for each list of
-    hotspots, areas, stages or an Interactive Video's interactions (not its bookmarks or end
-    screens), saying how many and to look at them in the preview (`byNumber` in `types.mjs`). It
+    hotspots, areas, stages, drop zones on a picture or an Interactive Video's interactions (not
+    its bookmarks or end screens), saying how many and to look at them in the preview (`byNumber` in `types.mjs`). It
     is said whether or not a model looked at the file, since only a person's eyes check a place
     or a moment; and by the build, not `checkContent`, so a check of saved content says none.
     The skill passes a build's notes on. Its own sentence in the brief, to ask the user to check
@@ -370,7 +379,7 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   tags, the sub-content the pack has, the editor's `important` syntax, `showWhen` conditions;
   interface texts and the fields a layout sets are left out. The weekly pack refresh runs
   `sync:skill`, and `apps/skills`' test fails on a file out of date and builds and plays every
-  example. 28 content types have files, and so do the parts other content holds (Text,
+  example. 29 content types have files, and so do the parts other content holds (Text,
   AdvancedText, Image, Video); any other type's fields are one `h5p-author schema` away. Where
   npm cannot install, `SKILL.md` names the one-file tool's command, `node h5p-author.mjs schema
   <Type> --libraries parts`: given only the `npx` form, Haiku ran the tool without `--libraries`
@@ -700,6 +709,6 @@ text to the content check's rules, and `apps/skills` plays every example untrust
 
 Not built: changing a package in place, which a tool beside it does with `checkContent` as its
 check (a package is changed by reading it into a source and building that); reading content made
-for another version of a library than the pack's; layout for Drag and Drop and Crossword; and any
+for another version of a library than the pack's; layout for Crossword; and any
 judgement of whether content is right beyond those notes, which stays the person's, in the
 verifier's preview.

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildPackage, SourceError } from '../lib/author.mjs'
 import { imageSize } from '../lib/media.mjs'
 import { GENERATED_END, GENERATED_START, schemaLines, schemaMarkdown, SOURCE_FIELDS, withSection } from '../lib/schema.mjs'
-import { byNumber, movedInteraction } from '../lib/types.mjs'
+import { byNumber, inRows, movedInteraction } from '../lib/types.mjs'
 import { jpeg, png } from './helpers/media'
 
 const META = { title: 'Layout', language: 'en', license: 'U', authors: [{ name: 'Ann Author', role: 'Author' }] }
@@ -236,6 +236,118 @@ describe('Game Map', () => {
       'params.gamemapSteps.gamemap.elements: has no stage a learner can start at: set "canBeStartStage": true on one',
       'params.gamemapSteps.gamemap.elements[1].contentsList: is required for a stage: write at least 1 content'
     ])
+  })
+})
+
+describe('Drag and Drop', () => {
+  const word = (text: string, zone: string) => ({ type: { library: 'H5P.AdvancedText', params: { text: `<p>${text}</p>` } }, dropZones: [zone] })
+  const zone = (label: string, right: string[]) => ({ label, correctElements: right })
+  const words = ['QUIET', 'JOYFUL', 'BEGIN', 'ENORMOUS', 'FRAGILE']
+  const labels = ['Making little or no noise', 'Very happy', 'To start something', 'Very large in size', 'Easily broken']
+  type Box = { x: number, y: number, width: number, height: number, showLabel?: boolean }
+  // A box's place and size in em, as the player draws it: a draggable's handle and padding around it, a zone's label above it.
+  const rect = (box: Box, size: { width: number, height: number }, kind: 'element' | 'zone') => {
+    const lift = kind === 'zone' && box.showLabel ? 1.25 : 0
+    return { left: (box.x / 100) * size.width / 16, top: (box.y / 100) * size.height / 16 - lift, right: (box.x / 100) * size.width / 16 + box.width + (kind === 'element' ? 1.6 : 0), bottom: (box.y / 100) * size.height / 16 + box.height + (kind === 'element' ? 0.8 : 0) }
+  }
+
+  it('lays out the boxes nobody placed: words in rows above, zones with their labels below, none over another (#295)', async () => {
+    const built = await result('H5P.DragQuestion', { question: { task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
+    const { question } = built.content as Record<string, any>
+    const { size } = question.settings
+    const boxes = [
+      ...question.task.elements.map((box: Box) => rect(box, size, 'element')),
+      ...question.task.dropZones.map((box: Box) => rect(box, size, 'zone'))
+    ]
+    // The editor's default size, without the `field` its widget reads, which the content check drops.
+    expect(Object.keys(size)).toEqual(['width', 'height'])
+    expect(size.width).toBe(620)
+    // The task grows to hold them, and every box is inside it.
+    expect(size.height).toBeGreaterThan(310)
+    for (const box of boxes) {
+      expect(box.left).toBeGreaterThanOrEqual(0)
+      expect(box.top).toBeGreaterThanOrEqual(0)
+      expect(box.right).toBeLessThanOrEqual(size.width / 16)
+      expect(box.bottom).toBeLessThanOrEqual(size.height / 16)
+    }
+    for (const [i, one] of boxes.entries()) {
+      for (const other of boxes.slice(i + 1)) expect(one.right <= other.left || other.right <= one.left || one.bottom <= other.top || other.bottom <= one.top).toBe(true)
+    }
+    const [first] = question.task.elements
+    const zones = question.task.dropZones
+    // A word's box is as wide as its text: ENORMOUS's 8 capitals are about 6 em.
+    expect(first.width).toBeGreaterThan(6)
+    expect(first.width).toBeLessThan(8)
+    expect(zones.every((each: Box) => each.showLabel === true && each.y > first.y)).toBe(true)
+    // A zone holds the word dropped in it, and its whole label.
+    expect(zones[0].width).toBeGreaterThan(Math.max(first.width + 1.6, 11.5))
+    expect(built.notes).toEqual([])
+  })
+
+  it('keeps the boxes placed by hand and lays out the rest below them', async () => {
+    const content = await build('H5P.DragQuestion', {
+      question: { task: { elements: [{ ...word('Rivers', '0'), x: 10, y: 10, width: 6, height: 2.25 }, word('Lakes', '0')], dropZones: [{ ...zone('Water', ['0', '1']), showLabel: false }] } }
+    })
+    const [placed, laid] = content.question.task.elements
+    const [water] = content.question.task.dropZones
+    expect(placed).toMatchObject({ x: 10, width: 6, height: 2.25 })
+    expect((placed.y / 100) * content.question.settings.size.height).toBeCloseTo(31, -1)
+    expect(laid.y).toBeGreaterThan(placed.y)
+    // A label written as hidden stays so, and a zone for two words holds both.
+    expect(water.showLabel).toBe(false)
+    expect(water.width * water.height).toBeGreaterThan(2 * (laid.width + 1.6) * (laid.height + 0.8))
+  })
+
+  it('keeps a box placed by hand where it was when the task grows', async () => {
+    const built = await result('H5P.DragQuestion', {
+      question: { task: { elements: words.map((each, i) => (i ? word(each, String(i)) : { ...word(each, '0'), x: 10, y: 50 })), dropZones: labels.map((each, i) => zone(each, [String(i)])) } }
+    })
+    const { question } = built.content as Record<string, any>
+    const { size } = question.settings
+    expect(size.height).toBeGreaterThan(310)
+    // Half of the 310 px it was written for, not half of the grown task.
+    expect((question.task.elements[0].y / 100) * size.height).toBeCloseTo(155, -1)
+    expect(built.notes).toEqual([])
+  })
+
+  it('sizes a box placed by hand with no size written, and keeps a size written alone', async () => {
+    const content = await build('H5P.DragQuestion', {
+      question: { task: { elements: [{ ...word('Rivers', '0'), x: 5, y: 5 }, { ...word('Lakes', '0'), x: 40, y: 5, width: 8 }], dropZones: [{ ...zone('Water', ['0', '1']), x: 5, y: 50 }] } }
+    })
+    const [rivers, lakes] = content.question.task.elements
+    expect(rivers).toMatchObject({ x: 5, y: 5, width: expect.any(Number), height: expect.any(Number) })
+    expect(lakes).toMatchObject({ x: 40, width: 8, height: rivers.height })
+    expect(content.question.task.dropZones[0]).toMatchObject({ x: 5, y: 50, width: expect.any(Number), height: expect.any(Number) })
+  })
+
+  it('shares boxes out evenly in rows only where that takes no more rows', () => {
+    const rows = (widths: number[], across: number) => new Set(inRows(widths.map((width) => ({ width, height: 1 })), across, 0).places.map((place) => place.y)).size
+    // 5 alike in a row of 4 go 3 and 2; 9 then four of 1 in 10 em stay in 2 rows, not 3.
+    expect(rows([8, 8, 8, 8, 8], 37)).toBe(2)
+    expect(inRows([8, 8, 8, 8, 8].map((width) => ({ width, height: 1 })), 37, 0).places.filter((place) => place.y === 0)).toHaveLength(3)
+    expect(rows([9, 1, 1, 1, 1], 11)).toBe(2)
+  })
+
+  it('says, in one note, which boxes run past the task or over each other, and in what units (#295)', async () => {
+    const built = await result('H5P.DragQuestion', {
+      question: {
+        settings: { size: { width: 620, height: 310 } },
+        task: {
+          elements: words.map((each, i) => ({ ...word(each, String(i)), x: 2 + 20 * i, y: 5, width: 18, height: 12 })),
+          dropZones: labels.map((each, i) => ({ ...zone(each, [String(i)]), showLabel: true, x: 2 + 20 * i, y: 45, width: 18, height: 40 }))
+        }
+      }
+    })
+    expect(built.notes).toEqual([{
+      path: 'params.question.task',
+      message: expect.stringMatching(/^has boxes past the task's edge \(element 3, element 4, drop zone 0, .+\) and over each other \(element 0, .+\): x and y are percent of the task, width and height em, and it is 38\.75 by 19\.38 em \(620 by 310 px\); leave all four out and the build lays the boxes out$/)
+    }])
+  })
+
+  it('notes zones on a background picture as placed by numbers, and none without one', () => {
+    const task = { dropZones: [{ x: 10, y: 10, width: 5, height: 5 }] }
+    expect(byNumber('H5P.DragQuestion', { question: { settings: { background: { path: 'map.png' } }, task } })).toEqual({ at: 'question.task.dropZones', message: expect.stringMatching(/^holds 1 drop zone placed by numbers/) })
+    expect(byNumber('H5P.DragQuestion', { question: { settings: {}, task } })).toBeUndefined()
   })
 })
 
