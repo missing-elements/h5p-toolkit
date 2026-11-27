@@ -154,9 +154,9 @@ function lines(field, indent, path, counts, options, drawn = false) {
   const inner = drawn || Boolean(shown.type === 'group' && shown.widget && shown.widget !== 'showWhen' && shown.widget !== 'none')
   // A group's default gives its fields theirs, as Drag and Drop's task size does (#297): a field
   // with one is not required.
-  const given = shown.type === 'group' && shown.default && typeof shown.default === 'object' ? shown.default : {}
-  if (shown.type === 'group') for (const child of shown.fields ?? []) out.push(...lines(child.default == null && given[child.name] != null ? { ...child, default: given[child.name] } : child, `${indent}  `, `${path}.${child.name}`, counts, options, inner))
-  if (item?.type === 'group') for (const child of item.fields ?? []) out.push(...lines(child, `${indent}  `, `${path}[].${child.name}`, counts, options, inner))
+  const inherit = (/** @type {any} */ group, /** @type {any} */ child) => (child.default == null && group.default && typeof group.default === 'object' && group.default[child.name] != null ? { ...child, default: group.default[child.name] } : child)
+  if (shown.type === 'group') for (const child of shown.fields ?? []) out.push(...lines(inherit(shown, child), `${indent}  `, `${path}.${child.name}`, counts, options, inner))
+  if (item?.type === 'group') for (const child of item.fields ?? []) out.push(...lines(inherit(item, child), `${indent}  `, `${path}[].${child.name}`, counts, options, inner))
   return out
 }
 

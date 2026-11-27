@@ -310,10 +310,12 @@ describe('Drag and Drop', () => {
     const { question: tall } = await drag({ question: { settings: { size: { width: 800, height: 500 } }, task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
     expect(tall.settings.size.width).toBe(800)
     expect(tall.settings.size.height).toBeLessThan(400)
+    expect(tall.settings.size.height - lowest(tall)).toBeGreaterThanOrEqual(0)
     expect(tall.settings.size.height - lowest(tall)).toBeLessThan(16)
     // One word and one zone need less than the editor's 310.
     const { question: small } = await drag({ question: { task: { elements: [word('Rivers', '0')], dropZones: [zone('Water', ['0'])] } } })
     expect(small.settings.size.height).toBeLessThan(310)
+    expect(small.settings.size.height - lowest(small)).toBeGreaterThanOrEqual(0)
     expect(small.settings.size.height - lowest(small)).toBeLessThan(16)
   })
 
@@ -331,6 +333,8 @@ describe('Drag and Drop', () => {
     const high = await on([{ x: 40, y: 25 }, { x: 52, y: 40 }, { x: 8, y: 10 }])
     expect(high.settings.size).toEqual({ width: 620, height: 465 })
     expect(clear(high)).toBe(true)
+    // With no zone yet, the task takes the picture's shape all the same.
+    expect((await drag({ question: { settings: { background: { path: 'house.png' } }, task: { elements: [word('Roof', '0')] } } }, { base: dir })).question.settings.size).toEqual({ width: 620, height: 465 })
     // The zones let the picture show: an opaque zone hides what it names.
     expect(high.task.dropZones.map((each) => each.backgroundOpacity)).toEqual([0, 0, 0])
     // A height written is kept, and its shape other than the picture's said.
@@ -494,6 +498,8 @@ describe('the schema a source is written from', () => {
   it('gives a group\'s fields the group\'s default, so they are not required (#297)', () => {
     const size = { name: 'size', type: 'group', widget: 'dimensions', default: { width: 620, height: 310, field: 'background' }, fields: [{ name: 'width', type: 'number' }, { name: 'height', type: 'number' }] }
     expect(schemaLines([size]).lines).toEqual(['- `size` group', '  - `width` number = 620', '  - `height` number = 310'])
+    // The same for a list's item.
+    expect(schemaLines([{ name: 'sizes', type: 'list', field: { ...size, name: 'size' } }]).lines).toContain('  - `width` whole number = 620')
   })
 
   it('puts a type file\'s section between its markers, or after a file with none, and refuses broken markers (#162)', () => {

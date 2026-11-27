@@ -801,11 +801,12 @@ export function inRows(boxes, across, top) {
 const dragQuestion = {
   sets: ['elements', 'dropZones'].flatMap((list) => ['x', 'y', 'width', 'height'].map((key) => `question.task.${list}[].${key}`)),
   before(written) {
-    if (!isObject(written?.question) || !Array.isArray(written.question.task?.dropZones)) return
+    if (!isObject(written?.question)) return
     const settings = written.question.settings
     const picture = Boolean(settings?.background)
     // A task with no height written takes the picture's shape, which `after` knows (#297): 0 asks for it.
     if (picture && (settings.size === undefined || (isObject(settings.size) && settings.size.height === undefined))) settings.size = { width: settings.size?.width ?? DQ_TASK.width, height: 0 }
+    if (!Array.isArray(written.question.task?.dropZones)) return
     for (const zone of written.question.task.dropZones.filter(isObject)) {
       // On a picture a zone shows what is under it, and lights up only while a word is dragged (#297).
       if (picture) zone.backgroundOpacity ??= 0
@@ -817,13 +818,13 @@ const dragQuestion = {
     const settings = params?.question?.settings
     const task = params?.question?.task
     const size = settings?.size
-    if (!isObject(task) || !isObject(size) || !(size.width > 0)) return
+    if (!isObject(size)) return
     // The player stretches the picture over the task, and the editor never gives the task its shape (#297).
     const picture = settings.background
-    const shaped = picture?.width > 0 && picture?.height > 0 ? Math.round((size.width * picture.height) / picture.width) : 0
+    const shaped = size.width > 0 && picture?.width > 0 && picture?.height > 0 ? Math.round((size.width * picture.height) / picture.width) : 0
     if (size.height === 0) size.height = shaped || DQ_TASK.height
     else if (shaped && Math.abs(size.height / shaped - 1) > 0.02) context.note(`${path}.question.settings.size`, `is ${size.width} by ${size.height} px, and its picture ${picture.width} by ${picture.height}, which the player stretches over the task: leave size out and the task takes the picture's shape`)
-    if (!(size.height > 0)) return
+    if (!isObject(task) || !(size.width > 0) || !(size.height > 0)) return
     const elements = Array.isArray(task.elements) ? task.elements.filter(isObject) : []
     const zones = Array.isArray(task.dropZones) ? task.dropZones.filter(isObject) : []
     const free = (/** @type {any} */ box) => typeof box.x !== 'number' || typeof box.y !== 'number'

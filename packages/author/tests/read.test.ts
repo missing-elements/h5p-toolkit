@@ -185,9 +185,14 @@ describe('a package read back', () => {
     const read = await readPackage(output, join(at, 'read'))
     expect(read.notes).toEqual([])
     const again = await buildPackage(read.source, undefined, { base: join(at, 'read'), check: true })
-    const { question } = again.content as { question: { settings: { size: unknown }, task: { dropZones: { backgroundOpacity?: number }[] } } }
+    type Box = { x: number, y: number, width: number, height: number, backgroundOpacity?: number }
+    const { question } = again.content as { question: { settings: { size: unknown }, task: { elements: Box[], dropZones: Box[] } } }
     expect(question.settings.size).toEqual({ width: 620, height: 310 })
     expect(question.task.dropZones[0].backgroundOpacity).toBe(100)
+    // Every box where and as large as the editor saved it.
+    const geometry = ({ x, y, width, height }: Box) => ({ x, y, width, height })
+    expect(question.task.dropZones.map(geometry)).toEqual(content.question.task.dropZones.map(geometry))
+    expect(question.task.elements.map(geometry)).toEqual(content.question.task.elements.map(geometry))
     expect(again.notes.map(({ path }) => path)).toContain('params.question.settings.size')
   })
 
