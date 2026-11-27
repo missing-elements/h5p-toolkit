@@ -159,6 +159,38 @@ describe('a package read back', () => {
     return { output, image }
   }
 
+  it('keeps a Drag and Drop\'s task and zones as the editor saved them over a picture of another shape (#297)', async () => {
+    const at = await folder()
+    await writeFile(join(at, 'house.png'), png(800, 600))
+    const built = join(at, 'built.h5p')
+    await buildPackage({
+      ...META,
+      type: 'H5P.DragQuestion',
+      params: {
+        question: {
+          settings: { background: { path: 'house.png' } },
+          task: {
+            elements: [{ type: { library: 'H5P.AdvancedText', params: { text: '<p>Roof</p>' } }, dropZones: ['0'] }],
+            dropZones: [{ label: 'Roof', correctElements: ['0'], x: 30, y: 20, width: 10, height: 4 }]
+          }
+        }
+      }
+    }, built, { base: at })
+    // As the editor saves it: the task left at 620 by 310 over a 4:3 picture, the zone opaque.
+    const { manifest, content } = await opened(built)
+    content.question.settings.size = { width: 620, height: 310 }
+    content.question.task.dropZones[0].backgroundOpacity = 100
+    const output = join(at, 'editor.h5p')
+    await exported(output, manifest, content, { [content.question.settings.background.path]: new Uint8Array(png(800, 600)) })
+    const read = await readPackage(output, join(at, 'read'))
+    expect(read.notes).toEqual([])
+    const again = await buildPackage(read.source, undefined, { base: join(at, 'read'), check: true })
+    const { question } = again.content as Record<string, any>
+    expect(question.settings.size).toEqual({ width: 620, height: 310 })
+    expect(question.task.dropZones[0].backgroundOpacity).toBe(100)
+    expect(again.notes.map(({ path }) => path)).toContain('params.question.settings.size')
+  })
+
   it('from another tool: its own fields and what a build fills in left out, and what a source cannot hold said', async () => {
     const at = await folder()
     const { output, image } = await elsewhere(at)

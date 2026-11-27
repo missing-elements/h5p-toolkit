@@ -70,11 +70,14 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     the player; the zones below, each at least as wide as its label or its words and tall enough
     for the words right in it. With no background picture the task is as tall as they need,
     shorter or taller than written (#297), and a zone laid out shows its label, the one thing that
-    tells it apart. With one, the task takes the picture's shape, since the player stretches it
-    over the task and the editor's size widget never follows it; the elements go in a band clear
-    of the placed zones (the foot, the head, the right, the left), else each in the lowest free
-    spot; and a zone's background is clear, since an opaque one hides what it names and the player
-    lights zones up while a word is dragged. The model places those zones as the box around each
+    tells it apart. With one, a task with no height written takes the picture's shape, since the
+    player stretches it over the task and the editor's size widget never follows it; a height
+    written is kept, and one of another shape noted, so a package read back keeps the editor's
+    size. The elements go in a band clear of the placed zones (the foot, the head, the right, the
+    left), else each in the lowest free spot; and a zone's background is clear unless written,
+    since an opaque one hides what it names and the player lights zones up while a word is
+    dragged. A group written in part takes the rest from its default, as `read` writes a height
+    alone. The model places those zones as the box around each
     thing; shown the picture, Haiku put 46 of 46 zones on their parts over 9 runs. `x` and `y`
     are percent of the task, `width` and `height` em at 16 px to `size.width`; models wrote all
     four as percent, so written boxes past the task or over each other get one note. Asked for

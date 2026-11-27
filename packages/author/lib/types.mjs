@@ -707,8 +707,9 @@ const imageHotspotQuestion = {
 // a draggable's handle and padding add to the size written, and a line of its text.
 const DRAGGABLE_EDGE = { width: 1.6, height: 0.8 }
 const DQ_LINE = 1.25
-/** The editor's new text box, H5PEditor.DragQuestion 1.10's, and the room around boxes. */
+/** The editor's new text box and task, H5PEditor.DragQuestion 1.10's, and the room around boxes. */
 const DQ_BOX = { width: 5, height: 2.25 }
+const DQ_TASK = { width: 620, height: 310 }
 const DQ_MARGIN = 0.5
 const DQ_GAP = 1
 
@@ -801,7 +802,10 @@ const dragQuestion = {
   sets: ['elements', 'dropZones'].flatMap((list) => ['x', 'y', 'width', 'height'].map((key) => `question.task.${list}[].${key}`)),
   before(written) {
     if (!isObject(written?.question) || !Array.isArray(written.question.task?.dropZones)) return
-    const picture = Boolean(written.question.settings?.background)
+    const settings = written.question.settings
+    const picture = Boolean(settings?.background)
+    // A task with no height written takes the picture's shape, which `after` knows (#297): 0 asks for it.
+    if (picture && (settings.size === undefined || (isObject(settings.size) && settings.size.height === undefined))) settings.size = { width: settings.size?.width ?? DQ_TASK.width, height: 0 }
     for (const zone of written.question.task.dropZones.filter(isObject)) {
       // On a picture a zone shows what is under it, and lights up only while a word is dragged (#297).
       if (picture) zone.backgroundOpacity ??= 0
@@ -813,12 +817,15 @@ const dragQuestion = {
     const settings = params?.question?.settings
     const task = params?.question?.task
     const size = settings?.size
-    if (!isObject(task) || !isObject(size) || !(size.width > 0) || !(size.height > 0)) return
-    const elements = Array.isArray(task.elements) ? task.elements.filter(isObject) : []
-    const zones = Array.isArray(task.dropZones) ? task.dropZones.filter(isObject) : []
+    if (!isObject(task) || !isObject(size) || !(size.width > 0)) return
     // The player stretches the picture over the task, and the editor never gives the task its shape (#297).
     const picture = settings.background
-    if (picture?.width > 0 && picture?.height > 0 && Math.abs(size.height - (size.width * picture.height) / picture.width) >= 1) size.height = Math.round((size.width * picture.height) / picture.width)
+    const shaped = picture?.width > 0 && picture?.height > 0 ? Math.round((size.width * picture.height) / picture.width) : 0
+    if (size.height === 0) size.height = shaped || DQ_TASK.height
+    else if (shaped && Math.abs(size.height / shaped - 1) > 0.02) context.note(`${path}.question.settings.size`, `is ${size.width} by ${size.height} px, and its picture ${picture.width} by ${picture.height}, which the player stretches over the task: leave size out and the task takes the picture's shape`)
+    if (!(size.height > 0)) return
+    const elements = Array.isArray(task.elements) ? task.elements.filter(isObject) : []
+    const zones = Array.isArray(task.dropZones) ? task.dropZones.filter(isObject) : []
     const free = (/** @type {any} */ box) => typeof box.x !== 'number' || typeof box.y !== 'number'
     const loose = elements.filter(free)
     const open = zones.filter(free)

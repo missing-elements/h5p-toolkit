@@ -332,6 +332,12 @@ describe('Drag and Drop', () => {
     expect(clear(high)).toBe(true)
     // The zones let the picture show: an opaque zone hides what it names.
     expect(high.question.task.dropZones.map((each: any) => each.backgroundOpacity)).toEqual([0, 0, 0])
+    // A height written is kept, and its shape other than the picture's said.
+    const written = await result('H5P.DragQuestion', {
+      question: { settings: { background: { path: 'house.png' }, size: { width: 620, height: 310 } }, task: { elements: [word('Roof', '0')], dropZones: [{ ...zone('Roof', ['0']), x: 40, y: 25 }] } }
+    }, { base: dir })
+    expect((written.content as any).question.settings.size).toEqual({ width: 620, height: 310 })
+    expect(written.notes).toContainEqual({ path: 'params.question.settings.size', message: expect.stringMatching(/^is 620 by 310 px, and its picture 800 by 600/) })
     expect(high.question.task.elements[0].y).toBeGreaterThan(80)
     // Zones down to the foot push the words to the head.
     const low = await on([{ x: 10, y: 75 }, { x: 40, y: 80 }, { x: 70, y: 75 }])

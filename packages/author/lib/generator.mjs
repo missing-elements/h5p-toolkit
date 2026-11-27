@@ -572,7 +572,9 @@ export class ContentGenerator {
         const closed = optional && (written === undefined || (this.saved && !holds(field, written)))
         const kept = isObject(field.default) ? Object.keys(field.default) : []
         if (field.isSubContent) kept.push('subContentId')
-        const value = this.fields(children, written, stack, closed, path, kept)
+        // Written in part, a group takes the rest from its default, as a source `read` wrote one (#297).
+        const rest = isObject(written) && isObject(field.default) ? Object.entries(field.default).filter(([key]) => written[key] === undefined && children.some((/** @type {any} */ child) => child.name === key)) : []
+        const value = this.fields(children, rest.length ? { ...Object.fromEntries(rest), ...written } : written, stack, closed, path, kept)
         if (field.isSubContent) value.subContentId = this.#id(isObject(written) ? written.subContentId : undefined, path)
         return value
       }
