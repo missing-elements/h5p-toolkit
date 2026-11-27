@@ -2,7 +2,7 @@
 
 Words or pictures the learner drags onto drop zones: a word to its meaning, items into groups. Scored.
 
-- Leave out every element's and zone's `x`, `y`, `width` and `height`: the build lays them out, the elements in rows above the zones, each at least as wide as its text, and, with no background picture, makes the task as tall as they need.
+- Leave out every element's and zone's `x`, `y`, `width` and `height`: the build lays them out, the elements in rows above the zones it lays out and below any box you place, each at least as wide as its text, and, with no background picture, makes the task as tall as they need.
 - Write them only to put zones on a background picture (`question.settings.background`): `x` and `y` in percent of the task, `width` and `height` in em, the task being `size.width` / 16 em across (38.75 at 620 px). Look at the picture to place them; the preview shows where they landed.
 - An element's `type` is H5P.AdvancedText for a word or H5P.Image for a picture. Its `dropZones` names every zone it may be dropped in, by place from `"0"`: name them all, since an element droppable only where it is right gives the answer away.
 - A zone's `correctElements` names the elements right in it, the same way. A zone with no picture under it is told apart by its `label`, which the build shows on a zone it places; on one you place, set `"showLabel": true`. Keep a label to a few words: a zone is at least as wide as its label or its words.
