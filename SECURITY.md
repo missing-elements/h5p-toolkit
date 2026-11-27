@@ -17,7 +17,6 @@ versions of the packages in this repository:
 | `@missing-elements/h5p-author` | Latest release and `main` |
 | `@missing-elements/h5p-mcp` | Latest release and `main` |
 | H5P Preview, the VS Code extension (`packages/vscode`) | Latest release and `main` |
-| The hosted app server, a Cloudflare Worker (`apps/mcp-worker`) | Deployment from `main` |
 | Demo and installable app | Deployment from `main` |
 
 Older releases may receive a fix when practical, but users should upgrade to a

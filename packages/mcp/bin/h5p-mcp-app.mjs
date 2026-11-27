@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { parseArgs } from 'node:util'
 
-const HELP = `Usage: h5p-mcp-app [--port <number>] [--host <address>] [--site <origin>]
+const HELP = `Usage: h5p-mcp-app [--port <number>] [--host <address>] [--site <origin>] [--build <url>] [--title <name>]
 
 The app server of H5P Author MCP by Missing Elements: an MCP server over HTTP for a chat app
 that shows a card in its reply. Its endpoint is /mcp. It checks an activity's source and the
@@ -16,6 +16,10 @@ Options:
   --host <address>  the address to listen on; 127.0.0.1 by default, 0.0.0.0 for every interface
   --site <origin>   the site whose play page the card frames;
                     https://missing-elements.github.io by default
+  --build <url>     the build page a chat with no card hands the source to;
+                    the site's /h5p/build/ by default
+  --title <name>    the name the server gives itself in a chat;
+                    H5P Author MCP by Missing Elements by default
   --version
   -h, --help
 `
@@ -27,6 +31,8 @@ try {
       port: { type: 'string' },
       host: { type: 'string' },
       site: { type: 'string' },
+      build: { type: 'string' },
+      title: { type: 'string' },
       version: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' }
     }
@@ -53,11 +59,15 @@ if (values.site !== undefined && !URL.canParse(values.site)) {
   console.error(`h5p-mcp-app: ${values.site} is not an origin, as https://example.org`)
   process.exit(2)
 }
+if (values.build !== undefined && !URL.canParse(values.build)) {
+  console.error(`h5p-mcp-app: ${values.build} is not an address, as https://example.org/h5p/build/`)
+  process.exit(2)
+}
 const host = values.host ?? '127.0.0.1'
 
 // Loaded only now, so that --help and --version answer without loading the pack.
 const { createApp } = await import('../lib/app.mjs')
-const app = await createApp({ site: values.site })
+const app = await createApp({ site: values.site, build: values.build, title: values.title })
 
 // One HTTP request, as the web's Request and Response, to the app and back. Nothing of it is
 // written anywhere: not its address, not its body, not how it was answered.

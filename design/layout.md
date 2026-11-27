@@ -48,8 +48,6 @@ apps/demo/             the dev server and the hosted site: index.html the player
                        partials/ the shared markup, scripts/ the builds and the sweep, sweep/ its files
 apps/skills/           the skills' test project: author-verify, author-playback, to-scorm,
                        front-matter
-apps/mcp-worker/       the app server as a Cloudflare Worker: src/worker.mjs, wrangler.jsonc its
-                       config, scripts/stage.mjs what it carries, gathered into staged/
 skills/                the agent skills, at the root, where `npx skills add` looks
 docs/                  the README's longer sections, for integrators
 scripts/               published.mjs, the check before a package is published that npm serves the

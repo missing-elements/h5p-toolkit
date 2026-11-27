@@ -26,6 +26,10 @@ let CARD: string
 /** How many times the play page was asked for, and how long it waits before it speaks: never, below 0. */
 let played = 0
 let lateBy = 0
+/** Links the stand-in play page asks the card to open, once it has said its height. */
+let links: string[] = []
+/** The build page's origin the card is served with: another site's, as a host may give it. */
+const BUILD = 'https://build.example'
 
 /** What is asked inside a page is written as text: this package's types know no browser. */
 const ORIGIN = 'self.origin'
@@ -50,11 +54,11 @@ beforeAll(async () => {
     if (!request.url?.startsWith('/h5p/play/')) { response.statusCode = 404; return response.end() }
     played++
     response.setHeader('Content-Type', 'text/html; charset=utf-8')
-    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'), ${lateBy})</script>`)
+    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => { parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'); for (const href of ${JSON.stringify(links)}) parent.postMessage({ source: 'h5p-play', type: 'open', href }, '*') }, ${lateBy})</script>`)
   })
   await listening(site, '127.0.0.1')
   SITE = `http://127.0.0.1:${port(site)}`
-  const served = card.replaceAll('__SITE__', SITE)
+  const served = card.replaceAll('__SITE__', SITE).replaceAll('__BUILD__', BUILD)
   chat = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://chat')
     const kind = url.searchParams.get('kind')
@@ -202,6 +206,18 @@ describe('the card, where a chat lets the play page be framed', () => {
     expect(played).toBe(1)
     expect(await page.evaluate<string[]>(ASKED)).toEqual([])
     await page.close()
+  })
+
+  it('opens a link of the site or of the build page for the page, and no other', async () => {
+    links = [`${SITE}/h5p/play/#source=a`, `${BUILD}/h5p/build/#source=a`, 'https://elsewhere.example/', 'not an address']
+    try {
+      const { page, card } = await open('kind=framed')
+      await card.waitForSelector('#page.on')
+      await expect.poll(() => page.evaluate<string[]>(ASKED)).toEqual([`${SITE}/h5p/play/#source=a`, `${BUILD}/h5p/build/#source=a`])
+      await page.close()
+    } finally {
+      links = []
+    }
   })
 
   it('shows a page that speaks from the frame, whatever was concluded before', async () => {

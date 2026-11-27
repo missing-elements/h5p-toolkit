@@ -86,8 +86,10 @@ npx -y -p @missing-elements/h5p-mcp h5p-mcp-app --port 8787
 ```
 
 Its endpoint is `/mcp`, with no sign-in. `--host` is the address it listens on, `127.0.0.1` by
-default, and `--site` the origin whose play page the card frames. It has two tools: `h5p_types`,
-as above, and `h5p_play`, which checks an activity's source and shows the card.
+default, `--site` the origin whose play page the card frames, `--build` the build page a chat
+with no card is sent to, the site's `/h5p/build/` by default, and `--title` the name the server
+gives itself. It has two tools: `h5p_types`, as above, and `h5p_play`, which checks an activity's
+source and shows the card.
 
 - **The card frames the play page** of
   [missing-elements.github.io](https://missing-elements.github.io/h5p/), which builds the activity
@@ -120,8 +122,9 @@ const app = await createApp()
 export default { fetch: (request) => app.fetch(request) }
 ```
 
-`createApp({ site, libraries, references, card, version })`: `site` is the origin whose play page
-the card frames. A bundle has no package folder beside its code, so it names all it carries:
+`createApp({ site, build, title, libraries, references, card, version })`: `site` is the origin
+whose play page the card frames, `build` the build page's address, which the card may open too,
+and `title` the server's name, as the command's options. A bundle has no package folder beside its code, so it names all it carries:
 `libraries`, the library pack's `parts/` folder, `references`, the author package's `references/`
 folder, `card`, the text of this package's `lib/card.html`, and `version`.
 

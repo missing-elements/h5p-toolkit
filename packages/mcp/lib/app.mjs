@@ -11,6 +11,8 @@ import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typ
  *
  * @typedef {object} AppOptions
  * @property {string} [site] the origin of the site whose play page the card frames; `https://missing-elements.github.io` by default
+ * @property {string} [build] the build page's address, which a chat with no card hands the source to and the card may open; the site's `/h5p/build/` by default
+ * @property {string} [title] the name the server gives itself, which a chat shows; `H5P Author MCP by Missing Elements` by default
  * @property {string} [libraries] the pack's `parts/` folder to check with; the installed pack by default
  * @property {string} [references] the folder of the author package's type files and brief, its `references/`, with the skill's `SKILL.md` and `LICENSE` beside it, as in the package; the installed package's by default
  * @property {string} [card] the card's text, `lib/card.html`; read from beside this file by default
@@ -18,6 +20,7 @@ import { SOURCE_PROPERTIES, TYPES, answer, heldLines, refusal, skillCatalog, typ
  */
 
 const SITE = 'https://missing-elements.github.io'
+const TITLE = 'H5P Author MCP by Missing Elements'
 
 /** A source is text: a body past this is refused before it is read whole. */
 const MOST = 1024 * 1024
@@ -63,10 +66,10 @@ function drawsCards(capabilities) {
 /**
  * What a chat that draws no card gets instead (#276): h5p-author's route 4, the whole source and
  * the build page's plain address, never a link holding the source: one wrong character breaks it.
- * @param {string} site
+ * @param {string} build the build page's address
  * @param {number} files how many files the source names, which the page asks the person for
  */
-const handOver = (site, files) => `hand the activity over to be built in the person's browser: the whole source, once, in one json code block, and one line telling them to copy it, open ${site}/h5p/build/, choose "Paste your chat's JSON", paste it into the box in place of the sample's, and press Build.${files ? ' Add that the page asks for the files the source names before it builds.' : ''} Give the page's address as it is, with nothing after it.`
+const handOver = (build, files) => `hand the activity over to be built in the person's browser: the whole source, once, in one json code block, and one line telling them to copy it, open ${build}, choose "Paste your chat's JSON", paste it into the box in place of the sample's, and press Build.${files ? ' Add that the page asks for the files the source names before it builds.' : ''} Give the page's address as it is, with nothing after it.`
 
 /** Where a chat keeps attached files, which the card asks from the person's browser: ChatGPT's, as seen in November 2026. */
 const FILE_HOSTS = ['https://*.blob.core.windows.net', 'https://files.oaiusercontent.com', 'https://*.oaiusercontent.com']
@@ -91,9 +94,12 @@ function attached(file) {
  */
 export async function createApp(options = {}) {
   const site = new URL(options.site ?? SITE).origin
+  // A host may serve the play page and send people to another site's build page (#299).
+  const build = new URL(options.build ?? `${site}/h5p/build/`).href
+  const title = options.title ?? TITLE
   // A Worker's bundle (#272) has no package folder for `import.meta` to find: it passes `version` and `card`.
   const version = options.version ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version
-  const card = (options.card ?? await readFile(new URL('./card.html', import.meta.url), 'utf8')).replaceAll('__SITE__', site)
+  const card = (options.card ?? await readFile(new URL('./card.html', import.meta.url), 'utf8')).replaceAll('__SITE__', site).replaceAll('__BUILD__', new URL(build).origin)
   // A chat keeps a card by its address, so a card that changed has another.
   const cardUri = `ui://h5p-play/card-${createHash('sha256').update(card).digest('hex').slice(0, 12)}.html`
   const about = typeAnswers({ libraries: options.libraries, references: options.references })
@@ -106,12 +112,12 @@ export async function createApp(options = {}) {
   // attached file. Written twice, as the MCP Apps specification places it and as ChatGPT reads it.
   const cardMeta = {
     ui: { csp: { frameDomains: [site], connectDomains: FILE_HOSTS, resourceDomains: FILE_HOSTS }, prefersBorder: true },
-    'openai/widgetCSP': { frame_domains: [site], connect_domains: FILE_HOSTS, resource_domains: FILE_HOSTS, redirect_domains: [site] },
+    'openai/widgetCSP': { frame_domains: [site], connect_domains: FILE_HOSTS, resource_domains: FILE_HOSTS, redirect_domains: [...new Set([site, new URL(build).origin])] },
     'openai/widgetDescription': 'Plays the H5P activity, built in the person\'s browser, with its download.'
   }
 
   function server() {
-    const mcp = new McpServer({ name: 'h5p-mcp-app', title: 'H5P Author MCP by Missing Elements', version }, { instructions: INSTRUCTIONS })
+    const mcp = new McpServer({ name: 'h5p-mcp-app', title, version }, { instructions: INSTRUCTIONS })
 
     mcp.registerTool('h5p_types', {
       title: 'H5P content types',
@@ -158,14 +164,14 @@ export async function createApp(options = {}) {
       const what = `${result.manifest.mainLibrary}, ${result.libraries.length} libraries`
       if (cards === false) {
         // No card comes: the source, to the build page.
-        const lines = [`The activity is checked: ${what}. Nothing was stored. This chat draws no card, so ${handOver(site, files.length)}`]
+        const lines = [`The activity is checked: ${what}. Nothing was stored. This chat draws no card, so ${handOver(build, files.length)}`]
         if (files.length) lines.push(`Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here.`)
         lines.push(...heldLines(result))
         return answer(lines.join('\n'))
       }
       const lines = [`The activity is checked and plays in the card: ${what}. It is built in the person's browser; nothing was stored.`]
       // A chat that did not say whether it draws cards: the way where it draws none, too.
-      if (cards === null) lines.push(`Where this chat draws no card, as a terminal or an editor's chat draws none, ${handOver(site, files.length)}`)
+      if (cards === null) lines.push(`Where this chat draws no card, as a terminal or an editor's chat draws none, ${handOver(build, files.length)}`)
       if (files.length) {
         lines.push(given
           ? `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here: the card gets the attachment in the person's browser${files.length === 1 ? '' : ', and asks the person for any other'}.`
@@ -211,7 +217,7 @@ export async function createApp(options = {}) {
     async fetch(request) {
       const { pathname } = new URL(request.url)
       // For whoever opens the address, and for a host that asks whether the server is up.
-      if (pathname === '/' && (request.method === 'GET' || request.method === 'HEAD')) return new Response('H5P Author MCP by Missing Elements: the MCP endpoint is /mcp\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } })
+      if (pathname === '/' && (request.method === 'GET' || request.method === 'HEAD')) return new Response(`${title}: the MCP endpoint is /mcp\n`, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
       if (pathname !== '/mcp') return new Response('Not found\n', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } })
       // Said before a body is read, where its length is given; the handler holds one that gives none to the same bound.
       if (Number(request.headers.get('content-length')) > MOST) return new Response('A request takes 1 MB at most\n', { status: 413, headers: { 'content-type': 'text/plain; charset=utf-8' } })

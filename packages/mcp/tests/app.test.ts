@@ -279,6 +279,29 @@ describe('the app server', () => {
     expect((await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'h5p_play', arguments: { source: { ...QUIZ, title: 'x'.repeat(1024 * 1024) } } } }) })).status).toBe(413)
   })
 
+  it('takes a host\'s site, build page and title: the card frames the one and may open the other', async () => {
+    const app = await createApp({ site: 'https://lesson.example', build: 'https://tools.example/h5p/build/', title: 'A Lesson' })
+    const ask = async (method: string, params: unknown) => {
+      const response = await app.fetch(new Request('https://lesson.example/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+      }))
+      const text = await response.text()
+      return JSON.parse(text.split('\n').find((line) => line.startsWith('data: '))?.slice(6) ?? text).result
+    }
+    expect((await ask('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '0' } })).serverInfo).toMatchObject({ name: 'h5p-mcp-app', title: 'A Lesson' })
+    expect(await (await app.fetch(new Request('https://lesson.example/'))).text()).toBe('A Lesson: the MCP endpoint is /mcp\n')
+    const card = (await ask('resources/read', { uri: app.cardUri })).contents[0]
+    expect(card.text).toContain("const SITE = 'https://lesson.example'")
+    expect(card.text).toContain("const BUILD = 'https://tools.example'")
+    expect(card._meta.ui.csp.frameDomains).toEqual(['https://lesson.example'])
+    expect(card._meta['openai/widgetCSP']).toMatchObject({ frame_domains: ['https://lesson.example'], redirect_domains: ['https://lesson.example', 'https://tools.example'] })
+    // A chat that did not say whether it draws cards is told the build page too.
+    expect((await ask('tools/call', { name: 'h5p_play', arguments: { source: QUIZ } })).content[0].text).toContain('open https://tools.example/h5p/build/, choose "Paste your chat\'s JSON"')
+    await app.close()
+  })
+
   it('takes its card, its version and its type files from a host that carries them', async () => {
     // A bundle has no package folder beside the code, so its host names what it carries (#272).
     const carried = await mkdtemp(join(tmpdir(), 'h5p-mcp-carried-'))

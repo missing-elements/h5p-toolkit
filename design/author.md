@@ -438,9 +438,8 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   hands over the source for the build page, `https://missing-elements.github.io/h5p/build/`,
   where the user's browser builds the package (*A page builds too*), plays it and downloads it.
   The page lives on the organisation's own site, not in this repository's demo: a domain that
-  names its owner, with "H5P" only in the path, as the trademark policy allows. embed-my's
-  `/build` redirects there. It builds from `@missing-elements/h5p-libraries/install` at the
-  version the author package pins. It still reads a `#source=` link, which installed copies of
+  names its owner, with "H5P" only in the path, as the trademark policy allows. It builds from
+  `@missing-elements/h5p-libraries/install` at the version the author package pins. It still reads a `#source=` link, which installed copies of
   the skill up to 0.10.2 print. An install that hangs counts as one that fails. Neither an
   uploaded plugin nor ChatGPT's download tool is a way round the registry: a plugin's files never
   reach its code, and the tool refused the build tool and the bundles by content type.
