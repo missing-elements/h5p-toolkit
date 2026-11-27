@@ -154,6 +154,8 @@ Since 1.0.0:
 - **What a build writes**: a package that plays in the player, and that an H5P site takes when it
   has the H5P core the build names; and its source beside it, with `builtWith`.
 
+A source that builds gives the same content with every later 1.x, but for each part's new id and
+what a new pack brings: its libraries' defaults, translations and fields.
 A refusal of a source that built before comes in a minor, never a patch, and only for what H5P's
 editor refuses or what does not play as written; any other comes in a major. A new note can come in
 any release. The release pins a library pack, as the player does, and moves the pin in a minor: a
