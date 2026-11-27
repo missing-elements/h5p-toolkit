@@ -68,10 +68,16 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   - A Drag and Drop's boxes with no place are laid out (#295), and those with no size sized:
     the elements in rows, each at least as wide as its text by widths measured per character in
     the player; the zones below, each at least as wide as its label or its words and tall enough
-    for the words right in it. With no background picture the task grows as tall as they need, and a
-    zone laid out shows its label, the one thing that tells it apart. `x` and `y` are percent of
-    the task, `width` and `height` em at 16 px to `size.width`; models wrote all four as
-    percent, so written boxes past the task or over each other get one note. Asked for
+    for the words right in it. With no background picture the task is as tall as they need,
+    shorter or taller than written (#297), and a zone laid out shows its label, the one thing that
+    tells it apart. With one, the task takes the picture's shape, since the player stretches it
+    over the task and the editor's size widget never follows it; the elements go in a band clear
+    of the placed zones (the foot, the head, the right, the left), else each in the lowest free
+    spot; and a zone's background is clear, since an opaque one hides what it names and the player
+    lights zones up while a word is dragged. The model places those zones as the box around each
+    thing; shown the picture, Haiku put 46 of 46 zones on their parts over 9 runs. `x` and `y`
+    are percent of the task, `width` and `height` em at 16 px to `size.width`; models wrote all
+    four as percent, so written boxes past the task or over each other get one note. Asked for
     five English words to match on route 1, Haiku left the places out in 5 of 5 runs with the
     type file, and the 3 played had no box over another.
   - It checks what those widgets would not let pass: a scenario node with no next, a link to no

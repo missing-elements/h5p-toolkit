@@ -298,6 +298,58 @@ describe('Drag and Drop', () => {
     expect(water.width * water.height).toBeGreaterThan(2 * (laid.width + 1.6) * (laid.height + 0.8))
   })
 
+  it('makes a task with no picture as tall as the boxes it lays out, shorter when written taller (#297)', async () => {
+    const lowest = (content: any) => {
+      const { size } = content.question.settings
+      return Math.max(...content.question.task.dropZones.map((box: Box) => rect(box, size, 'zone').bottom)) * 16
+    }
+    // ChatGPT wrote 800 by 500 for six words and six zones, which need about 350 px.
+    const tall = await build('H5P.DragQuestion', { question: { settings: { size: { width: 800, height: 500 } }, task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
+    expect(tall.question.settings.size.width).toBe(800)
+    expect(tall.question.settings.size.height).toBeLessThan(400)
+    expect(tall.question.settings.size.height - lowest(tall)).toBeLessThan(16)
+    // One word and one zone need less than the editor's 310.
+    const small = await build('H5P.DragQuestion', { question: { task: { elements: [word('Rivers', '0')], dropZones: [zone('Water', ['0'])] } } })
+    expect(small.question.settings.size.height).toBeLessThan(310)
+    expect(small.question.settings.size.height - lowest(small)).toBeLessThan(16)
+  })
+
+  it('gives a task on a picture the picture\'s shape, and puts the words in a band clear of the zones (#297)', async () => {
+    await writeFile(join(dir, 'house.png'), png(800, 600))
+    const parts = ['Roof', 'Door', 'Sun']
+    const on = (zones: { x: number, y: number }[]) => build('H5P.DragQuestion', {
+      question: { settings: { background: { path: 'house.png' } }, task: { elements: parts.map((each, i) => word(each, String(i))), dropZones: zones.map((at, i) => ({ ...zone(parts[i], [String(i)]), ...at })) } }
+    }, { base: dir })
+    const clear = (content: any) => {
+      const { size } = content.question.settings
+      const words = content.question.task.elements.map((box: Box) => rect(box, size, 'element'))
+      const zones = content.question.task.dropZones.map((box: Box) => rect(box, size, 'zone'))
+      return words.every((one: any) => one.top >= 0 && one.bottom <= size.height / 16 && zones.every((other: any) => one.right <= other.left || other.right <= one.left || one.bottom <= other.top || other.bottom <= one.top))
+    }
+    // 800 by 600 is 620 by 465: the player stretches the picture over the task.
+    const high = await on([{ x: 40, y: 25 }, { x: 52, y: 40 }, { x: 8, y: 10 }])
+    expect(high.question.settings.size).toEqual({ width: 620, height: 465 })
+    expect(clear(high)).toBe(true)
+    // The zones let the picture show: an opaque zone hides what it names.
+    expect(high.question.task.dropZones.map((each: any) => each.backgroundOpacity)).toEqual([0, 0, 0])
+    expect(high.question.task.elements[0].y).toBeGreaterThan(80)
+    // Zones down to the foot push the words to the head.
+    const low = await on([{ x: 10, y: 75 }, { x: 40, y: 80 }, { x: 70, y: 75 }])
+    expect(clear(low)).toBe(true)
+    expect(low.question.task.elements[0].y).toBeLessThan(10)
+    // Haiku's six zones on a house leave no band clear for six words: each takes a free spot.
+    const six = ['Roof', 'Chimney', 'Window', 'Door', 'Sun', 'Tree']
+    const zones = [[25, 18.33, 13.47, 7.27], [60.38, 21.33, 4.07, 4.55], [33.5, 51.33, 4.55, 4.07], [52.25, 59.67, 4.07, 6.88], [6.5, 7, 5.62, 5.62], [73.5, 38, 6.98, 13.18]]
+    const house = await build('H5P.DragQuestion', {
+      question: { settings: { background: { path: 'house.png' } }, task: { elements: six.map((each, i) => word(each, String(i))), dropZones: zones.map(([x, y, width, height], i) => ({ ...zone(six[i], [String(i)]), x, y, width, height })) } }
+    }, { base: dir })
+    expect(clear(house)).toBe(true)
+    const words = house.question.task.elements.map((box: Box) => rect(box, house.question.settings.size, 'element'))
+    for (const [i, one] of words.entries()) {
+      for (const other of words.slice(i + 1)) expect(one.right <= other.left || other.right <= one.left || one.bottom <= other.top || other.bottom <= one.top).toBe(true)
+    }
+  })
+
   it('keeps a box placed by hand where it was when the task grows', async () => {
     const built = await result('H5P.DragQuestion', {
       question: { task: { elements: words.map((each, i) => (i ? word(each, String(i)) : { ...word(each, '0'), x: 10, y: 50 })), dropZones: labels.map((each, i) => zone(each, [String(i)])) } }
@@ -431,6 +483,11 @@ describe('the schema a source is written from', () => {
     expect(interfaceTexts).toBe(2)
     expect(schemaLines(semantics).lines).toContain('- `x` number, required, hidden in the editor')
     expect(schemaLines(semantics, { all: true }).lines).toContain('  - `check` text = "Check"')
+  })
+
+  it('gives a group\'s fields the group\'s default, so they are not required (#297)', () => {
+    const size = { name: 'size', type: 'group', widget: 'dimensions', default: { width: 620, height: 310, field: 'background' }, fields: [{ name: 'width', type: 'number' }, { name: 'height', type: 'number' }] }
+    expect(schemaLines([size]).lines).toEqual(['- `size` group', '  - `width` number = 620', '  - `height` number = 310'])
   })
 
   it('puts a type file\'s section between its markers, or after a file with none, and refuses broken markers (#162)', () => {
