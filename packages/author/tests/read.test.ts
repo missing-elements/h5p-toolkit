@@ -185,7 +185,7 @@ describe('a package read back', () => {
     const read = await readPackage(output, join(at, 'read'))
     expect(read.notes).toEqual([])
     const again = await buildPackage(read.source, undefined, { base: join(at, 'read'), check: true })
-    const { question } = again.content as Record<string, any>
+    const { question } = again.content as { question: { settings: { size: unknown }, task: { dropZones: { backgroundOpacity?: number }[] } } }
     expect(question.settings.size).toEqual({ width: 620, height: 310 })
     expect(question.task.dropZones[0].backgroundOpacity).toBe(100)
     expect(again.notes.map(({ path }) => path)).toContain('params.question.settings.size')

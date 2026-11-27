@@ -244,20 +244,26 @@ describe('Drag and Drop', () => {
   const zone = (label: string, right: string[]) => ({ label, correctElements: right })
   const words = ['QUIET', 'JOYFUL', 'BEGIN', 'ENORMOUS', 'FRAGILE']
   const labels = ['Making little or no noise', 'Very happy', 'To start something', 'Very large in size', 'Easily broken']
-  type Box = { x: number, y: number, width: number, height: number, showLabel?: boolean }
+  type Box = { x: number, y: number, width: number, height: number, showLabel?: boolean, backgroundOpacity?: number }
+  type Size = { width: number, height: number }
+  type Question = { settings: { size: Size }, task: { elements: Box[], dropZones: Box[] } }
+  /** A Drag and Drop built, its content as these tests read it, and its notes. */
+  const drag = async (params: unknown, options: Parameters<typeof buildPackage>[2] = {}) => {
+    const { content, notes } = await result('H5P.DragQuestion', params, options)
+    return { question: (content as { question: Question }).question, notes }
+  }
   // A box's place and size in em, as the player draws it: a draggable's handle and padding around it, a zone's label above it.
-  const rect = (box: Box, size: { width: number, height: number }, kind: 'element' | 'zone') => {
+  const rect = (box: Box, size: Size, kind: 'element' | 'zone') => {
     const lift = kind === 'zone' && box.showLabel ? 1.25 : 0
     return { left: (box.x / 100) * size.width / 16, top: (box.y / 100) * size.height / 16 - lift, right: (box.x / 100) * size.width / 16 + box.width + (kind === 'element' ? 1.6 : 0), bottom: (box.y / 100) * size.height / 16 + box.height + (kind === 'element' ? 0.8 : 0) }
   }
 
   it('lays out the boxes nobody placed: words in rows above, zones with their labels below, none over another (#295)', async () => {
-    const built = await result('H5P.DragQuestion', { question: { task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
-    const { question } = built.content as Record<string, any>
+    const { question, notes } = await drag({ question: { task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
     const { size } = question.settings
     const boxes = [
-      ...question.task.elements.map((box: Box) => rect(box, size, 'element')),
-      ...question.task.dropZones.map((box: Box) => rect(box, size, 'zone'))
+      ...question.task.elements.map((box) => rect(box, size, 'element')),
+      ...question.task.dropZones.map((box) => rect(box, size, 'zone'))
     ]
     // The editor's default size, without the `field` its widget reads, which the content check drops.
     expect(Object.keys(size)).toEqual(['width', 'height'])
@@ -278,20 +284,20 @@ describe('Drag and Drop', () => {
     // A word's box is as wide as its text: ENORMOUS's 8 capitals are about 6 em.
     expect(first.width).toBeGreaterThan(6)
     expect(first.width).toBeLessThan(8)
-    expect(zones.every((each: Box) => each.showLabel === true && each.y > first.y)).toBe(true)
+    expect(zones.every((each) => each.showLabel === true && each.y > first.y)).toBe(true)
     // A zone holds the word dropped in it, and its whole label.
     expect(zones[0].width).toBeGreaterThan(Math.max(first.width + 1.6, 11.5))
-    expect(built.notes).toEqual([])
+    expect(notes).toEqual([])
   })
 
   it('keeps the boxes placed by hand and lays out the rest below them', async () => {
-    const content = await build('H5P.DragQuestion', {
+    const { question } = await drag({
       question: { task: { elements: [{ ...word('Rivers', '0'), x: 10, y: 10, width: 6, height: 2.25 }, word('Lakes', '0')], dropZones: [{ ...zone('Water', ['0', '1']), showLabel: false }] } }
     })
-    const [placed, laid] = content.question.task.elements
-    const [water] = content.question.task.dropZones
+    const [placed, laid] = question.task.elements
+    const [water] = question.task.dropZones
     expect(placed).toMatchObject({ x: 10, width: 6, height: 2.25 })
-    expect((placed.y / 100) * content.question.settings.size.height).toBeCloseTo(31, -1)
+    expect((placed.y / 100) * question.settings.size.height).toBeCloseTo(31, -1)
     expect(laid.y).toBeGreaterThan(placed.y)
     // A label written as hidden stays so, and a zone for two words holds both.
     expect(water.showLabel).toBe(false)
@@ -299,83 +305,77 @@ describe('Drag and Drop', () => {
   })
 
   it('makes a task with no picture as tall as the boxes it lays out, shorter when written taller (#297)', async () => {
-    const lowest = (content: any) => {
-      const { size } = content.question.settings
-      return Math.max(...content.question.task.dropZones.map((box: Box) => rect(box, size, 'zone').bottom)) * 16
-    }
+    const lowest = ({ settings, task }: Question) => Math.max(...task.dropZones.map((box) => rect(box, settings.size, 'zone').bottom)) * 16
     // ChatGPT wrote 800 by 500 for six words and six zones, which need about 350 px.
-    const tall = await build('H5P.DragQuestion', { question: { settings: { size: { width: 800, height: 500 } }, task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
-    expect(tall.question.settings.size.width).toBe(800)
-    expect(tall.question.settings.size.height).toBeLessThan(400)
-    expect(tall.question.settings.size.height - lowest(tall)).toBeLessThan(16)
+    const { question: tall } = await drag({ question: { settings: { size: { width: 800, height: 500 } }, task: { elements: words.map((each, i) => word(each, String(i))), dropZones: labels.map((each, i) => zone(each, [String(i)])) } } })
+    expect(tall.settings.size.width).toBe(800)
+    expect(tall.settings.size.height).toBeLessThan(400)
+    expect(tall.settings.size.height - lowest(tall)).toBeLessThan(16)
     // One word and one zone need less than the editor's 310.
-    const small = await build('H5P.DragQuestion', { question: { task: { elements: [word('Rivers', '0')], dropZones: [zone('Water', ['0'])] } } })
-    expect(small.question.settings.size.height).toBeLessThan(310)
-    expect(small.question.settings.size.height - lowest(small)).toBeLessThan(16)
+    const { question: small } = await drag({ question: { task: { elements: [word('Rivers', '0')], dropZones: [zone('Water', ['0'])] } } })
+    expect(small.settings.size.height).toBeLessThan(310)
+    expect(small.settings.size.height - lowest(small)).toBeLessThan(16)
   })
 
   it('gives a task on a picture the picture\'s shape, and puts the words in a band clear of the zones (#297)', async () => {
     await writeFile(join(dir, 'house.png'), png(800, 600))
     const parts = ['Roof', 'Door', 'Sun']
-    const on = (zones: { x: number, y: number }[]) => build('H5P.DragQuestion', {
+    const on = async (zones: { x: number, y: number }[]) => (await drag({
       question: { settings: { background: { path: 'house.png' } }, task: { elements: parts.map((each, i) => word(each, String(i))), dropZones: zones.map((at, i) => ({ ...zone(parts[i], [String(i)]), ...at })) } }
-    }, { base: dir })
-    const clear = (content: any) => {
-      const { size } = content.question.settings
-      const words = content.question.task.elements.map((box: Box) => rect(box, size, 'element'))
-      const zones = content.question.task.dropZones.map((box: Box) => rect(box, size, 'zone'))
-      return words.every((one: any) => one.top >= 0 && one.bottom <= size.height / 16 && zones.every((other: any) => one.right <= other.left || other.right <= one.left || one.bottom <= other.top || other.bottom <= one.top))
+    }, { base: dir })).question
+    const clear = ({ settings: { size }, task }: Question) => {
+      const zones = task.dropZones.map((box) => rect(box, size, 'zone'))
+      return task.elements.map((box) => rect(box, size, 'element')).every((one) => one.top >= 0 && one.bottom <= size.height / 16 && zones.every((other) => one.right <= other.left || other.right <= one.left || one.bottom <= other.top || other.bottom <= one.top))
     }
     // 800 by 600 is 620 by 465: the player stretches the picture over the task.
     const high = await on([{ x: 40, y: 25 }, { x: 52, y: 40 }, { x: 8, y: 10 }])
-    expect(high.question.settings.size).toEqual({ width: 620, height: 465 })
+    expect(high.settings.size).toEqual({ width: 620, height: 465 })
     expect(clear(high)).toBe(true)
     // The zones let the picture show: an opaque zone hides what it names.
-    expect(high.question.task.dropZones.map((each: any) => each.backgroundOpacity)).toEqual([0, 0, 0])
+    expect(high.task.dropZones.map((each) => each.backgroundOpacity)).toEqual([0, 0, 0])
     // A height written is kept, and its shape other than the picture's said.
-    const written = await result('H5P.DragQuestion', {
+    const written = await drag({
       question: { settings: { background: { path: 'house.png' }, size: { width: 620, height: 310 } }, task: { elements: [word('Roof', '0')], dropZones: [{ ...zone('Roof', ['0']), x: 40, y: 25 }] } }
     }, { base: dir })
-    expect((written.content as any).question.settings.size).toEqual({ width: 620, height: 310 })
+    expect(written.question.settings.size).toEqual({ width: 620, height: 310 })
     expect(written.notes).toContainEqual({ path: 'params.question.settings.size', message: expect.stringMatching(/^is 620 by 310 px, and its picture 800 by 600/) })
-    expect(high.question.task.elements[0].y).toBeGreaterThan(80)
+    expect(high.task.elements[0].y).toBeGreaterThan(80)
     // Zones down to the foot push the words to the head.
     const low = await on([{ x: 10, y: 75 }, { x: 40, y: 80 }, { x: 70, y: 75 }])
     expect(clear(low)).toBe(true)
-    expect(low.question.task.elements[0].y).toBeLessThan(10)
+    expect(low.task.elements[0].y).toBeLessThan(10)
     // Haiku's six zones on a house leave no band clear for six words: each takes a free spot.
     const six = ['Roof', 'Chimney', 'Window', 'Door', 'Sun', 'Tree']
     const zones = [[25, 18.33, 13.47, 7.27], [60.38, 21.33, 4.07, 4.55], [33.5, 51.33, 4.55, 4.07], [52.25, 59.67, 4.07, 6.88], [6.5, 7, 5.62, 5.62], [73.5, 38, 6.98, 13.18]]
-    const house = await build('H5P.DragQuestion', {
+    const { question: house } = await drag({
       question: { settings: { background: { path: 'house.png' } }, task: { elements: six.map((each, i) => word(each, String(i))), dropZones: zones.map(([x, y, width, height], i) => ({ ...zone(six[i], [String(i)]), x, y, width, height })) } }
     }, { base: dir })
     expect(clear(house)).toBe(true)
-    const words = house.question.task.elements.map((box: Box) => rect(box, house.question.settings.size, 'element'))
+    const words = house.task.elements.map((box) => rect(box, house.settings.size, 'element'))
     for (const [i, one] of words.entries()) {
       for (const other of words.slice(i + 1)) expect(one.right <= other.left || other.right <= one.left || one.bottom <= other.top || other.bottom <= one.top).toBe(true)
     }
   })
 
   it('keeps a box placed by hand where it was when the task grows', async () => {
-    const built = await result('H5P.DragQuestion', {
+    const { question, notes } = await drag({
       question: { task: { elements: words.map((each, i) => (i ? word(each, String(i)) : { ...word(each, '0'), x: 10, y: 50 })), dropZones: labels.map((each, i) => zone(each, [String(i)])) } }
     })
-    const { question } = built.content as Record<string, any>
     const { size } = question.settings
     expect(size.height).toBeGreaterThan(310)
     // Half of the 310 px it was written for, not half of the grown task.
     expect((question.task.elements[0].y / 100) * size.height).toBeCloseTo(155, -1)
-    expect(built.notes).toEqual([])
+    expect(notes).toEqual([])
   })
 
   it('sizes a box placed by hand with no size written, and keeps a size written alone', async () => {
-    const content = await build('H5P.DragQuestion', {
+    const { question } = await drag({
       question: { task: { elements: [{ ...word('Rivers', '0'), x: 5, y: 5 }, { ...word('Lakes', '0'), x: 40, y: 5, width: 8 }], dropZones: [{ ...zone('Water', ['0', '1']), x: 5, y: 50 }] } }
     })
-    const [rivers, lakes] = content.question.task.elements
+    const [rivers, lakes] = question.task.elements
     expect(rivers).toMatchObject({ x: 5, y: 5, width: expect.any(Number), height: expect.any(Number) })
     expect(lakes).toMatchObject({ x: 40, width: 8, height: rivers.height })
-    expect(content.question.task.dropZones[0]).toMatchObject({ x: 5, y: 50, width: expect.any(Number), height: expect.any(Number) })
+    expect(question.task.dropZones[0]).toMatchObject({ x: 5, y: 50, width: expect.any(Number), height: expect.any(Number) })
   })
 
   it('shares boxes out evenly in rows only where that takes no more rows', () => {
