@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildPackage, SourceError } from '../lib/author.mjs'
 import { imageSize } from '../lib/media.mjs'
 import { GENERATED_END, GENERATED_START, schemaLines, schemaMarkdown, SOURCE_FIELDS, withSection } from '../lib/schema.mjs'
-import { byNumber, movedInteraction } from '../lib/types.mjs'
+import { byNumber, inRows, movedInteraction } from '../lib/types.mjs'
 import { jpeg, png } from './helpers/media'
 
 const META = { title: 'Layout', language: 'en', license: 'U', authors: [{ name: 'Ann Author', role: 'Author' }] }
@@ -295,6 +295,24 @@ describe('Drag and Drop', () => {
     // A label written as hidden stays so, and a zone for two words holds both.
     expect(water.showLabel).toBe(false)
     expect(water.width * water.height).toBeGreaterThan(2 * (laid.width + 1.6) * (laid.height + 0.8))
+  })
+
+  it('sizes a box placed by hand with no size written, and keeps a size written alone', async () => {
+    const content = await build('H5P.DragQuestion', {
+      question: { task: { elements: [{ ...word('Rivers', '0'), x: 5, y: 5 }, { ...word('Lakes', '0'), x: 40, y: 5, width: 8 }], dropZones: [{ ...zone('Water', ['0', '1']), x: 5, y: 50 }] } }
+    })
+    const [rivers, lakes] = content.question.task.elements
+    expect(rivers).toMatchObject({ x: 5, y: 5, width: expect.any(Number), height: expect.any(Number) })
+    expect(lakes).toMatchObject({ x: 40, width: 8, height: rivers.height })
+    expect(content.question.task.dropZones[0]).toMatchObject({ x: 5, y: 50, width: expect.any(Number), height: expect.any(Number) })
+  })
+
+  it('shares boxes out evenly in rows only where that takes no more rows', () => {
+    const rows = (widths: number[], across: number) => new Set(inRows(widths.map((width) => ({ width, height: 1 })), across, 0).places.map((place) => place.y)).size
+    // 5 alike in a row of 4 go 3 and 2; 9 then four of 1 in 10 em stay in 2 rows, not 3.
+    expect(rows([8, 8, 8, 8, 8], 37)).toBe(2)
+    expect(inRows([8, 8, 8, 8, 8].map((width) => ({ width, height: 1 })), 37, 0).places.filter((place) => place.y === 0)).toHaveLength(3)
+    expect(rows([9, 1, 1, 1, 1], 11)).toBe(2)
   })
 
   it('says, in one note, which boxes run past the task or over each other, and in what units (#295)', async () => {

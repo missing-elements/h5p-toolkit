@@ -751,33 +751,38 @@ function draggableSize(element, most) {
 /**
  * Boxes in rows across the task, each row centred, from `top`: their places and the last row's
  * bottom, in em. The rows take as many each as they can share evenly, 3 and 2 rather than 4 and 1.
+ * @internal
  * @param {{ width: number, height: number }[]} boxes outer sizes
  * @param {number} across the task's width
  * @param {number} top
  */
-function inRows(boxes, across, top) {
+export function inRows(boxes, across, top) {
   const room = across - 2 * DQ_MARGIN
-  let rows = 0
-  let filled = Infinity
-  for (const box of boxes) {
-    if (filled + DQ_GAP + box.width <= room) filled += DQ_GAP + box.width
-    else {
-      rows++
-      filled = box.width
-    }
+  /** The boxes' indices in rows, in order, at most `cap` to a row. @param {number} cap */
+  const pack = (cap) => {
+    /** @type {number[][]} */
+    const rows = []
+    let used = Infinity
+    boxes.forEach((box, i) => {
+      const row = rows.at(-1)
+      if (row && row.length < cap && used + DQ_GAP + box.width <= room) {
+        row.push(i)
+        used += DQ_GAP + box.width
+      } else {
+        rows.push([i])
+        used = box.width
+      }
+    })
+    return rows
   }
-  const most = Math.ceil(boxes.length / Math.max(1, rows))
+  const greedy = pack(Infinity)
+  // Shared evenly only where that takes no more rows, as it can with boxes of other widths.
+  const even = pack(Math.ceil(boxes.length / Math.max(1, greedy.length)))
   /** @type {{ x: number, y: number }[]} */
   const places = []
   let y = top
-  for (let i = 0; i < boxes.length;) {
-    const row = [i]
-    let used = boxes[i++].width
-    while (i < boxes.length && row.length < most && used + DQ_GAP + boxes[i].width <= room) {
-      used += DQ_GAP + boxes[i].width
-      row.push(i++)
-    }
-    let x = Math.max(DQ_MARGIN, (across - used) / 2)
+  for (const row of even.length === greedy.length ? even : greedy) {
+    let x = Math.max(DQ_MARGIN, (across - row.reduce((sum, j) => sum + boxes[j].width, 0) - DQ_GAP * (row.length - 1)) / 2)
     for (const j of row) {
       places[j] = { x, y }
       x += boxes[j].width + DQ_GAP
@@ -812,28 +817,29 @@ const dragQuestion = {
     const loose = elements.filter(free)
     const open = zones.filter(free)
     const across = size.width / 16
+    // Every box with no size gets one, placed or not. Words share a size, and pictures theirs, so
+    // a row reads as one bank.
+    const sized = (/** @type {any} */ box) => typeof box.width === 'number' && typeof box.height === 'number'
+    const most = Math.max(DQ_BOX.width, (across - 2 * DQ_MARGIN - DQ_GAP) / 2 - DRAGGABLE_EDGE.width)
+    for (const image of [true, false]) {
+      const same = elements.filter((element) => !sized(element) && (machineName(element.type?.library) === 'H5P.Image') === image)
+      const wanted = same.map((element) => draggableSize(element, most))
+      const width = Math.max(0, ...wanted.map((each) => each.width))
+      const height = Math.max(0, ...wanted.map((each) => each.height))
+      for (const element of same) Object.assign(element, { width: element.width ?? width, height: element.height ?? height })
+    }
+    // A zone holds the elements right in it; a shown label is drawn above it, outside its box.
+    const widest = Math.max(DQ_BOX.width, ...elements.map((element) => element.width)) + DRAGGABLE_EDGE.width
+    const tallest = Math.max(DQ_BOX.height, ...elements.map((element) => element.height)) + DRAGGABLE_EDGE.height
+    const wanted = zones.filter((zone) => !sized(zone)).map((zone) => {
+      const label = zone.showLabel ? emWidth(textOf(String(zone.label ?? ''))) + 1.5 : 0
+      const width = Math.min(across - 2 * DQ_MARGIN, Math.max(widest + 1, label))
+      const columns = Math.max(1, Math.floor((width - 0.5) / (widest + 0.5)))
+      const rows = Math.ceil(Math.max(1, Array.isArray(zone.correctElements) ? zone.correctElements.length : 0) / columns)
+      return { zone, width, height: rows * (tallest + 0.5) + 0.5 }
+    })
+    for (const { zone } of wanted) Object.assign(zone, { width: zone.width ?? round(Math.max(...wanted.map((one) => one.width))), height: zone.height ?? round(Math.max(...wanted.map((one) => one.height))) })
     if (loose.length || open.length) {
-      const sized = (/** @type {any} */ box) => typeof box.width === 'number' && typeof box.height === 'number'
-      const most = Math.max(DQ_BOX.width, (across - 2 * DQ_MARGIN - DQ_GAP) / 2 - DRAGGABLE_EDGE.width)
-      // Words share a size, and pictures theirs, so a row reads as one bank.
-      for (const image of [true, false]) {
-        const same = loose.filter((element) => !sized(element) && (machineName(element.type?.library) === 'H5P.Image') === image)
-        const wanted = same.map((element) => draggableSize(element, most))
-        const width = Math.max(0, ...wanted.map((each) => each.width))
-        const height = Math.max(0, ...wanted.map((each) => each.height))
-        for (const element of same) Object.assign(element, { width, height })
-      }
-      // A zone holds the elements right in it; a shown label is drawn above it, outside its box.
-      const widest = Math.max(DQ_BOX.width, ...elements.filter(sized).map((element) => element.width)) + DRAGGABLE_EDGE.width
-      const tallest = Math.max(DQ_BOX.height, ...elements.filter(sized).map((element) => element.height)) + DRAGGABLE_EDGE.height
-      const wanted = open.filter((zone) => !sized(zone)).map((zone) => {
-        const label = zone.showLabel ? emWidth(textOf(String(zone.label ?? ''))) + 1.5 : 0
-        const width = Math.min(across - 2 * DQ_MARGIN, Math.max(widest + 1, label))
-        const columns = Math.max(1, Math.floor((width - 0.5) / (widest + 0.5)))
-        const rows = Math.ceil(Math.max(1, Array.isArray(zone.correctElements) ? zone.correctElements.length : 0) / columns)
-        return { zone, width, height: rows * (tallest + 0.5) + 0.5 }
-      })
-      for (const each of wanted) Object.assign(each.zone, { width: round(Math.max(...wanted.map((one) => one.width))), height: round(Math.max(...wanted.map((one) => one.height))) })
       // Written boxes keep their places, and the rest go below them.
       const tall = size.height / 16
       const placed = [...elements, ...zones].filter((box) => !free(box))

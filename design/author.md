@@ -65,12 +65,13 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     editor's 10 by 10 hid a question's Check button behind a scroll.
   - Stages get ids and types, neighbours named by label become indices both ways, and end screens
     are numbered.
-  - A Drag and Drop's unplaced boxes are laid out (#295): the elements in rows, each as wide as
-    its text by widths measured per character in the player, the zones below as wide as their
-    labels and tall enough for the elements right in them, the task as tall as they need. `x`
-    and `y` are percent of the task and `width` and `height` em, 16 px to `size.width`, which a
-    model wrote as percent, so boxes past the task or over each other are one note. A zone laid
-    out with no picture under it shows its label, the one thing that tells it apart. Asked for
+  - A Drag and Drop's boxes with no place are laid out (#295), and those with no size sized:
+    the elements in rows, each at least as wide as its text by widths measured per character in
+    the player; the zones below, as wide as their labels or their words and tall enough for the
+    words right in them. With no background picture the task grows as tall as they need, and a
+    zone laid out shows its label, the one thing that tells it apart. `x` and `y` are percent of
+    the task, `width` and `height` em at 16 px to `size.width`; models wrote all four as
+    percent, so written boxes past the task or over each other get one note. Asked for
     five English words to match on route 1, Haiku left the places out in 5 of 5 runs with the
     type file, and the 3 played had no box over another.
   - It checks what those widgets would not let pass: a scenario node with no next, a link to no
