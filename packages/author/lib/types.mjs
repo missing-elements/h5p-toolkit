@@ -707,8 +707,9 @@ const imageHotspotQuestion = {
 // a draggable's handle and padding add to the size written, and a line of its text.
 const DRAGGABLE_EDGE = { width: 1.6, height: 0.8 }
 const DQ_LINE = 1.25
-/** The editor's new text box, H5PEditor.DragQuestion 1.10's, and the room around boxes. */
+/** The editor's new text box and task, H5PEditor.DragQuestion 1.10's, and the room around boxes. */
 const DQ_BOX = { width: 5, height: 2.25 }
+const DQ_TASK = { width: 620, height: 310 }
 const DQ_MARGIN = 0.5
 const DQ_GAP = 1
 
@@ -799,18 +800,31 @@ export function inRows(boxes, across, top) {
  */
 const dragQuestion = {
   sets: ['elements', 'dropZones'].flatMap((list) => ['x', 'y', 'width', 'height'].map((key) => `question.task.${list}[].${key}`)),
-  // A zone laid out in a row, with no picture under it, is told apart by its label alone.
   before(written) {
-    if (!isObject(written?.question) || written.question.settings?.background || !Array.isArray(written.question.task?.dropZones)) return
-    for (const zone of written.question.task.dropZones) {
-      if (isObject(zone) && zone.showLabel === undefined && (typeof zone.x !== 'number' || typeof zone.y !== 'number')) zone.showLabel = true
+    if (!isObject(written?.question)) return
+    const settings = written.question.settings
+    const picture = Boolean(settings?.background)
+    // A task with no height written takes the picture's shape, which `after` knows (#297): 0 asks for it.
+    if (picture && (settings.size === undefined || (isObject(settings.size) && settings.size.height === undefined))) settings.size = { width: settings.size?.width ?? DQ_TASK.width, height: 0 }
+    if (!Array.isArray(written.question.task?.dropZones)) return
+    for (const zone of written.question.task.dropZones.filter(isObject)) {
+      // On a picture a zone shows what is under it, and lights up only while a word is dragged (#297).
+      if (picture) zone.backgroundOpacity ??= 0
+      // A zone laid out in a row, with no picture under it, is told apart by its label alone.
+      else if (zone.showLabel === undefined && (typeof zone.x !== 'number' || typeof zone.y !== 'number')) zone.showLabel = true
     }
   },
   after(params, path, context) {
     const settings = params?.question?.settings
     const task = params?.question?.task
     const size = settings?.size
-    if (!isObject(task) || !isObject(size) || !(size.width > 0) || !(size.height > 0)) return
+    if (!isObject(size)) return
+    // The player stretches the picture over the task, and the editor never gives the task its shape (#297).
+    const picture = settings.background
+    const shaped = size.width > 0 && picture?.width > 0 && picture?.height > 0 ? Math.round((size.width * picture.height) / picture.width) : 0
+    if (size.height === 0) size.height = shaped || DQ_TASK.height
+    else if (shaped && Math.abs(size.height / shaped - 1) > 0.02) context.note(`${path}.question.settings.size`, `is ${size.width} by ${size.height} px, and its picture ${picture.width} by ${picture.height}, which the player stretches over the task: leave size out and the task takes the picture's shape`)
+    if (!isObject(task) || !(size.width > 0) || !(size.height > 0)) return
     const elements = Array.isArray(task.elements) ? task.elements.filter(isObject) : []
     const zones = Array.isArray(task.dropZones) ? task.dropZones.filter(isObject) : []
     const free = (/** @type {any} */ box) => typeof box.x !== 'number' || typeof box.y !== 'number'
@@ -850,20 +864,77 @@ const dragQuestion = {
       const words = inRows(loose.map(outer), across, top)
       const targets = inRows(open.map((zone) => ({ width: zone.width, height: zone.height + above(zone) })), across, loose.length ? words.bottom + 2 * DQ_GAP : top)
       const need = (open.length ? targets.bottom : words.bottom) + DQ_MARGIN
-      if (settings.background) {
-        context.note(`${path}.question.settings.background`, `is under the boxes the build laid out in rows, which know nothing of the picture: place each by its x and y (percent) on what it names${need > tall ? `, since the rows need ${Math.ceil(need * 16)} px of the task's ${size.height}` : ''}`)
-      } else if (need > tall) {
+      let bank = words.places
+      if (picture && !open.length) {
+        bank = onPicture(loose.map(outer), placed.map((box) => boxRect(box, elements.includes(box), across, tall)), across, tall)
+      } else if (picture) {
+        context.note(`${path}.question.settings.background`, `is under the drop zones the build laid out in rows, which know nothing of the picture: place each zone by its x and y (percent) on what it names${need > tall ? `, since the rows need ${Math.ceil(need * 16)} px of the task's ${size.height}` : ''}`)
+      } else if (Math.ceil(need * 16) !== size.height) {
+        // With no picture the task only holds the boxes: as tall as they need, no less or more (#297).
         size.height = Math.ceil(need * 16)
-        // A written y is percent of the task as written: kept in em, so the rows stay clear of it.
+        // A written y is percent of the task as written: kept in em, so the boxes stay where they were.
         for (const box of placed) box.y = round((box.y * tall * 16) / size.height)
       }
       const height = size.height / 16
       const place = (/** @type {any} */ box, /** @type {{ x: number, y: number }} */ at) => Object.assign(box, { x: round((at.x / across) * 100), y: round((at.y / height) * 100) })
-      loose.forEach((element, i) => place(element, words.places[i]))
+      loose.forEach((element, i) => place(element, bank[i]))
       open.forEach((zone, i) => place(zone, { x: targets.places[i].x, y: targets.places[i].y + above(zone) }))
     }
     noteDragQuestionBoxes(elements, zones, /** @type {{ width: number, height: number }} */ (size), `${path}.question.task`, context.note)
   }
+}
+
+/**
+ * A placed box's edges in em as the player draws it: a draggable with its handle and padding, a
+ * zone with its shown label above it.
+ * @param {any} box
+ * @param {boolean} element
+ * @param {number} across
+ * @param {number} tall
+ */
+function boxRect(box, element, across, tall) {
+  const left = (box.x / 100) * across
+  const top = (box.y / 100) * tall
+  return { left, top: top - (!element && box.showLabel ? DQ_LINE : 0), right: left + box.width + (element ? DRAGGABLE_EDGE.width : 0), bottom: top + box.height + (element ? DRAGGABLE_EDGE.height : 0) }
+}
+
+/**
+ * Where words with no place go on a picture: in a band clear of the boxes placed on it, at its
+ * foot, head, right or left, else each in the lowest free spot (#297).
+ * @param {{ width: number, height: number }[]} bank the words' outer sizes
+ * @param {{ left: number, top: number, right: number, bottom: number }[]} taken
+ * @param {number} across
+ * @param {number} tall
+ */
+function onPicture(bank, taken, across, tall) {
+  const rows = inRows(bank, across, 0)
+  const wide = Math.max(...bank.map((box) => box.width)) + 2 * DQ_MARGIN
+  const column = inRows(bank, wide, 0)
+  const moved = (/** @type {{ x: number, y: number }[]} */ places, /** @type {number} */ x, /** @type {number} */ y) => places.map((at) => ({ x: at.x + x, y: at.y + y }))
+  const bands = [
+    moved(rows.places, 0, tall - DQ_MARGIN - rows.bottom),
+    moved(rows.places, 0, DQ_MARGIN),
+    moved(column.places, across - wide, (tall - column.bottom) / 2),
+    moved(column.places, 0, (tall - column.bottom) / 2)
+  ]
+  const fits = [rows.bottom, rows.bottom, column.bottom, column.bottom].map((height) => height <= tall - 2 * DQ_MARGIN)
+  const meets = (/** @type {{ x: number, y: number }} */ at, /** @type {{ width: number, height: number }} */ box, /** @type {typeof taken} */ others, gap = 0) => others.some((one) => at.x < one.right + gap && one.left < at.x + box.width + gap && at.y < one.bottom + gap && one.top < at.y + box.height + gap)
+  const clear = bands.findIndex((places, b) => fits[b] && places.every((at, i) => !meets(at, bank[i], taken)))
+  if (clear !== -1) return bands[clear]
+  // No band is clear: each word takes the lowest free spot, left first, a margin from every box.
+  /** @type {{ x: number, y: number }[]} */
+  const places = []
+  const used = [...taken]
+  for (const box of bank) {
+    let spot = null
+    for (let y = tall - DQ_MARGIN - box.height; y >= DQ_MARGIN && !spot; y -= 0.25) {
+      for (let x = DQ_MARGIN; x + box.width <= across - DQ_MARGIN && !spot; x += 0.25) if (!meets({ x, y }, box, used, DQ_MARGIN)) spot = { x, y }
+    }
+    const at = spot ?? bands[0][places.length]
+    places.push(at)
+    used.push({ left: at.x, top: at.y, right: at.x + box.width, bottom: at.y + box.height })
+  }
+  return places
 }
 
 /**
@@ -878,16 +949,14 @@ function noteDragQuestionBoxes(elements, zones, size, at, note) {
   const across = size.width / 16
   const tall = size.height / 16
   const units = `x and y are percent of the task, width and height em, and it is ${round(across)} by ${round(tall)} em (${size.width} by ${size.height} px); leave all four out and the build lays the boxes out`
-  // A zone's shown label is drawn above its box.
   const boxes = [
-    ...elements.map((box, i) => ({ box, path: `${at}.elements[${i}]`, name: `element ${i}`, edge: DRAGGABLE_EDGE, lift: 0 })),
-    ...zones.map((box, i) => ({ box, path: `${at}.dropZones[${i}]`, name: `drop zone ${i}`, edge: { width: 0, height: 0 }, lift: box.showLabel ? DQ_LINE : 0 }))
+    ...elements.map((box, i) => ({ box, name: `element ${i}`, ...boxRect(box, true, across, tall) })),
+    ...zones.map((box, i) => ({ box, name: `drop zone ${i}`, ...boxRect(box, false, across, tall) }))
   ].filter(({ box }) => ['x', 'y', 'width', 'height'].every((key) => typeof box[key] === 'number'))
-    .map((each) => ({ ...each, left: (each.box.x / 100) * across, top: (each.box.y / 100) * tall - each.lift, width: each.box.width + each.edge.width, height: each.box.height + each.edge.height + each.lift }))
   // A quarter em either way is rounding, not a box over another.
   const slack = 0.25
-  const past = boxes.filter((one) => one.left < -slack || one.top < -slack || one.left + one.width > across + slack || one.top + one.height > tall + slack)
-  const over = boxes.filter((one) => boxes.some((other) => other !== one && Math.min(one.left + one.width, other.left + other.width) - Math.max(one.left, other.left) > slack && Math.min(one.top + one.height, other.top + other.height) - Math.max(one.top, other.top) > slack))
+  const past = boxes.filter((one) => one.left < -slack || one.top < -slack || one.right > across + slack || one.bottom > tall + slack)
+  const over = boxes.filter((one) => boxes.some((other) => other !== one && Math.min(one.right, other.right) - Math.max(one.left, other.left) > slack && Math.min(one.bottom, other.bottom) - Math.max(one.top, other.top) > slack))
   const names = (/** @type {typeof boxes} */ list) => list.map((one) => one.name).join(', ')
   const found = [past.length && `past the task's edge (${names(past)})`, over.length && `over each other (${names(over)})`].filter(Boolean)
   if (found.length) note(at, `has boxes ${found.join(' and ')}: ${units}`)
