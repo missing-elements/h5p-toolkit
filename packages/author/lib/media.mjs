@@ -114,6 +114,13 @@ const STATUS_WORDS = /** @type {Record<number, string>} */ ({ 400: 'Bad Request'
 /** A YouTube Short or live stream, by its video's id, which H5P.Video plays at the watch address. */
 const YOUTUBE_SHORT = /^https?:\/\/(?:[\w-]+\.)*youtube\.com\/(?:shorts|live)\/([\w-]{11})(?![\w-])/i
 
+/**
+ * Whether an address is a video one of the hosts plays, which H5P.Video plays only as a video's one
+ * source: each of its handlers looks at the first alone, and the editor drops the others.
+ * @param {string} address
+ */
+export const hostedVideo = (address) => YOUTUBE_SHORT.test(address) || HOSTED.some(({ plays }) => plays.test(address))
+
 /** The licences a file's copyright may name, as H5P lists them. */
 const COPYRIGHT_LICENSES = ['U', 'CC BY', 'CC BY-SA', 'CC BY-ND', 'CC BY-NC', 'CC BY-NC-SA', 'CC BY-NC-ND', 'GNU GPL', 'PD', 'C']
 
@@ -821,7 +828,8 @@ export class MediaStore {
    * @param {string} extension
    */
   #name(folder, stem, extension) {
-    const safe = stem.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 60) || folder.slice(0, -1)
+    // H5P's upload skips a name that starts with "." or "_" (h5p.classes.php), as a camera's _DSC1234.JPG.
+    const safe = stem.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^[-._]+|[-.]+$/g, '').slice(0, 60) || folder.slice(0, -1)
     let name = `${folder}/${safe}.${extension}`
     for (let count = 2; this.names.has(name.toLowerCase()); count++) name = `${folder}/${safe}-${count}.${extension}`
     this.names.add(name.toLowerCase())

@@ -1,8 +1,8 @@
-import { writtenCopyright } from './media.mjs'
+import { hostedVideo, writtenCopyright } from './media.mjs'
 import { checkMetadata } from './metadata.mjs'
 import { machineNameOf, namingKey } from './names.mjs'
 import { isInterfaceText } from './schema.mjs'
-import { allowedTags, blockTag, escapeText, markupText, plainText, stripTags, takesMarkup, unwrapText } from './text.mjs'
+import { allowedTags, blockTag, decodeEntities, escapeText, markupText, plainText, stripTags, takesMarkup, unwrapText } from './text.mjs'
 
 /**
  * Content for a content type from its `semantics.json`, as H5P's editor saves a form: what is
@@ -335,7 +335,7 @@ export class ContentGenerator {
       case 'file':
       case 'video':
       case 'audio':
-        return Array.isArray(value) ? value.map((each, index) => this.#writtenFile(each, `${path}[${index}]`)) : this.#writtenFile(value, path)
+        return Array.isArray(value) ? value.map((each, index) => this.#writtenFile(field, each, `${path}[${index}]`)) : this.#writtenFile(field, value, path)
       case 'text':
         // Markup that is only the blocks a build wraps typing in is written as the typing.
         return typeof value === 'string' && takesMarkup(field) ? unwrapText(value, blockTag(field)) ?? value : value
@@ -371,13 +371,14 @@ export class ContentGenerator {
    * @param {unknown} value
    * @param {string} path
    */
-  #writtenFile(value, path) {
+  #writtenFile(field, value, path) {
     if (!isObject(value) || typeof value.path !== 'string') return structuredClone(value)
     this.stored.push(value)
     const copyright = writtenCopyright(value.copyright, (key, kept) => this.note(`${path}.copyright.${key}`, key === 'license'
       ? `${JSON.stringify(kept)} is no licence H5P lists for a file: left out, with any version, so a build gives the file "U"`
       : `${JSON.stringify(kept)} is no web address: left out`))
-    return { path: value.path, ...(copyright ? { copyright } : {}) }
+    const label = extraAttributes(field).includes('metadata') && typeof value.metadata?.qualityName === 'string' ? decodeEntities(value.metadata.qualityName) : undefined
+    return { path: value.path, ...(copyright ? { copyright } : {}), ...(label ? { metadata: { qualityName: label } } : {}) }
   }
 
   /** A sub-content id: random, or the caller's, numbered, where it wants the same bytes every run. */
@@ -418,8 +419,8 @@ export class ContentGenerator {
    * @param {any[]} fields
    * @param {any} written the written object for these fields, or undefined
    * @param {string[]} stack the content types this value sits inside, to keep a type out of itself
-   * @param {boolean} lenient inside an optional group nobody wrote: defaults only, as the editor
-   *   saves a group left closed — and so nothing asked for a field required only within it
+   * @param {boolean} lenient inside an optional group: nothing asked for a field required only
+   *   within it, as the editor and the validator make its fields optional (#302)
    * @param {string} path
    * @param {string[]} [kept] saved, keys these fields do not name that are kept as they are: what
    *   the group's own default carries, and a part's id
@@ -567,9 +568,9 @@ export class ContentGenerator {
         // A group the editor draws with its own widget (a duration, a slide) takes numbers as that
         // widget sets them, decimals included, and starts its lists empty.
         if (field.widget && field.widget !== 'showWhen' && field.widget !== 'none') this.#draw(children)
-        // Saved even if optional and untouched, as the editor does (h5peditor-group.js): types read
-        // into one unchecked (Personality Quiz's `image.file`). Saved, an empty one is not asked.
-        const closed = optional && (written === undefined || (this.saved && !holds(field, written)))
+        // Saved even if optional and untouched, as the editor does (h5peditor-group.js). Its fields are
+        // optional, written or not, as the editor and the validator make them (#302).
+        const closed = optional
         const kept = isObject(field.default) ? Object.keys(field.default) : []
         if (field.isSubContent) kept.push('subContentId')
         // Written in part, a group takes the rest from its default, as a source `read` wrote one (#297).
@@ -954,12 +955,17 @@ export class ContentGenerator {
     const check = (/** @type {unknown} */ value) => {
       if (values.length && !values.includes(String(value))) this.report(path, `${JSON.stringify(value)} is not an option; the options are ${values.map((each) => JSON.stringify(each)).join(', ')}`)
     }
+    // H5P's editor stores the option's value as text: True/False read a boolean true as "False" (#302).
+    const stored = (/** @type {unknown} */ value) => (typeof value === 'number' || typeof value === 'boolean') && values.includes(String(value)) ? String(value) : value
     if (field.multiple) {
       if (!Array.isArray(written)) this.report(path, 'expected a list of options')
-      else written.forEach(check)
+      else {
+        written.forEach(check)
+        return written.map(stored)
+      }
     } else if (typeof written !== 'string' && typeof written !== 'number' && typeof written !== 'boolean') this.report(path, 'expected one of its options')
     else check(written)
-    return written
+    return stored(written)
   }
 
   /**
@@ -981,7 +987,8 @@ export class ContentGenerator {
       return undefined
     }
     const files = []
-    for (const [index, each] of list.entries()) {
+    for (const [index, item] of list.entries()) {
+      let each = item
       const at = many && Array.isArray(written) ? `${path}[${index}]` : path
       if (!isObject(each) || typeof each.path !== 'string' || !each.path.trim()) {
         this.report(at, this.saved
@@ -994,11 +1001,22 @@ export class ContentGenerator {
         for (const key of Object.keys(each)) if (!keys.includes(key)) this.report(`${at}.${key}`, `is not part of a file as H5P stores it; it keeps ${keys.join(', ')}`)
         if (each.mime !== undefined && typeof each.mime !== 'string') this.report(`${at}.mime`, 'expected a MIME type, such as "image/jpeg"')
         for (const key of ['width', 'height']) if (each[key] !== undefined && !(Number.isInteger(each[key]) && each[key] >= 0)) this.report(`${at}.${key}`, 'expected a whole number of pixels')
-      } else for (const key of Object.keys(each)) if (!['path', 'copyright'].includes(key)) this.report(`${at}.${key}`, 'is not part of a file here; write path and, when known, copyright')
+      } else {
+        const extra = extraAttributes(field)
+        for (const key of Object.keys(each)) if (!['path', 'copyright', ...extra].includes(key)) this.report(`${at}.${key}`, `is not part of a file here; write path and, when known, copyright${extra.length ? `, and ${extra.join(', ')}` : ''}`)
+        if (each.metadata !== undefined && extra.includes('metadata')) {
+          // A video's quality label, which H5P.Video shows: the one key the validator escapes and keeps.
+          if (!isObject(each.metadata) || Object.keys(each.metadata).some((key) => key !== 'qualityName') || typeof each.metadata.qualityName !== 'string') this.report(`${at}.metadata`, 'expected { "qualityName": "…" }, the label the player shows for this quality, as "720p"')
+          else each = { ...each, metadata: { qualityName: escapeText(each.metadata.qualityName) } }
+        }
+      }
       if (each.copyright !== undefined && !isObject(each.copyright)) this.report(`${at}.copyright`, 'expected an object, such as { "license": "CC BY", "author": "…" }')
       const value = this.saved ? structuredClone(each) : { ...each }
       this.media.push({ field, value, path: at })
       files.push(value)
+    }
+    if (many && files.length > 1 && files.some((file) => typeof file.path === 'string' && hostedVideo(file.path.trim()))) {
+      this.report(path, 'a YouTube, Vimeo, Panopto or Echo360 address is a video\'s one source: H5P.Video plays only the first, and the editor keeps no other beside it')
     }
     return many ? files : files[0]
   }

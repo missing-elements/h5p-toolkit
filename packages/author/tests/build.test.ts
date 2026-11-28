@@ -1460,3 +1460,46 @@ describe('installing on an H5P site (#146)', () => {
     expect(await readdir(dir)).not.toContain('lean.h5p')
   })
 })
+
+describe('as H5P\'s editor and validator take a source (#302)', () => {
+  it('stores a select\'s option as text, as the editor does, so True/False plays the answer written', async () => {
+    for (const correct of [true, 'true']) {
+      const { content } = await build({ ...META, type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct } })
+      expect(content.correct).toBe('true')
+    }
+    expect((await build({ ...META, type: 'H5P.TrueFalse', params: { question: '<p>The Nile is in Europe.</p>', correct: false } })).content.correct).toBe('false')
+  })
+
+  it('names no media file with a leading "_", which H5P\'s upload skips', async () => {
+    await writeFile(join(dir, '_DSC1234.png'), png(64, 48))
+    const { content, files } = await build({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Image', params: { file: { path: '_DSC1234.png' }, alt: 'A river' } } }] } }, { base: dir })
+    expect(content.content[0].content.params.file.path).toBe('images/DSC1234.png')
+    expect(files.has('content/images/DSC1234.png')).toBe(true)
+  })
+
+  it('refuses a hosted address beside other sources, which H5P.Video would not play', async () => {
+    const video = (sources: unknown) => ({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Video', params: { sources } } }] } })
+    expect(await problems(video([{ path: 'clip.mp4' }, { path: 'https://youtu.be/dQw4w9WgXcQ' }]), { check: true, unread: true })).toEqual([
+      'params.content[0].content.params.sources: a YouTube, Vimeo, Panopto or Echo360 address is a video\'s one source: H5P.Video plays only the first, and the editor keeps no other beside it'
+    ])
+  })
+
+  it('keeps a video\'s quality label, which H5P.Video shows, and reads it back', async () => {
+    await writeFile(join(dir, 'tour.mp4'), mp4(false))
+    const source = { ...META, type: 'H5P.InteractiveVideo', params: { interactiveVideo: { video: { files: [{ path: 'tour.mp4', metadata: { qualityName: '720p & up' } }] } } } }
+    const { content } = await build(source, { base: dir })
+    expect(content.interactiveVideo.video.files[0].metadata).toEqual({ qualityName: '720p &amp; up' })
+    expect(await problems({ ...source, params: { interactiveVideo: { video: { files: [{ path: 'tour.mp4', metadata: { label: '720p' } }] } } } }, { check: true, unread: true })).toEqual([
+      'params.interactiveVideo.video.files[0].metadata: expected { "qualityName": "…" }, the label the player shows for this quality, as "720p"'
+    ])
+  })
+})
+
+describe('an optional group written in part (#302)', () => {
+  it('asks for none of its other fields, as the editor and the validator make them optional', async () => {
+    const quiz = (titleScreen: unknown) => ({ ...META, type: 'H5P.PersonalityQuiz', params: { titleScreen, personalities: [{ name: 'Calm', description: 'Steady' }, { name: 'Bold', description: 'Brave' }], questions: [{ text: 'A lake or a river?', answers: [{ text: 'A lake', personality: 'Calm' }, { text: 'A river', personality: 'Bold' }] }] } })
+    // Personality Quiz's title picture, an optional group: its file alone, and no alt text asked for.
+    const built = await buildPackage(quiz({ title: { text: 'Which water are you?' }, image: { file: { path: 'lake.png' } } }), undefined, { check: true, unread: true, libraries: undefined })
+    expect(built.unread).toEqual(['lake.png'])
+  })
+})

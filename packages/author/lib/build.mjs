@@ -278,8 +278,10 @@ export async function composePackage(source, pack, media, said = []) {
   // Media: copied, described, put in place of what was written.
   for (const { field, value, path } of generator.media) {
     const resolved = await media.resolve(field, value, path, report, note)
+    // What the field keeps beside the file, as a video's quality label, stays as checked.
+    const kept = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'path' && key !== 'copyright'))
     for (const key of Object.keys(value)) delete value[key]
-    Object.assign(value, resolved)
+    Object.assign(value, resolved, kept)
   }
 
   // Checked last as saved content is. Only what it finds beyond the source's problems is added

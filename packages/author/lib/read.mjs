@@ -271,7 +271,7 @@ function differences(built, saved, files, path = 'params', found = []) {
     built.forEach((each, i) => differences(each, saved[i], files, `${path}[${i}]`, found))
   } else if (isObject(built) && isObject(saved)) {
     if (files.has(saved)) {
-      if (built.path !== saved.path || copyrightOf(built.copyright) !== copyrightOf(saved.copyright)) found.push(path)
+      if (built.path !== saved.path || copyrightOf(built.copyright) !== copyrightOf(saved.copyright) || built.metadata?.qualityName !== saved.metadata?.qualityName) found.push(path)
       return found
     }
     const part = typeof saved.library === 'string'
