@@ -241,15 +241,15 @@ async function linkNow(attachment) {
 const plays = (name) => /\.(mp4|webm|ogv|mov|mp3|m4a|wav|ogg|oga)$/i.test(name)
 const kindOf = (name) => name.slice(name.lastIndexOf('.') + 1).toLowerCase()
 
-// Each name the page needs, matched to an attachment not given yet, as the page matches files: by
-// name, then one of a kind to one of that kind. One name and one attachment match whatever each is called.
+// Each name the page needs, matched to an attachment not given yet, as the page matches files: by name,
+// then one of a kind to one of that kind. The one name and the one attachment, first asked, match whatever each is called.
 const used = new Set()
 const byName = new Map()
 function matched(names) {
   const free = attachments.filter((attachment) => !used.has(attachment.id))
   const pairs = []
   const pair = (name, attachment) => { pairs.push([name, attachment]); free.splice(free.indexOf(attachment), 1) }
-  if (names.length === 1 && free.length === 1) pair(names[0], free[0])
+  if (!used.size && names.length === 1 && attachments.length === 1) pair(names[0], free[0])
   else {
     const unnamed = []
     for (const name of names) {
@@ -306,20 +306,22 @@ async function sizeOf(href) {
 
 // Whole files, one after another, each counted for the page as it comes. Kept by the browser as a
 // Blob, which it may hold on disk: never in this script's own memory. One that does not come is named.
-let stop = null
+const fetching = new Set()
 async function bring(pairs) {
   const files = []
   const failed = []
-  stop = new AbortController()
+  const stop = new AbortController()
+  fetching.add(stop)
   for (const [index, [name, attachment]] of pairs.entries()) {
-    const file = await bringOne(name, attachment, index + 1, pairs.length)
+    const file = await bringOne(name, attachment, index + 1, pairs.length, stop)
     if (stop.signal.aborted) return { files: [], failed: [] }
     if (file) files.push(file)
     else failed.push(name)
   }
+  fetching.delete(stop)
   return { files, failed }
 }
-async function bringOne(name, attachment, index, count, again = false) {
+async function bringOne(name, attachment, index, count, stop, again = false) {
   try {
     const href = await linkNow(attachment)
     if (!href) throw new Error('no address')
@@ -339,7 +341,7 @@ async function bringOne(name, attachment, index, count, again = false) {
     return new File([blob], name, { type: attachment.mime ?? blob.type })
   } catch {
     // Once more with a new address: the first may have run out. Not where the fetch was given up.
-    if (!again && !stop.signal.aborted) return bringOne(name, attachment, index, count, true)
+    if (!again && !stop.signal.aborted) return bringOne(name, attachment, index, count, stop, true)
     return null
   }
 }
@@ -366,7 +368,8 @@ window.addEventListener('message', (event) => {
     })
   } else if (message.type === 'built') {
     // The package is here: a file still on its way from the chat for it is not needed.
-    stop?.abort()
+    for (const stop of fetching) stop.abort()
+    fetching.clear()
   } else if (message.type === 'save') {
     void save(message.file, message.id)
   } else if (message.type === 'open') {

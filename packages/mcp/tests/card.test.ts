@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  */
 
 const SOURCE = { language: 'en', license: 'U', authors: [{ name: 'Unknown', role: 'Author' }], type: 'H5P.TrueFalse', title: 'Boiling point', params: { question: '<p>Water boils at 100 °C at sea level.</p>', correct: 'true' } }
-/** What a person attached, as the server hands it on: four files, of which the source names three by other names (#301). */
+/** What a person attached, as the server hands it on: five files, one named otherwise than the source names it and one it does not name (#301). */
 const ATTACHED = [
   { file_id: 'file_a', file_name: 'a.png', mime_type: 'image/png' },
   { file_id: 'file_bb', file_name: 'b.png', mime_type: 'image/png' },
@@ -38,6 +38,10 @@ let lateBy = 0
 let links: string[] = []
 /** The files the stand-in play page asks the card for, and the chat's store that holds them, counted. */
 let needs: string[] = []
+/** What the page asks for again once files came, as it does for those still missing. */
+let needsAgain: string[] = []
+/** The attachments the stand-in chat hands the card. */
+let attachedNow: { file_id: string, file_name: string, mime_type: string }[] = []
 let store: Server
 let STORE_AT: string
 const fetched: string[] = []
@@ -69,7 +73,7 @@ beforeAll(async () => {
     response.setHeader('Content-Type', 'text/html; charset=utf-8')
     response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => { parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'); for (const href of ${inScript(links)}) parent.postMessage({ source: 'h5p-play', type: 'open', href }, '*'); if (${inScript(needs)}.length) parent.postMessage({ source: 'h5p-play', type: 'needs-files', names: ${inScript(needs)} }, '*') }, ${lateBy})
 window.got = []
-addEventListener('message', (event) => { const m = event.data; if (m?.source === 'h5p-play-host' && m.type !== 'theme') window.got.push({ type: m.type, files: (m.files ?? []).map((file) => file.name + ':' + file.size), links: Object.keys(m.links ?? {}), sizes: Object.keys(m.sizes ?? {}), name: m.name, index: m.index, count: m.count }) })</script>`)
+addEventListener('message', (event) => { const m = event.data; if (m?.source === 'h5p-play-host' && m.type === 'files' && ${inScript(needsAgain)}.length) parent.postMessage({ source: 'h5p-play', type: 'needs-files', names: ${inScript(needsAgain)} }, '*'); if (m?.source === 'h5p-play-host' && m.type !== 'theme') window.got.push({ type: m.type, files: (m.files ?? []).map((file) => file.name + ':' + file.size), links: Object.keys(m.links ?? {}), sizes: Object.keys(m.sizes ?? {}), name: m.name, index: m.index, count: m.count }) })</script>`)
   })
   await listening(site, '127.0.0.1')
   SITE = `http://127.0.0.1:${port(site)}`
@@ -113,7 +117,7 @@ addEventListener('message', (event) => {
     else if (input === 'streamed') { part(); setTimeout(part, 400); setTimeout(whole, 1500) }
     else if (input === 'stopped') { part(); setTimeout(() => say('ui/notifications/tool-cancelled', { reason: 'The person stopped it' }), 400) }
     else if (input === 'result') say('ui/notifications/tool-result', { content: [{ type: 'text', text: 'The activity is checked' }], _meta: { 'h5p/source': ${inScript(SOURCE)} } })
-    else if (input === 'attached') { whole(); say('ui/notifications/tool-result', { content: [{ type: 'text', text: 'The activity is checked' }], _meta: { 'h5p/source': ${inScript(SOURCE)}, 'h5p/files': ${inScript(ATTACHED)} } }) }
+    else if (input === 'attached') { whole(); say('ui/notifications/tool-result', { content: [{ type: 'text', text: 'The activity is checked' }], _meta: { 'h5p/source': ${inScript(SOURCE)}, 'h5p/files': ${inScript(attachedNow)} } }) }
   }
   else if (message.method === 'ui/open-link') { window.asked.push(message.params.url); answer(${url.searchParams.get('answer') === 'no' ? "{ error: { code: -32000, message: 'no' } }" : '{ result: {} }'}) }
   else if (message.method === 'ui/notifications/size-changed') { window.heights.push(message.params.height); card.style.height = message.params.height + 'px' }
@@ -267,6 +271,7 @@ describe('the card, where a chat lets the play page be framed', () => {
 describe('the card, with the files a person attached', () => {
   it('gives the page every file it asks for, together, matched by name and then by kind, and fetches no other', async () => {
     needs = ['a.png', 'b.png', 'cover.jpg', 'clip.mp4']
+    attachedNow = ATTACHED
     fetched.length = 0
     try {
       const { page, card } = await open('kind=framed&input=attached')
@@ -289,6 +294,30 @@ describe('the card, with the files a person attached', () => {
       await page.close()
     } finally {
       needs = []
+    }
+  })
+})
+
+describe('the card, asked again for what no attachment matched', () => {
+  it('gives no other attachment under a name it could not match', async () => {
+    // b.png has no attachment of its kind; asked for it alone, the leftover JPEG is still not it.
+    needs = ['a.png', 'b.png']
+    needsAgain = ['b.png']
+    attachedNow = [ATTACHED[0]!, ATTACHED[2]!]
+    fetched.length = 0
+    try {
+      const { page, card } = await open('kind=framed&input=attached')
+      await card.waitForSelector('#page.on')
+      const play = page.frames().find((frame) => frame.parentFrame() === card)!
+      const got = () => play.evaluate<{ type: string, files: string[] }[]>('window.got')
+      await expect.poll(async () => (await got()).filter((message) => message.type === 'files').length).toBe(1)
+      await page.waitForTimeout(1000)
+      expect((await got()).filter((message) => message.type === 'files').map((message) => message.files)).toEqual([['a.png:6000']])
+      expect(fetched).toEqual(['file_a'])
+      await page.close()
+    } finally {
+      needs = []
+      needsAgain = []
     }
   })
 })

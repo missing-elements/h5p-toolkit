@@ -254,6 +254,9 @@ describe('the app server', () => {
     expect((all.structuredContent as { attachments: unknown[] }).attachments).toHaveLength(3)
     const some = await call('h5p_play', { source: PICTURES, files: [picture('a.png', 'file_a'), picture('b.png', 'file_b')] })
     expect(textOf(some)).toContain('the card gets the 2 attachments in the person\'s browser, and asks the person for any other.')
+    // More than the source names: the card takes those it names.
+    const more = await call('h5p_play', { source: PICTURES, files: [picture('a.png', 'file_a'), picture('b.png', 'file_b'), picture('c.png', 'file_c'), picture('d.png', 'file_d')] })
+    expect(textOf(more)).toContain('the card gets those the source names of the 4 attachments in the person\'s browser.')
     // One given alone, not in a list, is taken too.
     const alone = await call('h5p_play', { source: VIDEO, files: { download_url: fileAddress, file_id: 'file_abc', file_name: 'IMG_0042.mp4' } })
     expect(alone._meta?.['h5p/files']).toEqual([{ file_id: 'file_abc', file_name: 'IMG_0042.mp4' }])

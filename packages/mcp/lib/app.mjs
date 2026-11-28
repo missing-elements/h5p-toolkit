@@ -199,7 +199,7 @@ export async function createApp(options = {}) {
       if (files.length) {
         const one = files.length === 1
         lines.push(given.length
-          ? `${its}: the card gets ${given.length === 1 ? 'the attachment' : `the ${given.length} attachments`} in the person's browser${files.length > given.length ? ', and asks the person for any other' : ''}.`
+          ? `${its}: the card gets ${given.length > files.length ? `those the source names of the ${given.length} attachments` : given.length === 1 ? 'the attachment' : `the ${given.length} attachments`} in the person's browser${files.length > given.length ? ', and asks the person for any other' : ''}.`
           : `${its}, and no attachment came with the call: the card asks the person to choose ${one ? 'it' : 'them'}. Where the person attached ${one ? 'it' : 'them'} in the chat, earlier too, call h5p_play again with every attachment in files.`)
       } else if (came.length) {
         const one = came.length === 1
