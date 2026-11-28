@@ -307,6 +307,12 @@ const DESCRIBED = { ...TYPES.image, ...TYPES.audio, ...TYPES.video }
  */
 const SERVED_AUDIO = { 'audio/ogg': 'ogg', 'audio/webm': 'webm' }
 
+/** Other names servers give those types, as the editor's own table lists some (h5peditor-file.class.php). */
+const SERVED_AS = /** @type {Record<string, string>} */ ({
+  'audio/x-wav': 'wav', 'audio/wave': 'wav', 'audio/vnd.wave': 'wav', 'audio/mp3': 'mp3', 'audio/x-mp3': 'mp3', 'audio/mpeg3': 'mp3',
+  'audio/x-m4a': 'm4a', 'audio/m4a': 'm4a', 'image/jpg': 'jpg', 'image/pjpeg': 'jpg', 'image/x-png': 'png', 'image/x-ms-bmp': 'bmp'
+})
+
 /** Whose types those are, in a problem. */
 const DESCRIBED_AS = 'only a picture, a video or a recording is read:'
 
@@ -812,7 +818,8 @@ export class MediaStore {
       }
       const named = extensionOf(lastSegment(new URL(response.url || url.href).pathname))
       const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === type) ?? (Object.hasOwn(served, type) ? served[type] : undefined)
+      const alias = Object.hasOwn(SERVED_AS, type) && Object.hasOwn(types, SERVED_AS[type]) ? SERVED_AS[type] : undefined
+      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === type) ?? (Object.hasOwn(served, type) ? served[type] : alias)
       if (!extension) {
         await response.body.cancel()
         report(`${at}.path`, `${source} is ${type || 'of an unknown type'}: ${takes} ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)

@@ -791,6 +791,8 @@ describe('media', () => {
     server = createServer((request, response) => {
       if (request.url === '/pictures/map.png') response.writeHead(200, { 'content-type': 'image/png' }).end(png(40, 20))
       else if (request.url === '/picture') response.writeHead(200, { 'content-type': 'image/png' }).end(png(10, 30))
+      // A picture served under another name of its type, as some servers name JPEG (#302).
+      else if (request.url === '/photo') response.writeHead(200, { 'content-type': 'image/jpg' }).end(jpeg(30, 20))
       else if (request.url === '/page.html') response.writeHead(200, { 'content-type': 'text/html' }).end('<p>no</p>')
       // A file's page on a wiki, at an address that ends as the file's name does (#218).
       else if (request.url === '/wiki/File:clip.mp4') response.writeHead(200, { 'content-type': 'text/html' }).end('<!DOCTYPE html><title>File:clip.mp4</title>')
@@ -853,6 +855,11 @@ describe('media', () => {
     const names = entries.map(entry => entry.filename)
     expect(names.indexOf('content/images/red.png')).toBeGreaterThan(names.indexOf('content/content.json'))
     expect(entries.find(entry => entry.filename === 'content/images/red.png')!.compressionMethod).toBe(0)
+  })
+
+  it('takes a picture served under another name of its type, as image/jpg (#302)', async () => {
+    const { content } = await build({ ...META, type: 'H5P.Dialogcards', params: { dialogs: [{ text: 'Photo', answer: 'Foto', image: { path: `${origin}/photo` }, imageAltText: 'A photo' }] } }, { base: dir })
+    expect(content.dialogs[0].image).toMatchObject({ path: 'images/photo.jpg', mime: 'image/jpeg', width: 30, height: 20 })
   })
 
   it("says where a file's copyright takes the licence's version, written as the source's licenseVersion (#285)", async () => {
@@ -1549,5 +1556,23 @@ describe('a source\'s own fields, as H5P\'s upload takes them (#302)', () => {
     expect(await problems({ ...META, ...quiz, source: 'HTTP://example.org' })).toEqual(['source: expected the address the content comes from'])
     expect(await problems({ ...META, ...quiz, source: `https://example.org/${'a'.repeat(250)}` })).toEqual(['source: takes at most 255 characters, which H5P keeps of it'])
     expect(await problems({ ...META, ...quiz, yearFrom: 20000 })).toEqual(['yearFrom: takes a year from -9999 to 9999, as H5P does'])
+  })
+})
+
+describe('a number under showWhen (#302)', () => {
+  it('takes a whole number, as the plain input the editor draws inside it', async () => {
+    const set = (timeoutCorrect: number) => ({ ...META, type: 'H5P.SingleChoiceSet', params: { choices: [{ question: '<p>Longest river in Europe?</p>', answers: ['<p>Volga</p>', '<p>Danube</p>'] }], behaviour: { timeoutCorrect } } })
+    expect(await problems(set(2.5))).toEqual(['params.behaviour.timeoutCorrect: takes a whole number'])
+    expect((await build(set(2000))).content.behaviour.timeoutCorrect).toBe(2000)
+  })
+})
+
+describe('text as the editor\'s boxes take it (#302)', () => {
+  it('says a line break or more than 255 characters in a one-line box, and counts only a picture in an empty rich text', async () => {
+    const quiz = (checkAnswer: string) => ({ ...META, type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct: 'true', l10n: { checkAnswer } } })
+    const notesOf = async (source: unknown) => (await build(source)).notes
+    expect(await notesOf(quiz('Check\nnow'))).toContainEqual({ path: 'params.l10n.checkAnswer', message: 'has a line break, which the editor\'s one-line box cannot hold and H5P shows as a space' })
+    expect(await notesOf(quiz('C'.repeat(300)))).toContainEqual({ path: 'params.l10n.checkAnswer', message: 'is 300 characters; the editor\'s box for it takes 255' })
+    expect(await problems({ ...META, type: 'H5P.TrueFalse', params: { question: '<hr>', correct: 'true' } })).toContain('params.question: is required and is empty')
   })
 })

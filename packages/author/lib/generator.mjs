@@ -2,7 +2,7 @@ import { hostedVideo, writtenCopyright } from './media.mjs'
 import { checkMetadata } from './metadata.mjs'
 import { machineNameOf, namingKey } from './names.mjs'
 import { isInterfaceText } from './schema.mjs'
-import { allowedTags, blockTag, decodeEntities, escapeText, markupText, plainText, stripTags, takesMarkup, unwrapText } from './text.mjs'
+import { allowedTags, blockTag, decodeEntities, editorWidget, escapeText, markupText, plainText, stripTags, takesMarkup, unwrapText } from './text.mjs'
 
 /**
  * Content for a content type from its `semantics.json`, as H5P's editor saves a form: what is
@@ -916,6 +916,11 @@ export class ContentGenerator {
     // Written text is stored as the editor's widget for the field stores what an author types;
     // saved text, as the content check keeps it, which goes by the field's `tags` alone.
     const markup = this.saved ? allowedTags(field) !== null : takesMarkup(field)
+    // A one-line box, as the editor draws a plain text field: it takes no line break and, with no
+    // length of the field's own, 255 characters (h5peditor.js). Kept as written, as the validator keeps it (#302).
+    const box = !this.saved && !markup && editorWidget(field) === 'text'
+    if (box && /[\r\n]/.test(written.trim())) this.note(path, 'has a line break, which the editor\'s one-line box cannot hold and H5P shows as a space')
+    if (box && field.maxLength === undefined && Array.from(written.trim()).length > 255) this.note(path, `is ${Array.from(written.trim()).length} characters; the editor's box for it takes 255`)
     const stored = markup
       ? markupText(written, field, (message) => this.report(path, message), { saved: this.saved, note: (message) => this.note(path, message) })
       : plainText(written, (message) => this.note(path, message), { filtered: allowedTags(field) !== null })
@@ -930,7 +935,8 @@ export class ContentGenerator {
       }
       if (pattern && !pattern.test(stored)) this.report(path, `"${written.slice(0, 40)}" is not in the form this field takes${field.description ? ` (${stripTags(field.description).slice(0, 120)})` : ''}`)
     }
-    if (!field.optional && stripTags(stored) === '' && !/<(img|iframe|video|audio|hr|table)/i.test(stored)) this.report(path, 'is required and is empty')
+    // Empty but for a picture's tag, as the editor counts it (h5peditor-html.js): a table or a rule holds no text.
+    if (!field.optional && stripTags(stored) === '' && !/<img/i.test(stored)) this.report(path, 'is required and is empty')
     return stored
   }
 
@@ -951,7 +957,8 @@ export class ContentGenerator {
     if (field.decimals !== undefined && Number(field.decimals) >= 0) {
       const factor = 10 ** Number(field.decimals)
       if (Math.round(written * factor) / factor !== written) this.report(path, `takes ${field.decimals ? `at most ${field.decimals} decimals` : 'a whole number'}`)
-    } else if (!field.widget && !this.drawn.has(field) && !Number.isInteger(written)) this.report(path, 'takes a whole number')
+    // A number the editor draws as a plain input takes whole ones; `showWhen` draws its inner widget (#302).
+    } else if (editorWidget(field) === 'number' && !this.drawn.has(field) && !Number.isInteger(written)) this.report(path, 'takes a whole number')
     const step = Number(field.step)
     if (field.step !== undefined && step > 0) {
       const steps = written / step

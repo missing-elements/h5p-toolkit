@@ -65,7 +65,7 @@ function kind(field, options, drawn = false) {
     }
     case 'number': {
       const range = field.min !== undefined || field.max !== undefined ? ` ${field.min ?? ''}–${field.max ?? ''}` : ''
-      return `${field.decimals || field.widget || drawn ? 'number' : 'whole number'}${range}`
+      return `${field.decimals || editorWidget(field) !== 'number' || drawn ? 'number' : 'whole number'}${range}`
     }
     case 'boolean':
       return 'boolean'
