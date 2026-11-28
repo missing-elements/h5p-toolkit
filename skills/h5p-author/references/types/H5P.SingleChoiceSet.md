@@ -34,8 +34,8 @@ The example is `type` and `params` alone, and `params` holds the fields below. A
   - `feedback` text — Feedback for defined score range
 - `behaviour` group — Behavioural settings
   - `autoContinue` boolean = true — Auto continue
-  - `timeoutCorrect` number = 2000; only when autoContinue is true — Timeout on correct answers: Value in milliseconds
-  - `timeoutWrong` number = 3000; only when autoContinue is true — Timeout on wrong answers: Value in milliseconds
+  - `timeoutCorrect` whole number = 2000; only when autoContinue is true — Timeout on correct answers: Value in milliseconds
+  - `timeoutWrong` whole number = 3000; only when autoContinue is true — Timeout on wrong answers: Value in milliseconds
   - `soundEffectsEnabled` boolean = true — Enable sound effects
   - `enableRetry` boolean = true — Enable retry button
   - `enableSolutionsButton` boolean = true — Enable show solution button

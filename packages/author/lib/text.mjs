@@ -244,7 +244,7 @@ export function markupText(value, field, report, { saved = false, note = () => {
     if (!tags.has(tag) && tags.has(WRITTEN_AS[tag] ?? '')) {
       // Written as the editor writes it: <b> is <strong> where the field takes that (#302).
       tag = WRITTEN_AS[tag]
-      piece = piece.replace(/^(<\s*\/?\s*)[a-zA-Z][a-zA-Z0-9]*/, `$1${tag}`)
+      piece = piece.replace(/^(<\s*(?:\/\s*)?)[a-zA-Z][a-zA-Z0-9]*/, `$1${tag}`)
     }
     if (!tags.has(tag)) {
       once(`has <${tag}>, which this field does not take; it takes ${[...tags].sort().map((name) => `<${name}>`).join(' ')}`)
