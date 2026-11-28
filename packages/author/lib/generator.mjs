@@ -98,6 +98,10 @@ export class ContentGenerator {
     this.moved = []
     /** @type {Record<string, any>[]} the files saved content names, as saved, collected as `written` writes them */
     this.stored = []
+    /** @type {Set<unknown>} read, the saved files whose copyright is their part's, written as theirs (#302) */
+    this.copyrightOfPart = new Set()
+    /** @type {string[]} read, where such a part's metadata is */
+    this.partCopyrights = []
     /** @type {string[]} what `written` left out as H5P's editor started it for nobody: a list (`#started`), a default's content (`#unopened`) */
     this.unfilled = []
   }
@@ -360,6 +364,18 @@ export class ContentGenerator {
     const majors = new Set(libraryOptions(field).filter((option) => option.machineName === match[1]).map((option) => option.major))
     const library = majors.size > 1 ? `${match[1]} ${match[2]}.${match[3]}` : match[1]
     const params = this.#writtenFields(entry.semantics ?? [], value.params, [...stack, match[1]], `${path}.params`)
+    // H5P.Image, H5P.Video and H5P.Audio hide their file's copyright: their part's is the file's (#302).
+    const hidden = (entry.semantics ?? []).find((/** @type {any} */ each) => each.disableCopyright && isObject(value.params) && each.name in value.params)
+    const copyright = hidden && isObject(value.metadata) ? copyrightOfPart(value.metadata) : undefined
+    if (hidden && copyright) {
+      const savedFile = Array.isArray(value.params[hidden.name]) ? value.params[hidden.name][0] : value.params[hidden.name]
+      const writtenFile = Array.isArray(params[hidden.name]) ? params[hidden.name][0] : params[hidden.name]
+      if (isObject(writtenFile) && !writtenFile.copyright) {
+        writtenFile.copyright = copyright
+        this.copyrightOfPart.add(savedFile)
+        this.partCopyrights.push(`${path}.metadata`)
+      }
+    }
     const title = isObject(value.metadata) ? value.metadata.title : undefined
     const own = typeof title === 'string' && title.trim() !== '' && title !== escapeText(String(entry.library.title ?? match[1]))
     return { library, params, ...(own ? { metadata: { title } } : {}) }
@@ -1019,6 +1035,24 @@ export class ContentGenerator {
       this.report(path, 'a YouTube, Vimeo, Panopto or Echo360 address is a video\'s one source: H5P.Video plays only the first, and the editor keeps no other beside it')
     }
     return many ? files : files[0]
+  }
+}
+
+/**
+ * A part's metadata as its file's copyright, as a source writes one: what the editor keeps there for
+ * a picture, a video or a recording. None where it says nothing: licence "U", no authors.
+ * @param {Record<string, any>} metadata
+ */
+function copyrightOfPart(metadata) {
+  const license = typeof metadata.license === 'string' && metadata.license ? metadata.license : 'U'
+  const names = Array.isArray(metadata.authors) ? metadata.authors.map((/** @type {any} */ each) => (isObject(each) && typeof each.name === 'string' ? decodeEntities(each.name).trim() : '')).filter(Boolean) : []
+  if (license === 'U' && !names.length) return undefined
+  return {
+    license: license === 'ODC PDDL' ? 'PD' : license,
+    ...(license.startsWith('CC BY') && typeof metadata.licenseVersion === 'string' ? { version: metadata.licenseVersion } : {}),
+    ...(names.length ? { author: names.join(', ') } : {}),
+    ...(typeof metadata.source === 'string' && /^https?:\/\/.+/.test(metadata.source) ? { source: metadata.source } : {}),
+    ...(Number.isInteger(metadata.yearFrom) ? { year: String(metadata.yearFrom) } : {})
   }
 }
 

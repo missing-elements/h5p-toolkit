@@ -654,9 +654,9 @@ describe('content as H5P saves it', () => {
     const untouched = generate(semantics, saved, [], SAVED)
     expect(untouched.problems).toEqual([])
     expect(untouched.params).toEqual(saved)
-    // Once an author writes what the group asks for, all of it is asked for.
+    // Written in part, its fields stay optional, as the editor and the validator make them (#302).
     const started = generate(semantics, { ...saved, adaptivity: { correct: { seekTo: 10, allowOptOut: false, message: '' } } }, [], SAVED)
-    expect(started.problems.map(({ path }) => path)).toEqual(['params.adaptivity.correct.message'])
+    expect(started.problems).toEqual([])
   })
 
   it('asks nothing of content a field gives as its default, as the editor started it', () => {

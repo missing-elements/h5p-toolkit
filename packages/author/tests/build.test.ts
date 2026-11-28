@@ -155,7 +155,8 @@ describe('the quiz format', () => {
     expect(content.questions[0].params.UI.checkAnswerButton).toBe('Check')
     expect(content.questions[0].params.behaviour.type).toBe('single')
     expect(content.questions[1].params.behaviour.type).toBe('multi')
-    expect(content.questions[0].metadata).toMatchObject({ contentType: 'Multiple Choice', license: example.license })
+    // A part's licence is "U", as the editor saves one: the activity's is in h5p.json alone (#302).
+    expect(content.questions[0].metadata).toEqual({ contentType: 'Multiple Choice', license: 'U', title: expect.any(String) })
     const ids = content.questions.map((question: { subContentId: string }) => question.subContentId)
     expect(new Set(ids).size).toBe(2)
     expect(ids.every((id: string) => /^[0-9a-f-]{36}$/.test(id))).toBe(true)
@@ -215,7 +216,7 @@ describe('the quiz format', () => {
     }
     const { content, manifest } = await build(source)
     expect(content.questions.map((question: { metadata: { title: string } }) => question.metadata.title)).toEqual(['Kyivan Rus&#39; &amp; &quot;Cossacks&quot; &lt;b&gt;', 'Question 2'])
-    for (const question of content.questions) expect(question.metadata.authors).toEqual([{ name: 'Anne O&#39;Brien &lt;ed&gt;', role: 'Author' }])
+    for (const question of content.questions) expect(question.metadata.authors).toBeUndefined()
     expect(manifest.authors).toEqual(source.authors)
   })
 
@@ -1516,5 +1517,19 @@ describe('a file\'s copyright, as the editor writes one (#302)', () => {
     expect(await problems(picture({ license: 'U', version: '4.0' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: U takes no version: leave it out'])
     expect(await problems(picture({ license: 'GNU GPL', version: '4.0' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: "4.0" is no version of GNU GPL: use one of v3, v2, v1'])
     expect((await build(picture({ license: 'GNU GPL', version: 'v3' }), { base: dir })).content.content[0].content.params.file.copyright).toEqual({ license: 'GNU GPL', version: 'v3' })
+  })
+})
+
+describe('a part\'s licence, as the editor saves it (#302)', () => {
+  it('gives a part "U", and a picture\'s part its file\'s copyright, which H5P shows for it', async () => {
+    await writeFile(join(dir, 'river.png'), png(64, 48))
+    const image = (copyright: unknown) => ({ content: { library: 'H5P.Image', params: { file: { path: 'river.png', copyright }, alt: 'A river' } } })
+    const text = { content: { library: 'H5P.AdvancedText', params: { text: '<p>Rivers run to the sea.</p>' } } }
+    const { content, manifest } = await build({ ...META, type: 'H5P.Column', params: { content: [text, image({ license: 'CC BY-SA', version: '4.0', author: 'Jane Photographer', source: 'https://example.org/river', year: '2019' }), image({ license: 'CC0 1.0' })] } }, { base: dir })
+    // The activity's own licence and author are its, in h5p.json; a part repeats neither.
+    expect(manifest).toMatchObject({ license: 'CC BY', authors: [{ name: 'Ann Author', role: 'Author' }] })
+    expect(content.content[0].content.metadata).toEqual({ contentType: 'Text', license: 'U', title: 'Text' })
+    expect(content.content[1].content.metadata).toEqual({ contentType: 'Image', title: 'Image', license: 'CC BY-SA', licenseVersion: '4.0', authors: [{ name: 'Jane Photographer', role: 'Author' }], source: 'https://example.org/river', yearFrom: 2019 })
+    expect(content.content[2].content.metadata).toEqual({ contentType: 'Image', title: 'Image', license: 'CC0 1.0' })
   })
 })

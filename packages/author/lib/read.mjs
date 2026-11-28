@@ -32,7 +32,7 @@ const UNWRITTEN = /** @type {const} */ ({
   a11yTitle: 'the title for screen readers'
 })
 
-/** What a part's metadata may say of its own, where a build gives every part the source's. */
+/** What a part's metadata may say of its own, where a build gives a part the licence "U" (#302). */
 const OWN_METADATA = ['license', 'licenseVersion', 'authors', 'source', 'yearFrom', 'yearTo', 'changes', 'authorComments', 'licenseExtras']
 
 /** Whether a value says something: not empty text, an empty list or nothing. @param {unknown} value */
@@ -130,7 +130,7 @@ export async function readContent(pack, { manifest, content }) {
   for (const place of placesOf(main, params)) LAYOUTS[place.library]?.read?.(place.params, place.path, layout(place.library))
 
   const source = /** @type {Source} */ ({ type: main, ...ownFields(manifest, language, note), params })
-  partsMetadata(checked.params, source, note)
+  partsMetadata(checked.params, source, note, new Set(generator.partCopyrights))
 
   // Built again in memory, the package's files standing for themselves: a value that comes back
   // otherwise is written as stored, where it is a value a source writes as stored.
@@ -148,7 +148,7 @@ export async function readContent(pack, { manifest, content }) {
     }
     // A list H5P's editor started for nobody is left out of the source: it is what a build makes.
     for (const path of generator.unfilled) setAt(checked.params, path, valueAt(built.content, path))
-    const differ = differences(built.content, checked.params, new Set(generator.stored))
+    const differ = differences(built.content, checked.params, new Set(generator.stored), 'params', [], generator.copyrightOfPart)
     if (!differ.length) break
     const left = []
     for (const path of differ) {
@@ -221,22 +221,23 @@ function ownFields(manifest, language, note) {
  * @param {Record<string, any>} params as checked
  * @param {Source} source
  * @param {(path: string, message: string) => void} note
+ * @param {Set<string>} [ofFiles] the parts whose licence and authors are written as their file's copyright
  */
-function partsMetadata(params, source, note) {
+function partsMetadata(params, source, note, ofFiles = new Set()) {
   /** @type {string[]} */
   const parts = []
   /** @param {unknown} value @param {string} path */
   const walk = (value, path) => {
     if (Array.isArray(value)) value.forEach((each, i) => walk(each, `${path}[${i}]`))
     else if (isObject(value)) {
-      if (typeof value.library === 'string' && isObject(value.metadata) && ownMetadata(value.metadata, source)) parts.push(`${path}.metadata`)
+      if (typeof value.library === 'string' && isObject(value.metadata) && !ofFiles.has(`${path}.metadata`) && ownMetadata(value.metadata, source)) parts.push(`${path}.metadata`)
       for (const [key, each] of Object.entries(value)) walk(each, `${path}.${key}`)
     }
   }
   walk(params, 'params')
   if (!parts.length) return
   const shown = parts.slice(0, 3).join(', ')
-  note(parts[0], `${parts.length === 1 ? 'is a part\'s metadata' : `and ${parts.length - 1} more are parts' metadata`} with a licence, authors or more of their own, which a source has no field for: a build gives every part the source's${parts.length > 1 ? ` (${shown}${parts.length > 3 ? ', …' : ''})` : ''}`)
+  note(parts[0], `${parts.length === 1 ? 'is a part\'s metadata' : `and ${parts.length - 1} more are parts' metadata`} with a licence, authors or more of their own, which a source has no field for: a build gives a part the licence "U", as the editor saves one${parts.length > 1 ? ` (${shown}${parts.length > 3 ? ', …' : ''})` : ''}`)
 }
 
 /**
@@ -266,12 +267,14 @@ function ownMetadata(metadata, source) {
  * @param {string[]} [found]
  * @returns {string[]}
  */
-function differences(built, saved, files, path = 'params', found = []) {
+function differences(built, saved, files, path = 'params', found = [], ofPart = new Set()) {
   if (Array.isArray(built) && Array.isArray(saved) && built.length === saved.length) {
-    built.forEach((each, i) => differences(each, saved[i], files, `${path}[${i}]`, found))
+    built.forEach((each, i) => differences(each, saved[i], files, `${path}[${i}]`, found, ofPart))
   } else if (isObject(built) && isObject(saved)) {
     if (files.has(saved)) {
-      if (built.path !== saved.path || copyrightOf(built.copyright) !== copyrightOf(saved.copyright) || built.metadata?.qualityName !== saved.metadata?.qualityName) found.push(path)
+      // A file whose copyright is its part's is built with it there, not on the file (#302).
+      const copyrightDiffers = !ofPart.has(saved) && copyrightOf(built.copyright) !== copyrightOf(saved.copyright)
+      if (built.path !== saved.path || copyrightDiffers || built.metadata?.qualityName !== saved.metadata?.qualityName) found.push(path)
       return found
     }
     const part = typeof saved.library === 'string'
@@ -282,7 +285,7 @@ function differences(built, saved, files, path = 'params', found = []) {
         if (isObject(saved.metadata) && saved.metadata.title !== undefined && built.metadata?.title !== saved.metadata.title) found.push(`${path}.metadata.title`)
         continue
       }
-      differences(built[key], saved[key], files, `${path}.${key}`, found)
+      differences(built[key], saved[key], files, `${path}.${key}`, found, ofPart)
     }
   } else if (!Object.is(built, saved) && !sameText(built, saved)) found.push(path)
   return found

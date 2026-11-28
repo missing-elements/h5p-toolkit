@@ -213,7 +213,7 @@ describe('a package read back', () => {
     })
     expect(read.notes.map(({ path }) => path)).toEqual(['language', 'params.questions[0].params.oldField', 'authors', 'authorComments', 'changes', 'params.questions[0].metadata'])
     expect(read.notes.find(({ path }) => path === 'authors')?.message).toBe('are not in h5p.json: written as "Unknown", since a source names one')
-    expect(read.notes.find(({ path }) => path === 'params.questions[0].metadata')?.message).toMatch(/licence, authors or more of their own.*a build gives every part the source's/)
+    expect(read.notes.find(({ path }) => path === 'params.questions[0].metadata')?.message).toMatch(/licence, authors or more of their own.*a build gives a part the licence "U"/)
     expect(read.files).toEqual([image])
     expect(await exists(join(at, 'read', image))).toBe(true)
     const again = await buildPackage(read.source, undefined, { base: join(at, 'read'), check: true })
@@ -346,5 +346,25 @@ describe('a package read back', () => {
     expect(stdout).toContain(`h5p-author build ${join('read', 'elsewhere.source.json')} <output.h5p>`)
     expect(stderr).toContain('Note: authorComments is the author\'s comments, which a source has no field for: left out')
     expect(await exists(join(at, 'read', image))).toBe(true)
+  })
+})
+
+describe('a picture\'s copyright, kept in its part as the editor keeps it (#302)', () => {
+  it('reads it as the file\'s copyright, which a build puts back in the part', async () => {
+    const at = await folder()
+    await writeFile(join(at, 'river.png'), png(64, 48))
+    const built = join(at, 'built.h5p')
+    await buildPackage({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Image', params: { file: { path: 'river.png' }, alt: 'A river' } } }] } }, built, { base: at })
+    const { manifest, content } = await opened(built)
+    // As the editor saves it: the licence in the part's metadata, the file's own left "U".
+    const part = content.content[0].content
+    part.metadata = { ...part.metadata, license: 'CC BY-SA', licenseVersion: '4.0', authors: [{ name: 'Jane Photographer', role: 'Author' }] }
+    part.params.file.copyright = { license: 'U' }
+    const output = join(at, 'editor.h5p')
+    await exported(output, manifest, content, { [part.params.file.path]: new Uint8Array(png(64, 48)) })
+    const read = await readPackage(output, join(at, 'read'))
+    const file = (read.source.params as any).content[0].content.params.file
+    expect(file.copyright).toEqual({ license: 'CC BY-SA', version: '4.0', author: 'Jane Photographer' })
+    expect(read.notes.filter(({ path, message }) => path.includes('metadata') || /reads back otherwise/.test(message))).toEqual([])
   })
 })
