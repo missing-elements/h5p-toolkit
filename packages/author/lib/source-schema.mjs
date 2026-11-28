@@ -13,10 +13,20 @@ const NAME = 'expected the author\'s name'
 const AUTHORS = 'name at least one author: [{ "name": "…", "role": "Author" }]'
 const ADDRESS = 'expected the address the content comes from'
 const YEAR = 'expected a year'
+const YEAR_RANGE = 'takes a year from -9999 to 9999, as H5P does'
 const BUILT_WITH = 'is written by a build, the content type and its version then, as "H5P.Blanks 1.14": leave it out'
 
 /** @param {string} text */
 const written = (text) => text.trim() !== ''
+
+// H5P's upload counts a title's or a name's bytes, not its letters, and takes no line break (h5p.classes.php).
+const BYTES = 'takes at most 255 bytes, as H5P counts them: a letter of Cyrillic, Greek or Chinese takes two or three'
+const fits = (/** @type {string} */ text) => new TextEncoder().encode(text).length <= 255
+const oneLine = (/** @type {string} */ text) => !/[\r\n]/.test(text)
+const LINE = 'takes no line break'
+
+/** A language H5P's upload takes: letters and hyphens, at most 10, so not a region by number. @param {string} tag */
+const h5pTag = (tag) => /^[-a-zA-Z]{1,10}$/.test(tag)
 
 /** @param {string} tag */
 const isTag = (tag) => {
@@ -30,7 +40,7 @@ const isTag = (tag) => {
 
 /** An author, in a role H5P names. One written as a name alone, as a chat writes one, is said with the object to write. */
 const author = z.strictObject({
-  name: z.string({ error: NAME }).check(z.refine(written, { error: NAME })),
+  name: z.string({ error: NAME }).check(z.refine(written, { error: NAME }), z.refine(fits, { error: BYTES }), z.refine(oneLine, { error: LINE })),
   role: z.enum(ROLES, { error: `use one of ${ROLES.join(', ')}` })
 }, {
   error: (issue) => {
@@ -44,14 +54,16 @@ const author = z.strictObject({
 /** A source's fields, in the order they are listed, each with what it takes. */
 const fields = {
   type: z.string({ error: TYPE }).check(z.refine(written, { error: TYPE }), z.describe('The content type\'s machine name, as "H5P.MultiChoice"')),
-  title: z.string({ error: TITLE }).check(z.refine(written, { error: TITLE }), z.maxLength(255, { error: 'takes at most 255 characters' })),
-  language: z.string({ error: LANGUAGE }).check(z.refine(isTag, { error: LANGUAGE }), z.describe('A BCP 47 tag, as "en"')),
+  title: z.string({ error: TITLE }).check(z.refine(written, { error: TITLE }), z.refine(fits, { error: BYTES }), z.refine(oneLine, { error: LINE })),
+  language: z.string({ error: LANGUAGE }).check(z.refine(isTag, { error: LANGUAGE }), z.refine(h5pTag, {
+    error: (issue) => `is a tag H5P's upload refuses, which takes letters and hyphens, at most 10: write ${JSON.stringify(String(issue.input).split('-')[0])}`
+  }), z.describe('A BCP 47 tag, as "en"')),
   license: z.enum(LICENSES, { error: `use one of ${LICENSES.map((each) => JSON.stringify(each)).join(', ')}; "U" when it is not known` }),
   licenseVersion: z.optional(z.enum(CC_VERSIONS, { error: `use one of ${CC_VERSIONS.join(', ')}` }).check(z.describe('For a CC BY licence only'))),
   authors: z.array(author, { error: AUTHORS }).check(z.minLength(1, { error: AUTHORS })),
-  source: z.optional(z.string({ error: ADDRESS }).check(z.regex(/^https?:\/\/\S+$/i, { error: ADDRESS }))),
-  yearFrom: z.optional(z.int({ error: YEAR })),
-  yearTo: z.optional(z.int({ error: YEAR })),
+  source: z.optional(z.string({ error: ADDRESS }).check(z.regex(/^https?:\/\/\S+$/, { error: ADDRESS }), z.maxLength(255, { error: 'takes at most 255 characters, which H5P keeps of it' }))),
+  yearFrom: z.optional(z.int({ error: YEAR }).check(z.gte(-9999, { error: YEAR_RANGE }), z.lte(9999, { error: YEAR_RANGE }))),
+  yearTo: z.optional(z.int({ error: YEAR }).check(z.gte(-9999, { error: YEAR_RANGE }), z.lte(9999, { error: YEAR_RANGE }))),
   params: z.optional(z.record(z.string(), z.unknown(), { error: 'expected an object of the content type\'s fields' })
     .check(z.describe('The content type\'s fields that differ from their defaults'))),
   builtWith: z.optional(z.string({ error: BUILT_WITH }).check(z.regex(/^\S+ \d+\.\d+$/, { error: BUILT_WITH }),

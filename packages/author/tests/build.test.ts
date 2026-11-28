@@ -96,7 +96,7 @@ describe('the quiz format', () => {
     [{ ...example, language: 'not_a_tag' }, 'quiz.language'],
     [{ ...example, license: 'made-up' }, 'quiz.license'],
     [{ ...example, authors: [] }, 'quiz.authors'],
-    [{ ...example, authors: [{ name: 'A', role: 'Editor' }] }, 'quiz.authors[0].role'],
+    [{ ...example, authors: [{ name: 'A', role: 'Writer' }] }, 'quiz.authors[0].role'],
     [{ ...example, passPercentage: 101 }, 'quiz.passPercentage'],
     [{ ...example, passPercentage: '50' }, 'quiz.passPercentage'],
     [{ ...example, failedFeedback: undefined }, 'quiz.failedFeedback: set passedFeedback and failedFeedback together'],
@@ -123,7 +123,7 @@ describe('the quiz format', () => {
     const quiz = { ...example, title: '', license: 'made-up', questions: [{ ...example.questions[0], prompt: '' }, { ...example.questions[1], answers: [{ text: 'a', correct: true }] }] }
     expect(quizProblems(quiz).map(({ path, message }) => `${path}: ${message}`)).toEqual([
       'quiz.title: expected non-empty text',
-      'quiz.license: use an H5P license code (for example "U", "CC BY", or "CC0 1.0")',
+      'quiz.license: use one of "U", "CC BY", "CC BY-SA", "CC BY-ND", "CC BY-NC", "CC BY-NC-SA", "CC BY-NC-ND", "CC0 1.0", "CC PDM", "GNU GPL", "PD", "ODC PDDL", "C"',
       'quiz.questions[0].prompt: expected non-empty text',
       'quiz.questions[1].answers: at least two answers are required'
     ])
@@ -1531,5 +1531,23 @@ describe('a part\'s licence, as the editor saves it (#302)', () => {
     expect(content.content[0].content.metadata).toEqual({ contentType: 'Text', license: 'U', title: 'Text' })
     expect(content.content[1].content.metadata).toEqual({ contentType: 'Image', title: 'Image', license: 'CC BY-SA', licenseVersion: '4.0', authors: [{ name: 'Jane Photographer', role: 'Author' }], source: 'https://example.org/river', yearFrom: 2019 })
     expect(content.content[2].content.metadata).toEqual({ contentType: 'Image', title: 'Image', license: 'CC0 1.0' })
+  })
+})
+
+describe('a source\'s own fields, as H5P\'s upload takes them (#302)', () => {
+  const quiz = { type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct: 'true' } }
+  it('counts a title\'s and a name\'s bytes, takes no line break, and a language H5P names', async () => {
+    expect(await problems({ ...META, ...quiz, title: 'Ж'.repeat(128) })).toEqual(['title: takes at most 255 bytes, as H5P counts them: a letter of Cyrillic, Greek or Chinese takes two or three'])
+    expect((await build({ ...META, ...quiz, title: 'Ж'.repeat(127) })).manifest.title).toBe('Ж'.repeat(127))
+    expect(await problems({ ...META, ...quiz, title: 'Rivers\nand lakes' })).toEqual(['title: takes no line break'])
+    expect(await problems({ ...META, ...quiz, authors: [{ name: 'a'.repeat(300), role: 'Author' }] })).toEqual(['authors[0].name: takes at most 255 bytes, as H5P counts them: a letter of Cyrillic, Greek or Chinese takes two or three'])
+    expect(await problems({ ...META, ...quiz, language: 'es-419' })).toEqual(['language: is a tag H5P\'s upload refuses, which takes letters and hyphens, at most 10: write "es"'])
+  })
+
+  it('takes a web address as H5P does, a bare host with http:// before it, and a year H5P keeps', async () => {
+    expect((await build({ ...META, ...quiz, source: 'www.example.org/rivers' })).manifest.source).toBe('http://www.example.org/rivers')
+    expect(await problems({ ...META, ...quiz, source: 'HTTP://example.org' })).toEqual(['source: expected the address the content comes from'])
+    expect(await problems({ ...META, ...quiz, source: `https://example.org/${'a'.repeat(250)}` })).toEqual(['source: takes at most 255 characters, which H5P keeps of it'])
+    expect(await problems({ ...META, ...quiz, yearFrom: 20000 })).toEqual(['yearFrom: takes a year from -9999 to 9999, as H5P does'])
   })
 })

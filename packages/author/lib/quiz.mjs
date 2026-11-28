@@ -1,3 +1,4 @@
+import { LICENSES, ROLES } from './metadata.mjs'
 import { escapeText } from './text.mjs'
 
 /**
@@ -10,7 +11,7 @@ import { escapeText } from './text.mjs'
  * @typedef {{ title?: string, prompt: string, multipleAnswers?: boolean, answers: Answer[] }} Question
  * @typedef {{
  *   kind: 'multiple-choice' | 'question-set', title: string, language: string, license: string,
- *   authors: { name: string, role: 'Author' }[], passPercentage?: number,
+ *   authors: { name: string, role: string }[], passPercentage?: number,
  *   passedFeedback?: string, failedFeedback?: string, questions: Question[]
  * }} Quiz
  */
@@ -56,15 +57,16 @@ export function quizProblems(source) {
       report('quiz.language', 'expected a BCP 47 language tag, such as "en"')
     }
   }
-  if (text(quiz.license, 'quiz.license') && !['U', 'CC BY', 'CC BY-SA', 'CC BY-ND', 'CC BY-NC', 'CC BY-NC-SA', 'CC BY-NC-ND', 'CC0 1.0', 'PD', 'C'].includes(quiz.license)) {
-    report('quiz.license', 'use an H5P license code (for example "U", "CC BY", or "CC0 1.0")')
+  // The licences and roles H5P's metadata takes, as a source's are (#302).
+  if (text(quiz.license, 'quiz.license') && !LICENSES.includes(quiz.license)) {
+    report('quiz.license', `use one of ${LICENSES.map((each) => JSON.stringify(each)).join(', ')}`)
   }
   if (!Array.isArray(quiz.authors) || !quiz.authors.length) report('quiz.authors', 'name at least one author')
   else quiz.authors.forEach((/** @type {unknown} */ author, /** @type {number} */ i) => {
     if (!record(author, `quiz.authors[${i}]`, ['name', 'role'])) return
     const { name, role } = /** @type {Record<string, unknown>} */ (author)
     text(name, `quiz.authors[${i}].name`)
-    if (role !== 'Author') report(`quiz.authors[${i}].role`, 'use "Author"')
+    if (typeof role !== 'string' || !ROLES.includes(role)) report(`quiz.authors[${i}].role`, `use one of ${ROLES.join(', ')}`)
   })
   if (quiz.passPercentage !== undefined && (!Number.isInteger(quiz.passPercentage) || quiz.passPercentage < 0 || quiz.passPercentage > 100)) {
     report('quiz.passPercentage', 'expected an integer from 0 to 100')

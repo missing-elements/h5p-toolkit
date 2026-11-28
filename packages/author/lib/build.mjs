@@ -184,8 +184,11 @@ export function sourceOf(input, names) {
   // The authors that hold are kept, so the content is checked with them.
   const authorsHold = holds(field.authors, given.authors, at.authors, report)
   if (Array.isArray(given.authors)) source.authors = authorsHold ? given.authors : given.authors.filter(authorHolds)
+  // An address written as a bare host, as the editor takes one: it puts http:// before it (#302).
+  const bare = typeof given.source === 'string' && /^(?![a-z][a-z0-9+.-]*:)[\w-]+(?:\.[\w-]+)+(?:[/?#]\S*)?$/i.test(given.source.trim())
+  const taken = bare ? { ...given, source: `http://${given.source.trim()}` } : given
   for (const key of /** @type {const} */ (['source', 'yearFrom', 'yearTo', 'params', 'builtWith'])) {
-    if (given[key] !== undefined && holds(field[key], given[key], at[key], report)) source[key] = given[key]
+    if (taken[key] !== undefined && holds(field[key], taken[key], at[key], report)) source[key] = taken[key]
   }
   return { source: /** @type {Source} */ (source), problems, typed }
 }
