@@ -18,7 +18,10 @@ const LIST_HEAD = `The content types the library pack has, by the name a source'
  * A source's own fields as the author package declares them (#230), none required or forbidden:
  * the build reads a source written another way (#174), which the SDK would refuse before it looked.
  */
-export const SOURCE_PROPERTIES = z.toJSONSchema(sourceSchema, { io: 'input' }).properties
+// Less what a chat seldom writes, the licence's extra terms, the change log and the author's comments:
+// a source with them builds, and the tools' words stay under their budget (#302).
+const { licenseExtras: _extras, changes: _changes, authorComments: _comments, ...shown } = z.toJSONSchema(sourceSchema, { io: 'input' }).properties ?? {}
+export const SOURCE_PROPERTIES = shown
 
 /** Lines of an outline past which an answer says how many more there are. */
 const OUTLINE_LINES = 80

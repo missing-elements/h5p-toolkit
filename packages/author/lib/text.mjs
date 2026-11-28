@@ -154,7 +154,22 @@ function quoteLeftOpen(attributes) {
   }
   return false
 }
-const SAFE_URL = /^(?:https?:|mailto:|ftp:|[^:]*$)/i
+/**
+ * Whether H5P keeps a value's start as written: it reads what comes before a colon as a protocol,
+ * unless a /, ? or # comes first, and keeps only http, https, mailto and ftp (`_filter_xss_bad_protocol`).
+ * @param {string} value
+ */
+const keptStart = (value) => {
+  const colon = value.indexOf(':')
+  const before = colon === -1 ? '' : value.slice(0, colon)
+  return colon === -1 || /[/?#]/.test(before) || /^(?:https?|mailto|ftp)$/i.test(before)
+}
+
+/** Tags the editor writes otherwise, as CKEditor turns them on paste: kept where the field takes that. */
+const WRITTEN_AS = /** @type {Record<string, string>} */ ({ b: 'strong', i: 'em', strike: 's', del: 's' })
+
+/** A hex entity with an odd number of digits, which H5P's filter shows as written (`&#x3b1;`). */
+const ODD_HEX = /&#x((?:[0-9a-f]{2})*[0-9a-f]);/gi
 
 /**
  * Whether a value is written as markup: it has a tag. Text without one is plain, and is wrapped
@@ -196,12 +211,15 @@ export function unwrapText(value, block) {
  * @param {string} value
  * @param {any} field
  * @param {(message: string) => void} report
- * @param {{ saved?: boolean }} [options] `saved`, a value as H5P stores it: text without markup is
- *   kept as it is, but for a lone `<` or `>`, where typed text is wrapped as the editor wraps it
+ * @param {{ saved?: boolean, note?: (message: string) => void }} [options] `saved`: kept as H5P stores
+ *   it, typed text wrapped only for a lone `<` or `>`; `note`: worth saying, and no reason not to build
  */
-export function markupText(value, field, report, { saved = false } = {}) {
+export function markupText(value, field, report, { saved = false, note = () => {} } = {}) {
   const tags = allowedTags(field) ?? new Set()
   if (!hasMarkup(value) && !saved) return wrapText(value, blockTag(field))
+  // A line break in the text runs together with the next line in markup, as the editor would never write it.
+  if (!saved && /[^>\s][ \t]*\r?\n\s*[^<\s]/.test(value)) note('has line breaks in its text, which markup shows as one line: write <p> or <br> where a line should break')
+  for (const [entity, digits] of value.matchAll(ODD_HEX)) report(`has ${entity}, which H5P shows as written: write &#x0${digits}; or the character itself`)
   const styles = stylePatterns(field)
   // Each thing said once, however often the value repeats it: an opening tag and its closing one.
   const said = new Set()
@@ -222,7 +240,12 @@ export function markupText(value, field, report, { saved = false } = {}) {
       once(`has "${piece.slice(0, 30)}", which is not a complete tag: write &lt; for a literal <`)
       return piece
     }
-    const tag = match[2].toLowerCase()
+    let tag = match[2].toLowerCase()
+    if (!tags.has(tag) && tags.has(WRITTEN_AS[tag] ?? '')) {
+      // Written as the editor writes it: <b> is <strong> where the field takes that (#302).
+      tag = WRITTEN_AS[tag]
+      piece = piece.replace(/^(<\s*(?:\/\s*)?)[a-zA-Z][a-zA-Z0-9]*/, `$1${tag}`)
+    }
     if (!tags.has(tag)) {
       once(`has <${tag}>, which this field does not take; it takes ${[...tags].sort().map((name) => `<${name}>`).join(' ')}`)
       return piece
@@ -240,12 +263,15 @@ export function markupText(value, field, report, { saved = false } = {}) {
         const content = double ?? single ?? bare ?? ''
         if (attribute.startsWith('on')) once(`has an event handler, ${attribute}, on <${tag}>, which H5P removes`)
         else if (attribute === 'style') {
-          if (!STYLEABLE.has(tag)) once(`has a style on <${tag}>, which H5P removes; styles are kept on ${[...STYLEABLE].join(', ')}`)
+          if (double === undefined) once(`has a style ${single === undefined ? 'with no quotes' : 'in single quotes'} on <${tag}>, which H5P drops: write style="…"`)
+          else if (!STYLEABLE.has(tag)) once(`has a style on <${tag}>, which H5P removes; styles are kept on ${[...STYLEABLE].join(', ')}`)
           else for (const declaration of content.split(';').map((part) => part.trim()).filter(Boolean)) {
             if (!styles.some((pattern) => pattern.test(declaration))) once(`has the style "${declaration}" on <${tag}>, which this field does not allow`)
           }
-        } else if ((attribute === 'href' || attribute === 'src') && !SAFE_URL.test(content.trim())) {
+        } else if ((attribute === 'href' || attribute === 'src') && !keptStart(content.trim())) {
           once(`has ${attribute}="${content.slice(0, 40)}": only http, https, mailto and ftp addresses are kept`)
+        } else if (!keptStart(content)) {
+          once(`has ${attribute}="${content.slice(0, 40)}": H5P takes what comes before its colon for an address's protocol and removes it; write it without that colon`)
         }
       }
     }

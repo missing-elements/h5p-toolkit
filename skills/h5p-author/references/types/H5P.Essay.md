@@ -59,9 +59,9 @@ The example is `type` and `params` alone, and `params` holds the fields below. A
   - `inputFieldSize` one of "1" | "3" | "10" = "10" — Input field size: The size of the input field in amount of lines it will cover
   - `enableRetry` boolean = true — Enable "Retry"
   - `ignoreScoring` boolean = false — Ignore scoring
-  - `pointsHost` number 0– = 1; only when ignoreScoring is true — Points in host environment: Used to award points in host environment merely for answering (not shown to learner).
-  - `percentagePassing` number 0–100; only when ignoreScoring is false — Passing percentage: Percentage that's necessary for passing
-  - `percentageMastering` number 0–100; only when ignoreScoring is false — Mastering percentage: Percentage that's necessary for mastering. Setting the mastering percentage below 100 % will lower the maximum possible score accordingly. It's intended to give some leeway to…
+  - `pointsHost` whole number 0– = 1; only when ignoreScoring is true — Points in host environment: Used to award points in host environment merely for answering (not shown to learner).
+  - `percentagePassing` whole number 0–100; only when ignoreScoring is false — Passing percentage: Percentage that's necessary for passing
+  - `percentageMastering` whole number 0–100; only when ignoreScoring is false — Mastering percentage: Percentage that's necessary for mastering. Setting the mastering percentage below 100 % will lower the maximum possible score accordingly. It's intended to give some leeway to…
   - `overrideCaseSensitive` one of "on" | "off" — Override case sensitive: This option determines if the "Case sensitive" option will be activated for all keywords.
   - `overrideForgiveMistakes` one of "on" | "off" — Override forgive mistakes: This option determines if the "Forgive mistakes" option will be activated for all keywords.
   - `linebreakReplacement` one of " " | "\n" = " " — Replacement for line breaks: By default, line breaks will be replaced with a space character. If you want to check for line breaks, e.g. in regular expressions, you can set a different replacement …

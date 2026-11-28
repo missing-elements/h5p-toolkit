@@ -43,7 +43,7 @@ The example is `type` and `params` alone, and `params` holds the fields below. A
   - `disableBackwardsNavigation` boolean = false; only when mode is "normal" — Disable backwards navigation
   - `scaleTextNotCard` boolean = false — Scale the text to fit inside the card
   - `randomCards` boolean = false; only when mode is "normal" — Randomize cards
-  - `maxProficiency` number 3–7 = 5; only when mode is "repetition" — Maximum proficiency level
+  - `maxProficiency` whole number 3–7 = 5; only when mode is "repetition" — Maximum proficiency level
   - `quickProgression` boolean = false; only when mode is "repetition" — Allow quick progression
 
 28 interface texts are left out: they come from the libraries' translations. `h5p-author schema H5P.Dialogcards --all` lists them, for a source to set one.

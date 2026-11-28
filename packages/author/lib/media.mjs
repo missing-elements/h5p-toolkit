@@ -1,4 +1,5 @@
 import { mp4Info } from '@missing-elements/h5p-normalize/mp4'
+import { CC_VERSIONS } from './metadata.mjs'
 import { escapeText } from './text.mjs'
 
 /**
@@ -114,8 +115,25 @@ const STATUS_WORDS = /** @type {Record<number, string>} */ ({ 400: 'Bad Request'
 /** A YouTube Short or live stream, by its video's id, which H5P.Video plays at the watch address. */
 const YOUTUBE_SHORT = /^https?:\/\/(?:[\w-]+\.)*youtube\.com\/(?:shorts|live)\/([\w-]{11})(?![\w-])/i
 
+/**
+ * Whether an address is a video one of the hosts plays, which H5P.Video plays only as a video's one
+ * source: each of its handlers looks at the first alone, and the editor drops the others.
+ * @param {string} address
+ */
+export const hostedVideo = (address) => YOUTUBE_SHORT.test(address) || HOSTED.some(({ plays }) => plays.test(address))
+
 /** The licences a file's copyright may name, as H5P lists them. */
 const COPYRIGHT_LICENSES = ['U', 'CC BY', 'CC BY-SA', 'CC BY-ND', 'CC BY-NC', 'CC BY-NC-SA', 'CC BY-NC-ND', 'GNU GPL', 'PD', 'C']
+
+/** The versions each licence of a file's copyright takes, as H5P's editor lists them; U and C take none. */
+const COPYRIGHT_VERSIONS = /** @type {Record<string, string[]>} */ ({
+  ...Object.fromEntries(COPYRIGHT_LICENSES.filter((license) => license.startsWith('CC ')).map((license) => [license, CC_VERSIONS])),
+  'GNU GPL': ['v3', 'v2', 'v1'],
+  PD: ['-', 'CC0 1.0', 'CC PDM']
+})
+
+/** A source's licences that a file's copyright writes as PD and that version, as the editor does (#302). */
+const AS_PD = ['CC0 1.0', 'CC PDM']
 
 /** The parts of a file's copyright a source writes, as H5P records them. */
 const COPYRIGHT_FIELDS = ['license', 'author', 'title', 'year', 'source', 'version']
@@ -288,6 +306,12 @@ const DESCRIBED = { ...TYPES.image, ...TYPES.audio, ...TYPES.video }
  * a web address with no extension, served so, is still read.
  */
 const SERVED_AUDIO = { 'audio/ogg': 'ogg', 'audio/webm': 'webm' }
+
+/** Other names servers give those types, as the editor's own table lists some (h5peditor-file.class.php). */
+const SERVED_AS = /** @type {Record<string, string>} */ ({
+  'audio/x-wav': 'wav', 'audio/wave': 'wav', 'audio/vnd.wave': 'wav', 'audio/mp3': 'mp3', 'audio/x-mp3': 'mp3', 'audio/mpeg3': 'mp3',
+  'audio/x-m4a': 'm4a', 'audio/m4a': 'm4a', 'image/jpg': 'jpg', 'image/pjpeg': 'jpg', 'image/x-png': 'png', 'image/x-ms-bmp': 'bmp'
+})
 
 /** Whose types those are, in a problem. */
 const DESCRIBED_AS = 'only a picture, a video or a recording is read:'
@@ -506,9 +530,18 @@ export class MediaStore {
         report(`${at}.${key}`, 'expected text')
         continue
       }
-      if (key === 'license' && !COPYRIGHT_LICENSES.includes(entry)) report(`${at}.license`, `use one of ${COPYRIGHT_LICENSES.join(', ')}`)
+      if (key === 'license' && AS_PD.includes(entry) && (value.version === undefined || value.version === entry)) {
+        out.license = 'PD'
+        out.version = entry
+        continue
+      }
+      if (key === 'license' && !COPYRIGHT_LICENSES.includes(entry)) report(`${at}.license`, `use one of ${COPYRIGHT_LICENSES.join(', ')}${entry === 'ODC PDDL' ? '; for a file, ODC PDDL is "PD"' : ''}`)
       if (key === 'source' && !COPYRIGHT_SOURCE.test(entry)) report(`${at}.source`, 'expected an http(s) address')
       out[key] = key === 'license' || key === 'version' ? entry : escapeText(entry)
+    }
+    const takes = COPYRIGHT_VERSIONS[out.license]
+    if (out.version !== undefined && COPYRIGHT_LICENSES.includes(out.license) && !takes?.includes(out.version)) {
+      report(`${at}.version`, takes ? `${JSON.stringify(out.version)} is no version of ${out.license}: use one of ${takes.join(', ')}` : `${out.license} takes no version: leave it out`)
     }
     return out
   }
@@ -785,7 +818,8 @@ export class MediaStore {
       }
       const named = extensionOf(lastSegment(new URL(response.url || url.href).pathname))
       const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === type) ?? (Object.hasOwn(served, type) ? served[type] : undefined)
+      const alias = Object.hasOwn(SERVED_AS, type) && Object.hasOwn(types, SERVED_AS[type]) ? SERVED_AS[type] : undefined
+      const extension = Object.hasOwn(types, named) ? named : Object.keys(types).find((each) => types[each] === type) ?? (Object.hasOwn(served, type) ? served[type] : alias)
       if (!extension) {
         await response.body.cancel()
         report(`${at}.path`, `${source} is ${type || 'of an unknown type'}: ${takes} ${Object.keys(types).map((each) => `.${each}`).join(', ')}`)
@@ -821,7 +855,8 @@ export class MediaStore {
    * @param {string} extension
    */
   #name(folder, stem, extension) {
-    const safe = stem.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 60) || folder.slice(0, -1)
+    // H5P's upload skips a name that starts with "." or "_" (h5p.classes.php), as a camera's _DSC1234.JPG.
+    const safe = stem.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^[-._]+|[-.]+$/g, '').slice(0, 60) || folder.slice(0, -1)
     let name = `${folder}/${safe}.${extension}`
     for (let count = 2; this.names.has(name.toLowerCase()); count++) name = `${folder}/${safe}-${count}.${extension}`
     this.names.add(name.toLowerCase())

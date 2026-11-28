@@ -96,7 +96,7 @@ describe('the quiz format', () => {
     [{ ...example, language: 'not_a_tag' }, 'quiz.language'],
     [{ ...example, license: 'made-up' }, 'quiz.license'],
     [{ ...example, authors: [] }, 'quiz.authors'],
-    [{ ...example, authors: [{ name: 'A', role: 'Editor' }] }, 'quiz.authors[0].role'],
+    [{ ...example, authors: [{ name: 'A', role: 'Writer' }] }, 'quiz.authors[0].role'],
     [{ ...example, passPercentage: 101 }, 'quiz.passPercentage'],
     [{ ...example, passPercentage: '50' }, 'quiz.passPercentage'],
     [{ ...example, failedFeedback: undefined }, 'quiz.failedFeedback: set passedFeedback and failedFeedback together'],
@@ -123,7 +123,7 @@ describe('the quiz format', () => {
     const quiz = { ...example, title: '', license: 'made-up', questions: [{ ...example.questions[0], prompt: '' }, { ...example.questions[1], answers: [{ text: 'a', correct: true }] }] }
     expect(quizProblems(quiz).map(({ path, message }) => `${path}: ${message}`)).toEqual([
       'quiz.title: expected non-empty text',
-      'quiz.license: use an H5P license code (for example "U", "CC BY", or "CC0 1.0")',
+      'quiz.license: use one of "U", "CC BY", "CC BY-SA", "CC BY-ND", "CC BY-NC", "CC BY-NC-SA", "CC BY-NC-ND", "CC0 1.0", "CC PDM", "GNU GPL", "PD", "ODC PDDL", "C"',
       'quiz.questions[0].prompt: expected non-empty text',
       'quiz.questions[1].answers: at least two answers are required'
     ])
@@ -155,7 +155,8 @@ describe('the quiz format', () => {
     expect(content.questions[0].params.UI.checkAnswerButton).toBe('Check')
     expect(content.questions[0].params.behaviour.type).toBe('single')
     expect(content.questions[1].params.behaviour.type).toBe('multi')
-    expect(content.questions[0].metadata).toMatchObject({ contentType: 'Multiple Choice', license: example.license })
+    // A part's licence is "U", as the editor saves one: the activity's is in h5p.json alone (#302).
+    expect(content.questions[0].metadata).toEqual({ contentType: 'Multiple Choice', license: 'U', title: expect.any(String) })
     const ids = content.questions.map((question: { subContentId: string }) => question.subContentId)
     expect(new Set(ids).size).toBe(2)
     expect(ids.every((id: string) => /^[0-9a-f-]{36}$/.test(id))).toBe(true)
@@ -215,7 +216,7 @@ describe('the quiz format', () => {
     }
     const { content, manifest } = await build(source)
     expect(content.questions.map((question: { metadata: { title: string } }) => question.metadata.title)).toEqual(['Kyivan Rus&#39; &amp; &quot;Cossacks&quot; &lt;b&gt;', 'Question 2'])
-    for (const question of content.questions) expect(question.metadata.authors).toEqual([{ name: 'Anne O&#39;Brien &lt;ed&gt;', role: 'Author' }])
+    for (const question of content.questions) expect(question.metadata.authors).toBeUndefined()
     expect(manifest.authors).toEqual(source.authors)
   })
 
@@ -360,7 +361,7 @@ describe('any content type in the pack', () => {
       'params.questions: is required: write at least 1 item'
     ])
     expect(await problems({ ...META, license: 'MIT', authors: [{ name: 'A' }], extra: 1, type: 'H5P.Blanks', params: { questions: ['The *Danube* flows east.'] } })).toEqual([
-      'extra: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params',
+      'extra: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params',
       expect.stringMatching(/^license: use one of/),
       'authors[0].role: use one of Author, Editor, Licensee, Originator'
     ])
@@ -414,7 +415,7 @@ describe('any content type in the pack', () => {
     expect(shape).toMatchObject({ additionalProperties: false })
     expect(sourceSchema.safeParse({ ...META, ...blanks }).success).toBe(true)
     expect(sourceSchema.safeParse({ ...META, ...blanks, extra: 1 }).error?.issues.map(({ message }) => message)).toEqual([
-      'is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params'
+      'is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params'
     ])
   })
 
@@ -466,7 +467,7 @@ describe('any content type in the pack', () => {
     })).toEqual([
       'contentType: is not a field of a source: the content type is its type: write "type": "H5P.InteractiveBook"',
       'metadata: is not a field of a source: title, license, authors are written beside type, not in an object: write "title": …, "license": …, "authors": … at the top',
-      'metadata.defaultLanguage: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params',
+      'metadata.defaultLanguage: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params',
       'language: expected a BCP 47 language tag, such as "en" or "de-AT"',
       'params.chapters[0]: is the params of sub-content, without the sub-content around them: write params.chapters[0] as { "library": "H5P.Column", "metadata": { "title": … }, "params": { "content": … } }',
       'params.chapters[0].content[0]: is sub-content, but here it goes inside an object, in its field content: write params.chapters[0].content[0] as { "content": { "library": "H5P.AdvancedText", "params": { … } } }',
@@ -485,7 +486,7 @@ describe('any content type in the pack', () => {
     ])
     // With `params` written, what is beside `type` is no field of the content.
     expect(await problems({ ...META, type: 'H5P.InteractiveBook', chapters: [], params: { chapters: [chapter] } })).toEqual([
-      'chapters: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params'
+      'chapters: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params'
     ])
     // A source's own field that the top has too is said so, and a year in the object is taken.
     expect(await problems({ ...META, type: 'H5P.InteractiveBook', metadata: { title: 'Other', yearFrom: 2020 }, params: { chapters: [chapter] } })).toEqual([
@@ -790,6 +791,8 @@ describe('media', () => {
     server = createServer((request, response) => {
       if (request.url === '/pictures/map.png') response.writeHead(200, { 'content-type': 'image/png' }).end(png(40, 20))
       else if (request.url === '/picture') response.writeHead(200, { 'content-type': 'image/png' }).end(png(10, 30))
+      // A picture served under another name of its type, as some servers name JPEG (#302).
+      else if (request.url === '/photo') response.writeHead(200, { 'content-type': 'image/jpg' }).end(jpeg(30, 20))
       else if (request.url === '/page.html') response.writeHead(200, { 'content-type': 'text/html' }).end('<p>no</p>')
       // A file's page on a wiki, at an address that ends as the file's name does (#218).
       else if (request.url === '/wiki/File:clip.mp4') response.writeHead(200, { 'content-type': 'text/html' }).end('<!DOCTYPE html><title>File:clip.mp4</title>')
@@ -852,6 +855,11 @@ describe('media', () => {
     const names = entries.map(entry => entry.filename)
     expect(names.indexOf('content/images/red.png')).toBeGreaterThan(names.indexOf('content/content.json'))
     expect(entries.find(entry => entry.filename === 'content/images/red.png')!.compressionMethod).toBe(0)
+  })
+
+  it('takes a picture served under another name of its type, as image/jpg (#302)', async () => {
+    const { content } = await build({ ...META, type: 'H5P.Dialogcards', params: { dialogs: [{ text: 'Photo', answer: 'Foto', image: { path: `${origin}/photo` }, imageAltText: 'A photo' }] } }, { base: dir })
+    expect(content.dialogs[0].image).toMatchObject({ path: 'images/photo.jpg', mime: 'image/jpeg', width: 30, height: 20 })
   })
 
   it("says where a file's copyright takes the licence's version, written as the source's licenseVersion (#285)", async () => {
@@ -1458,5 +1466,113 @@ describe('installing on an H5P site (#146)', () => {
       /^The library pack cannot supply H5PEditor\.\S+ \d+\.\d+, which H5P\.\S+ \d+\.\d+ needs to install on an H5P site: a page imports the pack from '@missing-elements\/h5p-libraries\/install'/
     )
     expect(await readdir(dir)).not.toContain('lean.h5p')
+  })
+})
+
+describe('as H5P\'s editor and validator take a source (#302)', () => {
+  it('stores a select\'s option as text, as the editor does, so True/False plays the answer written', async () => {
+    for (const correct of [true, 'true']) {
+      const { content } = await build({ ...META, type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct } })
+      expect(content.correct).toBe('true')
+    }
+    expect((await build({ ...META, type: 'H5P.TrueFalse', params: { question: '<p>The Nile is in Europe.</p>', correct: false } })).content.correct).toBe('false')
+  })
+
+  it('names no media file with a leading "_", which H5P\'s upload skips', async () => {
+    await writeFile(join(dir, '_DSC1234.png'), png(64, 48))
+    const { content, files } = await build({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Image', params: { file: { path: '_DSC1234.png' }, alt: 'A river' } } }] } }, { base: dir })
+    expect(content.content[0].content.params.file.path).toBe('images/DSC1234.png')
+    expect(files.has('content/images/DSC1234.png')).toBe(true)
+  })
+
+  it('refuses a hosted address beside other sources, which H5P.Video would not play', async () => {
+    const video = (sources: unknown) => ({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Video', params: { sources } } }] } })
+    expect(await problems(video([{ path: 'clip.mp4' }, { path: 'https://youtu.be/dQw4w9WgXcQ' }]), { check: true, unread: true })).toEqual([
+      'params.content[0].content.params.sources: a YouTube, Vimeo, Panopto or Echo360 address is a video\'s one source: H5P.Video plays only the first, and the editor keeps no other beside it'
+    ])
+  })
+
+  it('keeps a video\'s quality label, which H5P.Video shows, and reads it back', async () => {
+    await writeFile(join(dir, 'tour.mp4'), mp4(false))
+    const source = { ...META, type: 'H5P.InteractiveVideo', params: { interactiveVideo: { video: { files: [{ path: 'tour.mp4', metadata: { qualityName: '720p & up' } }] } } } }
+    const { content } = await build(source, { base: dir })
+    expect(content.interactiveVideo.video.files[0].metadata).toEqual({ qualityName: '720p &amp; up' })
+    expect(await problems({ ...source, params: { interactiveVideo: { video: { files: [{ path: 'tour.mp4', metadata: { label: '720p' } }] } } } }, { check: true, unread: true })).toEqual([
+      'params.interactiveVideo.video.files[0].metadata: expected { "qualityName": "…" }, the label the player shows for this quality, as "720p"'
+    ])
+  })
+})
+
+describe('an optional group written in part (#302)', () => {
+  it('asks for none of its other fields, as the editor and the validator make them optional', async () => {
+    const quiz = (titleScreen: unknown) => ({ ...META, type: 'H5P.PersonalityQuiz', params: { titleScreen, personalities: [{ name: 'Calm', description: 'Steady' }, { name: 'Bold', description: 'Brave' }], questions: [{ text: 'A lake or a river?', answers: [{ text: 'A lake', personality: 'Calm' }, { text: 'A river', personality: 'Bold' }] }] } })
+    // Personality Quiz's title picture, an optional group: its file alone, and no alt text asked for.
+    const built = await buildPackage(quiz({ title: { text: 'Which water are you?' }, image: { file: { path: 'lake.png' } } }), undefined, { check: true, unread: true, libraries: undefined })
+    expect(built.unread).toEqual(['lake.png'])
+  })
+})
+
+describe('a file\'s copyright, as the editor writes one (#302)', () => {
+  const picture = (copyright: unknown) => ({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Image', params: { file: { path: 'river.png', copyright }, alt: 'A river' } } }] } })
+  it('writes CC0 1.0 and CC PDM as PD with that version, and holds a version to its licence', async () => {
+    await writeFile(join(dir, 'river.png'), png(64, 48))
+    for (const license of ['CC0 1.0', 'CC PDM']) {
+      const { content } = await build(picture({ license, author: 'Ann' }), { base: dir })
+      expect(content.content[0].content.params.file.copyright).toEqual({ license: 'PD', version: license, author: 'Ann' })
+    }
+    expect(await problems(picture({ license: 'CC BY', version: '9.9' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: "9.9" is no version of CC BY: use one of 4.0, 3.0, 2.5, 2.0, 1.0'])
+    expect(await problems(picture({ license: 'U', version: '4.0' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: U takes no version: leave it out'])
+    expect(await problems(picture({ license: 'GNU GPL', version: '4.0' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: "4.0" is no version of GNU GPL: use one of v3, v2, v1'])
+    expect((await build(picture({ license: 'GNU GPL', version: 'v3' }), { base: dir })).content.content[0].content.params.file.copyright).toEqual({ license: 'GNU GPL', version: 'v3' })
+  })
+})
+
+describe('a part\'s licence, as the editor saves it (#302)', () => {
+  it('gives a part "U", and a picture\'s part its file\'s copyright, which H5P shows for it', async () => {
+    await writeFile(join(dir, 'river.png'), png(64, 48))
+    const image = (copyright: unknown) => ({ content: { library: 'H5P.Image', params: { file: { path: 'river.png', copyright }, alt: 'A river' } } })
+    const text = { content: { library: 'H5P.AdvancedText', params: { text: '<p>Rivers run to the sea.</p>' } } }
+    const { content, manifest } = await build({ ...META, type: 'H5P.Column', params: { content: [text, image({ license: 'CC BY-SA', version: '4.0', author: 'Jane Photographer', source: 'https://example.org/river', year: '2019' }), image({ license: 'CC0 1.0' })] } }, { base: dir })
+    // The activity's own licence and author are its, in h5p.json; a part repeats neither.
+    expect(manifest).toMatchObject({ license: 'CC BY', authors: [{ name: 'Ann Author', role: 'Author' }] })
+    expect(content.content[0].content.metadata).toEqual({ contentType: 'Text', license: 'U', title: 'Text' })
+    expect(content.content[1].content.metadata).toEqual({ contentType: 'Image', title: 'Image', license: 'CC BY-SA', licenseVersion: '4.0', authors: [{ name: 'Jane Photographer', role: 'Author' }], source: 'https://example.org/river', yearFrom: 2019 })
+    expect(content.content[2].content.metadata).toEqual({ contentType: 'Image', title: 'Image', license: 'CC0 1.0' })
+  })
+})
+
+describe('a source\'s own fields, as H5P\'s upload takes them (#302)', () => {
+  const quiz = { type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct: 'true' } }
+  it('counts a title\'s and a name\'s bytes, takes no line break, and a language H5P names', async () => {
+    expect(await problems({ ...META, ...quiz, title: 'Ж'.repeat(128) })).toEqual(['title: takes at most 255 bytes, as H5P counts them: a letter of Cyrillic, Greek or Chinese takes two or three'])
+    expect((await build({ ...META, ...quiz, title: 'Ж'.repeat(127) })).manifest.title).toBe('Ж'.repeat(127))
+    expect(await problems({ ...META, ...quiz, title: 'Rivers\nand lakes' })).toEqual(['title: takes no line break'])
+    expect(await problems({ ...META, ...quiz, authors: [{ name: 'a'.repeat(300), role: 'Author' }] })).toEqual(['authors[0].name: takes at most 255 bytes, as H5P counts them: a letter of Cyrillic, Greek or Chinese takes two or three'])
+    expect(await problems({ ...META, ...quiz, language: 'es-419' })).toEqual(['language: is a tag H5P\'s upload refuses, which takes letters and hyphens, at most 10: write "es"'])
+  })
+
+  it('takes a web address as H5P does, a bare host with http:// before it, and a year H5P keeps', async () => {
+    expect((await build({ ...META, ...quiz, source: 'www.example.org/rivers' })).manifest.source).toBe('http://www.example.org/rivers')
+    expect(await problems({ ...META, ...quiz, source: 'HTTP://example.org' })).toEqual(['source: expected the address the content comes from'])
+    expect(await problems({ ...META, ...quiz, source: `https://example.org/${'a'.repeat(250)}` })).toEqual(['source: takes at most 255 characters, which H5P keeps of it'])
+    expect(await problems({ ...META, ...quiz, yearFrom: 20000 })).toEqual(['yearFrom: takes a year from -9999 to 9999, as H5P does'])
+  })
+})
+
+describe('a number under showWhen (#302)', () => {
+  it('takes a whole number, as the plain input the editor draws inside it', async () => {
+    const set = (timeoutCorrect: number) => ({ ...META, type: 'H5P.SingleChoiceSet', params: { choices: [{ question: '<p>Longest river in Europe?</p>', answers: ['<p>Volga</p>', '<p>Danube</p>'] }], behaviour: { timeoutCorrect } } })
+    expect(await problems(set(2.5))).toEqual(['params.behaviour.timeoutCorrect: takes a whole number'])
+    expect((await build(set(2000))).content.behaviour.timeoutCorrect).toBe(2000)
+  })
+})
+
+describe('text as the editor\'s boxes take it (#302)', () => {
+  it('says a line break or more than 255 characters in a one-line box, and counts only a picture in an empty rich text', async () => {
+    const quiz = (checkAnswer: string) => ({ ...META, type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct: 'true', l10n: { checkAnswer } } })
+    const notesOf = async (source: unknown) => (await build(source)).notes
+    expect(await notesOf(quiz('Check\nnow'))).toContainEqual({ path: 'params.l10n.checkAnswer', message: 'has a line break, which the editor\'s one-line box cannot hold and H5P shows as a space' })
+    expect(await notesOf(quiz('C'.repeat(300)))).toContainEqual({ path: 'params.l10n.checkAnswer', message: 'is 300 characters; the editor\'s box for it takes 255' })
+    expect(await problems({ ...META, type: 'H5P.TrueFalse', params: { question: '<hr>', correct: 'true' } })).toContain('params.question: is required and is empty')
   })
 })

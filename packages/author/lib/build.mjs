@@ -31,6 +31,38 @@ export { SourceError }
 /** @param {unknown} value @returns {value is Record<string, any>} */
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 
+/**
+ * Each part in content: what holds `library`, `params` and `metadata`, as sub-content is saved.
+ * @param {unknown} value
+ * @returns {Generator<{ library: string, params: Record<string, any>, metadata: Record<string, any> }>}
+ */
+function* partsOf(value) {
+  if (Array.isArray(value)) for (const each of value) yield* partsOf(each)
+  else if (isObject(value)) {
+    if (typeof value.library === 'string' && /^\S+ \d+\.\d+$/.test(value.library) && isObject(value.params) && isObject(value.metadata)) yield /** @type {any} */ (value)
+    for (const each of Object.values(value)) yield* partsOf(each)
+  }
+}
+
+/**
+ * A file's copyright as its part's metadata, as the editor's metadata form holds it: PD with a
+ * version that is a licence of its own there is that licence; a year that is a number is its first.
+ * @param {Record<string, string>} copyright as `MediaStore` made it
+ * @param {string} [title] the part's own, which a copyright's title does not take the place of
+ */
+function metadataOf(copyright, title) {
+  const { license = 'U', version, author, source, year } = copyright
+  const own = license === 'PD' && (version === 'CC0 1.0' || version === 'CC PDM') ? version : license
+  return {
+    license: own,
+    ...(own.startsWith('CC BY') && version && CC_VERSIONS.includes(version) ? { licenseVersion: version } : {}),
+    ...(author ? { authors: [{ name: author, role: 'Author' }] } : {}),
+    ...(copyright.title && !title ? { title: copyright.title } : {}),
+    ...(source && /^https?:\/\/.+/.test(source) ? { source } : {}),
+    ...(year && /^-?\d{1,4}$/.test(year.trim()) ? { yearFrom: Number(year) } : {})
+  }
+}
+
 /** A source's fields, as `sourceSchema` declares them. */
 const FIELDS = Object.keys(sourceSchema.shape)
 /** Those a source says of itself, which H5P keeps in an object of their own, `metadata`. */
@@ -152,8 +184,11 @@ export function sourceOf(input, names) {
   // The authors that hold are kept, so the content is checked with them.
   const authorsHold = holds(field.authors, given.authors, at.authors, report)
   if (Array.isArray(given.authors)) source.authors = authorsHold ? given.authors : given.authors.filter(authorHolds)
-  for (const key of /** @type {const} */ (['source', 'yearFrom', 'yearTo', 'params', 'builtWith'])) {
-    if (given[key] !== undefined && holds(field[key], given[key], at[key], report)) source[key] = given[key]
+  // An address written as a bare host, as the editor takes one: it puts http:// before it (#302).
+  const bare = typeof given.source === 'string' && /^(?![a-z][a-z0-9+.-]*:)[\w-]+(?:\.[\w-]+)+(?:[/?#]\S*)?$/i.test(given.source.trim())
+  const taken = bare ? { ...given, source: `http://${given.source.trim()}` } : given
+  for (const key of /** @type {const} */ (['source', 'yearFrom', 'yearTo', 'licenseExtras', 'changes', 'authorComments', 'params', 'builtWith'])) {
+    if (taken[key] !== undefined && holds(field[key], taken[key], at[key], report)) source[key] = taken[key]
   }
   return { source: /** @type {Source} */ (source), problems, typed }
 }
@@ -248,7 +283,8 @@ export async function composePackage(source, pack, media, said = []) {
     throw error instanceof SourceError ? new SourceError([...said, ...error.problems]) : error
   })
   const main = mainLibrary.library.machineName
-  const authors = source.authors.map((author) => ({ name: escapeText(author.name), role: author.role }))
+  // A part's licence is "U", as the editor saves one: H5P lists every part with a licence under its
+  // rights of use, so the activity's own repeated once a part (#302). A picture's is its file's, below.
   const generator = new ContentGenerator(entries, {
     metadata(entry, written, path) {
       const title = written?.title
@@ -256,9 +292,7 @@ export async function composePackage(source, pack, media, said = []) {
       else if (typeof title === 'string' && title.length > 255) report(`${path}.metadata.title`, 'takes at most 255 characters')
       return {
         contentType: escapeText(String(entry.library.title ?? entry.library.machineName)),
-        license: source.license,
-        ...(source.licenseVersion ? { licenseVersion: source.licenseVersion } : {}),
-        authors: authors.map((author) => ({ ...author })),
+        license: 'U',
         ...(typeof title === 'string' && title.trim() ? { title: escapeText(title) } : {})
       }
     }
@@ -278,8 +312,20 @@ export async function composePackage(source, pack, media, said = []) {
   // Media: copied, described, put in place of what was written.
   for (const { field, value, path } of generator.media) {
     const resolved = await media.resolve(field, value, path, report, note)
+    // What the field keeps beside the file, as a video's quality label, stays as checked.
+    const kept = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'path' && key !== 'copyright'))
     for (const key of Object.keys(value)) delete value[key]
-    Object.assign(value, resolved)
+    Object.assign(value, resolved, kept)
+  }
+
+  // H5P.Image, H5P.Video and H5P.Audio hide their file's own copyright (`disableCopyright`): the
+  // editor keeps it in the part's metadata, which H5P shows, so the file's copyright goes there.
+  for (const part of partsOf(generated)) {
+    const [name, version] = part.library.split(' ')
+    const fields = generator.find(name, Number(version.split('.')[0]))?.semantics ?? []
+    const field = fields.find((/** @type {any} */ each) => each.disableCopyright && each.name in part.params)
+    const file = field && (Array.isArray(part.params[field.name]) ? part.params[field.name][0] : part.params[field.name])
+    if (isObject(file?.copyright)) Object.assign(part.metadata, metadataOf(file.copyright, part.metadata.title))
   }
 
   // Checked last as saved content is. Only what it finds beyond the source's problems is added
@@ -339,6 +385,9 @@ export async function composePackage(source, pack, media, said = []) {
     ...(source.source ? { source: source.source } : {}),
     ...(source.yearFrom !== undefined ? { yearFrom: source.yearFrom } : {}),
     ...(source.yearTo !== undefined ? { yearTo: source.yearTo } : {}),
+    ...(source.licenseExtras ? { licenseExtras: source.licenseExtras } : {}),
+    ...(source.changes?.length ? { changes: source.changes.map(({ date, author, log }) => ({ date, author, log })) } : {}),
+    ...(source.authorComments ? { authorComments: source.authorComments } : {}),
     mainLibrary: mainLibrary.library.machineName,
     embedTypes: ['div'],
     preloadedDependencies: [...selected.values()].map((part) => ({
