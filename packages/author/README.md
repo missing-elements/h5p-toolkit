@@ -142,8 +142,9 @@ part gets a new id when it is built again.
 - It reads content made for the pack's versions of its libraries, and refuses any other, naming
   both versions. H5P moves content to a newer version as it plays it, so a package saved again on
   a site that has the pack's versions reads.
-- What a source has no field for is said and left out: the author's comments, the change log, a
-  part's own licence or authors, a file's licence that H5P does not list.
+- What a source has no field for is said and left out: a part's own licence or authors, and a
+  file's licence that H5P does not list. A picture's, a video's or a recording's part's licence is
+  read as its file's copyright.
 - The source is built again in memory before it is written. What would not come back as it is,
   or what a build would refuse, such as styles pasted from Word, is said.
 - An archive is untrusted: only the files its content names are written, and only under the

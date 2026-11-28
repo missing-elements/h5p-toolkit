@@ -211,9 +211,8 @@ export function unwrapText(value, block) {
  * @param {string} value
  * @param {any} field
  * @param {(message: string) => void} report
- * @param {{ saved?: boolean, note?: (message: string) => void }} [options] `saved`, a value as H5P
- *   stores it: text without markup is kept as it is, but for a lone `<` or `>`, where typed text is
- *   wrapped as the editor wraps it; `note`, what is worth saying and no reason not to build
+ * @param {{ saved?: boolean, note?: (message: string) => void }} [options] `saved`: kept as H5P stores
+ *   it, typed text wrapped only for a lone `<` or `>`; `note`: worth saying, and no reason not to build
  */
 export function markupText(value, field, report, { saved = false, note = () => {} } = {}) {
   const tags = allowedTags(field) ?? new Set()

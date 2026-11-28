@@ -311,6 +311,25 @@ text to the content check's rules, and `apps/skills` plays every example untrust
   too, as the editor's `initSubContent` gives one, since Summary names a statement's statements by
   it. Of the owner's 88 real packages, 61 report nothing; the others hold what their editor let an
   author save, such as an empty alt text or styles pasted from Word.
+- **A build takes what H5P's editor saves and its upload keeps** (#302, an audit against
+  h5p-php-library and h5p-editor-php-library of 2026-11-20). So:
+  - a select's value is stored as its text, an optional group's fields are optional written or not,
+    and a number under `showWhen` is whole, as the input drawn inside it;
+  - a part's licence is "U", since H5P lists each licensed part under the rights of use; H5P.Image,
+    H5P.Video and H5P.Audio hide their file's copyright (`disableCopyright`), so the file's goes to
+    the part's metadata;
+  - a file's CC0 1.0 and CC PDM are PD with that version, and a version is one its licence takes;
+  - a media name loses a leading `_`, which the upload skips; a hosted video address is a video's
+    one source; a quality label (`metadata.qualityName`) is kept; a type served under another name,
+    as `image/jpg`, is its own;
+  - `<b>`, `<i>` and `<strike>` are written `<strong>`, `<em>` and `<s>` where the field takes those,
+    and what H5P's filter changes is refused: a style not in double quotes, a hex entity of an odd
+    number of digits, a word before a colon in an attribute;
+  - a title and an author's name take 255 bytes and no line break, a language letters and hyphens
+    up to 10, `source` a lower-case http(s) address up to 255 characters, a bare host getting
+    `http://`, and a year -9999 to 9999; `licenseExtras`, `changes` and `authorComments` are fields.
+  Left as they were: a part's library at the pack's minor where its field lists an older one, until
+  a site shows what it does; a CC licence with no version, which H5P shows as 4.0; colour values.
 - **A package reads back into a source, by the generator's own rules walked back** (#236, step 3
   of #219). `readPackage` and `h5p-author read` write the source a build would take to make the
   package again, its media beside it at the paths the source names them by.
@@ -336,9 +355,9 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     Course Presentation 1.25 and 1.26. Of the other 30, 27 build as read; 3 need what their notes
     name: pictures missing from the package, styles pasted from Word, and a question with one
     answer.
-  - What a source has no field for is said and left out: the author's comments, the change log,
-    the licence's extra terms, and a part's own licence or authors, a build giving every part the
-    source's.
+  - What a source has no field for is said and left out: the title for screen readers, and a
+    part's own licence or authors, a build giving a part "U". A picture's, a video's or a
+    recording's part's are read as its file's copyright, which a build puts back in the part.
   - An archive is untrusted: only the media the content names are written, under the folder, each
     path checked before anything is made, so that a link in the folder leading out of it stops the
     read; a file named by a path that could lead out is left out of the source, which so names no
