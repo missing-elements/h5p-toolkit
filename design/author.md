@@ -239,7 +239,7 @@ text to the content check's rules, and `apps/skills` plays every example untrust
     writes no package; a media file named by web address is still downloaded, to a temporary
     folder removed after, and a video on the four hosts stays an address.
   - `unread`, with `check`, checks a source whose files are elsewhere (#270): the app server's
-    `h5p_play` gets a source and never the file a person attached in the chat, which only their
+    `h5p_play` gets a source and never the files a person attached in the chat, which only their
     browser reads. No file is looked for, none downloaded and no site asked; a file named by a
     path is judged by its name, which must be of a type its field takes, and listed in the
     result's `unread`; one named by a web address is left as written. A picture then has no size

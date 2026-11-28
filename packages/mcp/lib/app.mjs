@@ -29,22 +29,25 @@ const INSTRUCTIONS = `Makes an H5P activity and plays it in the chat, built in t
 1. The content type is chosen with the person: where their request names none, ask which, and ask nothing else. h5p_types with no type lists them.
 2. Call h5p_types with the type and write the source from its notes, example and fields: only what differs from the defaults.
 3. Call h5p_play with the source. Where it lists problems, fix each at its path and call it again.
-A file the person attached (a video, a recording, a picture): name it in the source by its file name, and pass the attachment in file. Do not open, read or analyse it yourself, with code or otherwise: pass it as it is, since nothing here needs what is in it.
+Files the person attached (videos, recordings, pictures), in this message or earlier in the chat: name each in the source by its file name, and pass every one of them in files, however many. Do not open, read or analyse them yourself, with code or otherwise: pass them as they are, since nothing here needs what is in them.
 The author and the licence are what the person gave; otherwise the name you know them by, or "Unknown", and the licence "U".
 The card has the download of the .h5p file: give no link of your own, only an address h5p_play's answer gives.`
 
 const PLAY = `Checks an H5P activity's source and plays the activity in the chat, built in the person's browser, with a download of the .h5p file. The source is as h5p_types describes it for its type, its params holding only what differs from the type's defaults. A source with problems is refused, each problem named by its path. Nothing is stored.`
 
 /**
- * A file attached in the chat, as ChatGPT's reference writes it (`openai/fileParams`). Shown to the
- * app as the field's schema, not enforced: a name written in its place is answered, not refused.
+ * The files attached in the chat, each as ChatGPT's reference writes one (`openai/fileParams`), in a
+ * list: one call carried three (#301). Shown as the field's schema, not enforced, as `source` is.
  */
-const FILE = {
-  type: 'object',
-  description: 'The file attached in the chat that the source names (a video, a recording or a picture): give the attachment itself, by its file id. Leave it out where there is none.',
-  properties: { download_url: { type: 'string' }, file_id: { type: 'string' }, mime_type: { type: 'string' }, file_name: { type: 'string' } },
-  required: ['download_url', 'file_id'],
-  additionalProperties: false
+const FILES = {
+  type: 'array',
+  description: 'Every file attached in the chat that the source names (videos, recordings, pictures), in this message or earlier: give each attachment itself, by its file id. Leave it out where there is none.',
+  items: {
+    type: 'object',
+    properties: { download_url: { type: 'string' }, file_id: { type: 'string' }, mime_type: { type: 'string' }, file_name: { type: 'string' } },
+    required: ['download_url', 'file_id'],
+    additionalProperties: false
+  }
 }
 
 /** MCP Apps' name for a chat's cards, and the kind of card this server's is. */
@@ -85,6 +88,20 @@ function attached(file) {
   const text = (/** @type {unknown} */ value) => (typeof value === 'string' && value.trim() && value.length <= 512 ? value : undefined)
   const fileId = text(id)
   return fileId ? { file_id: fileId, mime_type: text(type), file_name: text(name) } : null
+}
+
+/**
+ * The attachments a call carried, each once by its id: a list, or one given alone.
+ * @param {unknown} files
+ */
+function attachments(files) {
+  /** @type {Map<string, NonNullable<ReturnType<typeof attached>>>} */
+  const byId = new Map()
+  for (const file of Array.isArray(files) ? files : [files]) {
+    const ref = attached(file)
+    if (ref && !byId.has(ref.file_id)) byId.set(ref.file_id, ref)
+  }
+  return [...byId.values()]
 }
 
 /**
@@ -141,17 +158,17 @@ export async function createApp(options = {}) {
       description: PLAY,
       inputSchema: z.object({
         source: z.record(z.string(), z.unknown()).meta({ properties: SOURCE_PROPERTIES, description: 'The source, as h5p_types describes it for its type' }),
-        file: z.unknown().optional().meta(FILE)
+        files: z.unknown().optional().meta(FILES)
       }),
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       _meta: {
         ui: { resourceUri: cardUri },
         'openai/outputTemplate': cardUri,
-        'openai/fileParams': ['file'],
+        'openai/fileParams': ['files'],
         'openai/toolInvocation/invoking': 'Preparing the activity…',
         'openai/toolInvocation/invoked': 'Ready to play'
       }
-    }, async ({ source, file }) => {
+    }, async ({ source, files: attachedFiles }) => {
       let result
       try {
         // The author package's check of the source alone: no file is looked for and none
@@ -163,15 +180,16 @@ export async function createApp(options = {}) {
         return refusal('The check could not be run, through no fault of the source. Call h5p_play again in a moment.')
       }
       const files = result.unread
-      const came = attached(file)
-      // An attachment goes to the card only for a source that names a file: one it does not name is not used.
-      const given = files.length ? came : null
+      const came = attachments(attachedFiles)
+      // Attachments go to the card only for a source that names a file: one it does not name is not used.
+      const given = files.length ? came : []
       const cards = drawsCards(mcp.server.getClientCapabilities())
       const what = `${result.manifest.mainLibrary}, ${result.libraries.length} libraries`
+      const its = `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here`
       if (cards === false) {
         // No card comes: the source, to the build page.
         const lines = [`The activity is checked: ${what}. Nothing was stored. This chat draws no card, so ${handOver(build, files.length)}`]
-        if (files.length) lines.push(`Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here.`)
+        if (files.length) lines.push(`${its}.`)
         lines.push(...heldLines(result))
         return answer(lines.join('\n'))
       }
@@ -179,22 +197,24 @@ export async function createApp(options = {}) {
       // A chat that did not say whether it draws cards: the way where it draws none, too.
       if (cards === null) lines.push(`Where this chat draws no card, as a terminal or an editor's chat draws none, ${handOver(build, files.length)}`)
       if (files.length) {
-        lines.push(given
-          ? `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here: the card gets the attachment in the person's browser${files.length === 1 ? '' : ', and asks the person for any other'}.`
-          : `Its file${files.length === 1 ? '' : 's'}, ${files.join(', ')}, ${files.length === 1 ? 'is' : 'are'} not checked here, and no attachment came with the call: the card asks the person to choose ${files.length === 1 ? 'it' : 'them'}. Where the person attached ${files.length === 1 ? 'it' : 'one'} in the chat, call h5p_play again with the attachment in file.`)
-      } else if (came) {
-        lines.push('An attachment came with the call, and the source names no file, so it is not used: name it in the source, as the type\'s notes say, to use it.')
+        const one = files.length === 1
+        lines.push(given.length
+          ? `${its}: the card gets ${given.length > files.length ? `those the source names of the ${given.length} attachments` : given.length === 1 ? 'the attachment' : `the ${given.length} attachments`} in the person's browser${files.length > given.length ? ', and asks the person for any other' : ''}.`
+          : `${its}, and no attachment came with the call: the card asks the person to choose ${one ? 'it' : 'them'}. Where the person attached ${one ? 'it' : 'them'} in the chat, earlier too, call h5p_play again with every attachment in files.`)
+      } else if (came.length) {
+        const one = came.length === 1
+        lines.push(`${one ? 'An attachment' : `${came.length} attachments`} came with the call, and the source names no file, so ${one ? 'it is' : 'they are'} not used: name ${one ? 'it' : 'each'} in the source, as the type's notes say, to use ${one ? 'it' : 'them'}.`)
       }
       lines.push(...heldLines(result))
       const text = lines.join('\n')
       return {
         ...answer(text),
-        // The attachment's id for the card, in both parts of an answer a chat may hand it. The text
+        // The attachments' ids for the card, in both parts of an answer a chat may hand it. The text
         // too: a chat may give the model this part in its place (Claude Code 2.1.331, #276).
-        ...(given ? { structuredContent: { answer: text, files: files.length, fileId: given.file_id, ...(given.file_name ? { fileName: given.file_name } : {}) } } : {}),
+        ...(given.length ? { structuredContent: { answer: text, files: files.length, attachments: given.map((ref) => ({ fileId: ref.file_id, ...(ref.file_name ? { fileName: ref.file_name } : {}) })) } } : {}),
         // And the source, which a card drawn from the result alone, with no input, plays from
         // (#276). Shown to the card, not the model. It came in the call; nothing of it is kept.
-        _meta: { 'h5p/source': source, ...(given ? { 'h5p/file': given } : {}) }
+        _meta: { 'h5p/source': source, ...(given.length ? { 'h5p/files': given } : {}) }
       }
     })
 

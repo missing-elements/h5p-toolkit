@@ -216,49 +216,83 @@ $('link-copy').addEventListener('click', async () => {
   if (copied) $('link-copy').textContent = 'Copied'
 })
 
-// The file the person attached, as the server handed it on in the tool's result: its id in the
-// chat's store, and its name and type. Never its address: the card asks the chat for that.
-let attached = null
+// The files the person attached, as the server handed them on in the tool's result: each its id
+// in the chat's store, and its name and type. Never an address: the card asks the chat for that.
+let attachments = []
 function fromResult(meta, output) {
   // The source, where no input came: a reply drawn with its result alone plays all the same (#276).
   const source = meta?.['h5p/source']
   if (!shown && source && typeof source === 'object') void show({ source })
-  if (attached) return
-  const file = meta?.['h5p/file']
-  if (file && typeof file === 'object' && typeof file.file_id === 'string') attached = { id: file.file_id, name: file.file_name, mime: file.mime_type }
-  else if (typeof output?.fileId === 'string') attached = { id: output.fileId, name: output.fileName }
-  if (attached) void answer()
+  if (attachments.length) return
+  const given = Array.isArray(meta?.['h5p/files']) ? meta['h5p/files'] : []
+  attachments = given.filter((file) => typeof file?.file_id === 'string').map((file) => ({ id: file.file_id, name: file.file_name, mime: file.mime_type }))
+  if (!attachments.length && Array.isArray(output?.attachments)) attachments = output.attachments.filter((file) => typeof file?.fileId === 'string').map((file) => ({ id: file.fileId, name: file.fileName }))
+  if (attachments.length) void answer()
 }
 // An address of the file that is good now, asked of the chat by the file's id: no address comes
 // from anywhere else, so none is fetched that the chat did not give for a file of the person's.
-async function linkNow() {
+async function linkNow(attachment) {
   try {
-    const fresh = await openai()?.getFileDownloadUrl?.({ fileId: attached.id })
+    const fresh = await openai()?.getFileDownloadUrl?.({ fileId: attachment.id })
     const href = typeof fresh === 'string' ? fresh : fresh?.downloadUrl ?? fresh?.url
     return typeof href === 'string' && /^https?:\/\//i.test(href) ? href : null
   } catch { return null }
 }
 const plays = (name) => /\.(mp4|webm|ogv|mov|mp3|m4a|wav|ogg|oga)$/i.test(name)
+const kindOf = (name) => name.slice(name.lastIndexOf('.') + 1).toLowerCase()
 
-// The page asked for a file, and the attachment is known: a video or a recording goes as its
+// Each name the page needs, matched to an attachment not given yet, as the page matches files: by name,
+// then one of a kind to one of that kind. The one name and the one attachment, first asked, match whatever each is called.
+const used = new Set()
+const byName = new Map()
+function matched(names) {
+  const free = attachments.filter((attachment) => !used.has(attachment.id))
+  const pairs = []
+  const pair = (name, attachment) => { pairs.push([name, attachment]); free.splice(free.indexOf(attachment), 1) }
+  if (!used.size && names.length === 1 && attachments.length === 1) pair(names[0], free[0])
+  else {
+    const unnamed = []
+    for (const name of names) {
+      const same = free.find((attachment) => attachment.name === name)
+      if (same) pair(name, same)
+      else unnamed.push(name)
+    }
+    for (const name of unnamed) {
+      const fits = free.filter((attachment) => typeof attachment.name === 'string' && kindOf(attachment.name) === kindOf(name))
+      if (fits.length === 1 && unnamed.filter((other) => kindOf(other) === kindOf(name)).length === 1) pair(name, fits[0])
+    }
+  }
+  for (const [name, attachment] of pairs) {
+    used.add(attachment.id)
+    byName.set(name, attachment)
+  }
+  return pairs
+}
+
+// The page asked for files, and the attachments are known: a video or a recording goes as its
 // address and plays from there at once; anything else is brought whole, as the page needs its bytes.
 let needed = null
-let answered = false
 async function answer() {
-  if (answered || !attached || !needed?.length) return
-  // One file needed is the attachment, whatever each is called. Of several, it is the one of its
-  // own name, where it has one; the page asks the person for the rest, and for it where it has none.
-  const name = needed.length === 1 ? needed[0] : attached.name
-  if (typeof name !== 'string' || !name) return
-  answered = true
-  if (!plays(name)) return void bring(name)
-  const href = await linkNow()
-  if (!href) { answered = false; return }
-  toPage({ type: 'links', links: { [name]: href } })
-  // What the file weighs, from the answer's head, the request dropped before its body comes: the
-  // page then opens a tab at once for a package the chat could not save.
-  const bytes = await sizeOf(href)
-  if (bytes) toPage({ type: 'links', links: { [name]: href }, sizes: { [name]: bytes } })
+  if (!attachments.length || !needed?.length) return
+  const pairs = matched(needed)
+  if (!pairs.length) return
+  const linked = []
+  const missed = []
+  for (const [name, attachment] of pairs.filter(([name]) => plays(name))) {
+    const href = await linkNow(attachment)
+    if (href) linked.push([name, href])
+    else missed.push(name)
+  }
+  // The files come to the page together, addresses first, and then what did not come: one handed
+  // over alone has the page ask the person for the rest while they are on their way.
+  const { files, failed } = await bring(pairs.filter(([name]) => !plays(name)))
+  if (linked.length) toPage({ type: 'links', links: Object.fromEntries(linked) })
+  if (files.length) toPage({ type: 'files', files })
+  for (const name of [...missed, ...failed]) toPage({ type: 'failed', name })
+  // What each file there weighs, from the answer's head, the request dropped before its body comes:
+  // the page then opens a tab at once for a package the chat could not save.
+  const sizes = Object.fromEntries((await Promise.all(linked.map(async ([name, href]) => [name, await sizeOf(href)]))).filter(([, bytes]) => bytes))
+  if (Object.keys(sizes).length) toPage({ type: 'links', links: Object.fromEntries(linked), sizes })
 }
 async function sizeOf(href) {
   const dropped = new AbortController()
@@ -270,17 +304,27 @@ async function sizeOf(href) {
   } catch { return 0 }
 }
 
-// The whole file, counted for the page as it comes, and given to it. Kept by the browser as a
-// Blob, which it may hold on disk: never in this script's own memory.
-let bringing = false
-let stop = null
-async function bring(name, again = false) {
-  if (bringing && !again) return
-  bringing = true
+// Whole files, one after another, each counted for the page as it comes. Kept by the browser as a
+// Blob, which it may hold on disk: never in this script's own memory. One that does not come is named.
+const fetching = new Set()
+async function bring(pairs) {
+  const files = []
+  const failed = []
+  const stop = new AbortController()
+  fetching.add(stop)
+  for (const [index, [name, attachment]] of pairs.entries()) {
+    const file = await bringOne(name, attachment, index + 1, pairs.length, stop)
+    if (stop.signal.aborted) return { files: [], failed: [] }
+    if (file) files.push(file)
+    else failed.push(name)
+  }
+  fetching.delete(stop)
+  return { files, failed }
+}
+async function bringOne(name, attachment, index, count, stop, again = false) {
   try {
-    const href = attached && await linkNow()
+    const href = await linkNow(attachment)
     if (!href) throw new Error('no address')
-    stop = new AbortController()
     const response = await fetch(href, { signal: stop.signal })
     if (!response.ok || !response.body) throw new Error(`status ${response.status}`)
     const total = Number(response.headers.get('content-length')) || 0
@@ -289,19 +333,17 @@ async function bring(name, again = false) {
     const counted = response.body.pipeThrough(new TransformStream({ transform(chunk, controller) {
       seen += chunk.byteLength
       const now = performance.now()
-      if (now - last > 150) { last = now; toPage({ type: 'progress', name, received: seen, total }) }
+      if (now - last > 150) { last = now; toPage({ type: 'progress', name, received: seen, total, index, count }) }
       controller.enqueue(chunk)
     } }))
     const blob = await new Response(counted, { headers: { 'content-type': response.headers.get('content-type') ?? '' } }).blob()
-    toPage({ type: 'progress', name, received: blob.size, total: total || blob.size })
-    toPage({ type: 'files', files: [new File([blob], name, { type: attached.mime ?? blob.type })] })
+    toPage({ type: 'progress', name, received: blob.size, total: total || blob.size, index, count })
+    return new File([blob], name, { type: attachment.mime ?? blob.type })
   } catch {
     // Once more with a new address: the first may have run out. Not where the fetch was given up.
-    if (!again && !stop?.signal.aborted) return bring(name, true)
-    // It did not come: the page is told, so that it asks the person in place of waiting on.
-    if (!stop?.signal.aborted) toPage({ type: 'failed', name })
+    if (!again && !stop.signal.aborted) return bringOne(name, attachment, index, count, stop, true)
+    return null
   }
-  bringing = false
 }
 
 // What the play page says from inside the frame: its height, what it needs, the package it
@@ -317,10 +359,17 @@ window.addEventListener('message', (event) => {
     needed = message.names.filter((name) => typeof name === 'string')
     void answer()
   } else if (message.type === 'needs-bytes') {
-    void bring(message.names?.[0] ?? needed?.[0] ?? attached?.name ?? 'file')
+    // A download of files that play from their addresses: their bytes, brought whole this time.
+    const names = Array.isArray(message.names) ? message.names.filter((name) => typeof name === 'string') : []
+    const pairs = names.filter((name) => byName.has(name)).map((name) => [name, byName.get(name)])
+    void bring(pairs).then(({ files, failed }) => {
+      if (files.length) toPage({ type: 'files', files })
+      for (const name of failed) toPage({ type: 'failed', name })
+    })
   } else if (message.type === 'built') {
     // The package is here: a file still on its way from the chat for it is not needed.
-    if (bringing) stop?.abort()
+    for (const stop of fetching) stop.abort()
+    fetching.clear()
   } else if (message.type === 'save') {
     void save(message.file, message.id)
   } else if (message.type === 'open') {

@@ -26,6 +26,8 @@ const VIDEO = {
     assets: { interactions: [{ duration: { from: 1, to: 3 }, pause: true, label: 'Check', action: { library: 'H5P.TrueFalse', params: { question: 'It is a river.', correct: 'true' } } }] }
   } }
 }
+/** A page of three pictures, each a file of the person's (#301). */
+const PICTURES = { ...META, type: 'H5P.Column', title: 'Three pictures', params: { content: ['a.png', 'b.png', 'c.png'].map((path) => ({ content: { library: 'H5P.Image', params: { file: { path }, alt: path } } })) } }
 
 type Content = { type: string, text?: string }
 type Answer = { content: Content[], isError?: boolean, structuredContent?: Record<string, unknown>, _meta?: Record<string, unknown> }
@@ -87,16 +89,20 @@ describe('the app server', () => {
     const source = play.inputSchema.properties?.source as Record<string, any>
     expect(source.properties).toMatchObject({ license: { enum: expect.arrayContaining(['U', 'CC BY']) }, authors: { items: { required: ['name', 'role'] } } })
     expect(source.required).toBeUndefined()
-    // The file input as ChatGPT's reference writes one, to the letter, and named as one.
-    expect(play.inputSchema.properties?.file).toEqual({
-      type: 'object',
+    // The files input: a list of files as ChatGPT's reference writes one, to the letter (#301).
+    expect(play.inputSchema.properties?.files).toEqual({
+      type: 'array',
       description: expect.stringContaining('attached in the chat'),
-      properties: { download_url: { type: 'string' }, file_id: { type: 'string' }, mime_type: { type: 'string' }, file_name: { type: 'string' } },
-      required: ['download_url', 'file_id'],
-      additionalProperties: false
+      items: {
+        type: 'object',
+        properties: { download_url: { type: 'string' }, file_id: { type: 'string' }, mime_type: { type: 'string' }, file_name: { type: 'string' } },
+        required: ['download_url', 'file_id'],
+        additionalProperties: false
+      }
     })
+    expect(play.inputSchema.properties?.file).toBeUndefined()
     expect(play.inputSchema.required).toEqual(['source'])
-    expect(play._meta).toMatchObject({ 'openai/fileParams': ['file'], 'openai/outputTemplate': expect.stringMatching(/^ui:\/\/h5p-play\/card-[0-9a-f]{12}\.html$/) })
+    expect(play._meta).toMatchObject({ 'openai/fileParams': ['files'], 'openai/outputTemplate': expect.stringMatching(/^ui:\/\/h5p-play\/card-[0-9a-f]{12}\.html$/) })
     expect((play._meta as any).ui.resourceUri).toBe(play._meta!['openai/outputTemplate'])
     // Neither tool keeps or changes anything.
     for (const tool of tools) expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false })
@@ -172,7 +178,7 @@ describe('the app server', () => {
     expect(textOf(played)).not.toMatch(/#source=/)
     // No structured part, which a chat may show the model in place of the text (#276).
     expect(played.structuredContent).toBeUndefined()
-    expect(played._meta?.['h5p/file']).toBeUndefined()
+    expect(played._meta?.['h5p/files']).toBeUndefined()
     // The source, for a card drawn from the result alone; the model is shown neither part.
     expect(played._meta?.['h5p/source']).toEqual(QUIZ)
   })
@@ -225,46 +231,61 @@ describe('the app server', () => {
     expect(textOf(draw)).toMatch(/What it holds:\nShows 1 of the 2 questions each time/)
   })
 
-  it('hands an attached file\'s id to the card, and neither asks its address nor passes it on', async () => {
+  it('hands the attached files\' ids to the card, and neither asks their addresses nor passes them on', async () => {
     // The store does count whoever asks that address: this test's own asking, here.
     await fetch(fileAddress).catch(() => {})
     expect(asked).toBe(1)
     const before = asked
-    const played = await call('h5p_play', { source: VIDEO, file: { download_url: fileAddress, file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' } })
+    const played = await call('h5p_play', { source: VIDEO, files: [{ download_url: fileAddress, file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' }] })
     expect(played.isError).toBeFalsy()
     // The source is checked without its file, which is named.
     expect(textOf(played)).toContain('Its file, IMG_0042.mp4, is not checked here: the card gets the attachment in the person\'s browser.')
     expect(textOf(played)).toContain('What it holds:\nVideo: IMG_0042.mp4')
     // The id goes to the card, with the name and the type; the address goes nowhere.
-    expect(played._meta?.['h5p/file']).toEqual({ file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' })
+    expect(played._meta?.['h5p/files']).toEqual([{ file_id: 'file_abc', mime_type: 'video/mp4', file_name: 'IMG_0042.mp4' }])
     // Where there is one, it carries the text too, for a chat that shows the model that part alone.
-    expect(played.structuredContent).toEqual({ answer: textOf(played), files: 1, fileId: 'file_abc', fileName: 'IMG_0042.mp4' })
+    expect(played.structuredContent).toEqual({ answer: textOf(played), files: 1, attachments: [{ fileId: 'file_abc', fileName: 'IMG_0042.mp4' }] })
     expect(JSON.stringify(played)).not.toMatch(/KEY-TO-THE-FILE|127\.0\.0\.1/)
+    // Several attachments, as one call carries them (#301): each once, by its id, and the rest asked for.
+    const picture = (name: string, id: string) => ({ download_url: fileAddress, file_id: id, mime_type: 'image/png', file_name: name })
+    const all = await call('h5p_play', { source: PICTURES, files: [picture('a.png', 'file_a'), picture('b.png', 'file_b'), picture('c.png', 'file_c'), picture('a.png', 'file_a')] })
+    expect(textOf(all)).toContain('Its files, a.png, b.png, c.png, are not checked here: the card gets the 3 attachments in the person\'s browser.')
+    expect(all._meta?.['h5p/files']).toEqual([picture('a.png', 'file_a'), picture('b.png', 'file_b'), picture('c.png', 'file_c')].map(({ download_url: _, ...ref }) => ref))
+    expect((all.structuredContent as { attachments: unknown[] }).attachments).toHaveLength(3)
+    const some = await call('h5p_play', { source: PICTURES, files: [picture('a.png', 'file_a'), picture('b.png', 'file_b')] })
+    expect(textOf(some)).toContain('the card gets the 2 attachments in the person\'s browser, and asks the person for any other.')
+    // More than the source names: the card takes those it names.
+    const more = await call('h5p_play', { source: PICTURES, files: [picture('a.png', 'file_a'), picture('b.png', 'file_b'), picture('c.png', 'file_c'), picture('d.png', 'file_d')] })
+    expect(textOf(more)).toContain('the card gets those the source names of the 4 attachments in the person\'s browser.')
+    // One given alone, not in a list, is taken too.
+    const alone = await call('h5p_play', { source: VIDEO, files: { download_url: fileAddress, file_id: 'file_abc', file_name: 'IMG_0042.mp4' } })
+    expect(alone._meta?.['h5p/files']).toEqual([{ file_id: 'file_abc', file_name: 'IMG_0042.mp4' }])
+    expect(JSON.stringify([all, some, alone])).not.toMatch(/KEY-TO-THE-FILE|127\.0\.0\.1/)
     expect(asked).toBe(before)
   })
 
-  it('answers a call whose file is not a reference, and passes none on', async () => {
+  it('answers a call whose files are not references, and passes none on', async () => {
     // A model that wrote the file's name where the attachment goes: said, not refused unread.
-    const named = await call('h5p_play', { source: VIDEO, file: 'IMG_0042.mp4' })
+    const named = await call('h5p_play', { source: VIDEO, files: ['IMG_0042.mp4'] })
     expect(named.isError).toBeFalsy()
     expect(textOf(named)).toContain('no attachment came with the call')
-    expect(named._meta?.['h5p/file']).toBeUndefined()
+    expect(named._meta?.['h5p/files']).toBeUndefined()
     // A reference with no id is none: an address alone is passed to nobody.
     for (const file of [{ download_url: fileAddress }, { download_url: fileAddress, file_id: '' }, { download_url: fileAddress, file_id: 7 }]) {
-      const other = await call('h5p_play', { source: VIDEO, file })
-      expect(other._meta?.['h5p/file']).toBeUndefined()
+      const other = await call('h5p_play', { source: VIDEO, files: [file] })
+      expect(other._meta?.['h5p/files']).toBeUndefined()
       expect(textOf(other)).toContain('no attachment came with the call')
       expect(JSON.stringify(other)).not.toContain('KEY-TO-THE-FILE')
     }
     // Whatever address comes with an id, it is the id that is handed on.
-    const made = await call('h5p_play', { source: VIDEO, file: { download_url: 'https://attacker.example/any.mp4', file_id: 'file_abc' } })
-    expect(made._meta?.['h5p/file']).toEqual({ file_id: 'file_abc' })
+    const made = await call('h5p_play', { source: VIDEO, files: [{ download_url: 'https://attacker.example/any.mp4', file_id: 'file_abc' }] })
+    expect(made._meta?.['h5p/files']).toEqual([{ file_id: 'file_abc' }])
     expect(JSON.stringify(made)).not.toContain('attacker.example')
     // An attachment the source does not name is said, so the model names it.
-    const unused = await call('h5p_play', { source: QUIZ, file: { download_url: fileAddress, file_id: 'file_abc' } })
+    const unused = await call('h5p_play', { source: QUIZ, files: [{ download_url: fileAddress, file_id: 'file_abc' }] })
     expect(textOf(unused)).toContain('the source names no file, so it is not used')
     expect(unused.structuredContent).toBeUndefined()
-    expect(unused._meta?.['h5p/file']).toBeUndefined()
+    expect(unused._meta?.['h5p/files']).toBeUndefined()
     expect(asked).toBe(1)
     // A file of a type the field does not take is a problem of the source's, by its name alone.
     const wrong = await call('h5p_play', { source: { ...VIDEO, params: { interactiveVideo: { video: { files: [{ path: 'notes.txt' }] } } } } })
