@@ -916,7 +916,7 @@ export class ContentGenerator {
     // saved text, as the content check keeps it, which goes by the field's `tags` alone.
     const markup = this.saved ? allowedTags(field) !== null : takesMarkup(field)
     const stored = markup
-      ? markupText(written, field, (message) => this.report(path, message), { saved: this.saved })
+      ? markupText(written, field, (message) => this.report(path, message), { saved: this.saved, note: (message) => this.note(path, message) })
       : plainText(written, (message) => this.note(path, message), { filtered: allowedTags(field) !== null })
     const length = Array.from(stored).length
     if (typeof field.maxLength === 'number' && length > field.maxLength) this.report(path, `is ${length} characters as stored; it takes at most ${field.maxLength}`)

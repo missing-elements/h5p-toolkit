@@ -90,8 +90,11 @@ describe('text as H5P stores it', () => {
   it('reads a self-closing tag without its slash, and a comment left open to the end, as a browser does', () => {
     const problems: string[] = []
     const field = { tags: ['strong'], font: { color: true } }
-    expect(markupText('<span style=color:#ff0000/>a<br />b', field, (message) => problems.push(message))).toBe('<span style=color:#ff0000/>a<br />b')
+    expect(markupText('<span style="color:#ff0000"/>a<br />b', field, (message) => problems.push(message))).toBe('<span style="color:#ff0000"/>a<br />b')
     expect(problems).toEqual([])
+    // A style H5P keeps only in double quotes: one with none, or in single ones, it drops (#302).
+    markupText('<span style=color:#ff0000>a</span>', field, (message) => problems.push(message))
+    expect(problems.splice(0)).toEqual(['has a style with no quotes on <span>, which H5P drops: write style="…"'])
     markupText('<p>a</p><!-- b <em>c</em>', field, (message) => problems.push(message))
     expect(problems).toEqual(['has a comment, which H5P removes: take it out'])
   })
@@ -180,5 +183,27 @@ describe('the libraries\' translations', () => {
       { field: 'texts.results', text: 'Results' }
     ])
     expect(translateDefaults(fields, { semantics: [] }).translated).toEqual([])
+  })
+})
+
+describe('markup as H5P\'s filter and editor leave it (#302)', () => {
+  const field = { type: 'text', widget: 'html', tags: ['strong', 'em', 's', 'a'] }
+  const run = (value: string) => {
+    const problems: string[] = []
+    const notes: string[] = []
+    const stored = markupText(value, field, (message) => problems.push(message), { note: (message) => notes.push(message) })
+    return { stored, problems, notes }
+  }
+  it('writes <b>, <i> and <strike> as the editor does, where the field takes <strong>, <em> and <s>', () => {
+    expect(run('<p><b>Danube</b>, <i>Volga</i>, <strike>Thames</strike></p>')).toEqual({ stored: '<p><strong>Danube</strong>, <em>Volga</em>, <s>Thames</s></p>', problems: [], notes: [] })
+  })
+  it('keeps an address whose colon comes after a /, ? or #, and says what H5P would take for a protocol', () => {
+    expect(run('<p><a href="/watch?t=1:30">a</a> <a href="#part:2">b</a></p>').problems).toEqual([])
+    expect(run('<p><a title="Source: Wikipedia" href="https://example.org">c</a></p>').problems).toEqual(['has title="Source: Wikipedia": H5P takes what comes before its colon for an address\'s protocol and removes it; write it without that colon'])
+  })
+  it('says a hex entity H5P shows as written, and line breaks markup runs together', () => {
+    expect(run('<p>&#x3b1; and &#x03b2;</p>').problems).toEqual(['has &#x3b1;, which H5P shows as written: write &#x03b1; or the character itself'])
+    expect(run('First line\nsecond <strong>line</strong>').notes).toEqual(['has line breaks in its text, which markup shows as one line: write <p> or <br> where a line should break'])
+    expect(run('<p>First</p>\n<p>Second</p>').notes).toEqual([])
   })
 })
