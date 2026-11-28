@@ -1503,3 +1503,18 @@ describe('an optional group written in part (#302)', () => {
     expect(built.unread).toEqual(['lake.png'])
   })
 })
+
+describe('a file\'s copyright, as the editor writes one (#302)', () => {
+  const picture = (copyright: unknown) => ({ ...META, type: 'H5P.Column', params: { content: [{ content: { library: 'H5P.Image', params: { file: { path: 'river.png', copyright }, alt: 'A river' } } }] } })
+  it('writes CC0 1.0 and CC PDM as PD with that version, and holds a version to its licence', async () => {
+    await writeFile(join(dir, 'river.png'), png(64, 48))
+    for (const license of ['CC0 1.0', 'CC PDM']) {
+      const { content } = await build(picture({ license, author: 'Ann' }), { base: dir })
+      expect(content.content[0].content.params.file.copyright).toEqual({ license: 'PD', version: license, author: 'Ann' })
+    }
+    expect(await problems(picture({ license: 'CC BY', version: '9.9' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: "9.9" is no version of CC BY: use one of 4.0, 3.0, 2.5, 2.0, 1.0'])
+    expect(await problems(picture({ license: 'U', version: '4.0' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: U takes no version: leave it out'])
+    expect(await problems(picture({ license: 'GNU GPL', version: '4.0' }), { base: dir })).toEqual(['params.content[0].content.params.file.copyright.version: "4.0" is no version of GNU GPL: use one of v3, v2, v1'])
+    expect((await build(picture({ license: 'GNU GPL', version: 'v3' }), { base: dir })).content.content[0].content.params.file.copyright).toEqual({ license: 'GNU GPL', version: 'v3' })
+  })
+})

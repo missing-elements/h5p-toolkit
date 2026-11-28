@@ -1,4 +1,5 @@
 import { mp4Info } from '@missing-elements/h5p-normalize/mp4'
+import { CC_VERSIONS } from './metadata.mjs'
 import { escapeText } from './text.mjs'
 
 /**
@@ -123,6 +124,16 @@ export const hostedVideo = (address) => YOUTUBE_SHORT.test(address) || HOSTED.so
 
 /** The licences a file's copyright may name, as H5P lists them. */
 const COPYRIGHT_LICENSES = ['U', 'CC BY', 'CC BY-SA', 'CC BY-ND', 'CC BY-NC', 'CC BY-NC-SA', 'CC BY-NC-ND', 'GNU GPL', 'PD', 'C']
+
+/** The versions each licence of a file's copyright takes, as H5P's editor lists them; U and C take none. */
+const COPYRIGHT_VERSIONS = /** @type {Record<string, string[]>} */ ({
+  ...Object.fromEntries(COPYRIGHT_LICENSES.filter((license) => license.startsWith('CC ')).map((license) => [license, CC_VERSIONS])),
+  'GNU GPL': ['v3', 'v2', 'v1'],
+  PD: ['-', 'CC0 1.0', 'CC PDM']
+})
+
+/** A source's licences that a file's copyright writes as PD and that version, as the editor does (#302). */
+const AS_PD = ['CC0 1.0', 'CC PDM']
 
 /** The parts of a file's copyright a source writes, as H5P records them. */
 const COPYRIGHT_FIELDS = ['license', 'author', 'title', 'year', 'source', 'version']
@@ -513,9 +524,18 @@ export class MediaStore {
         report(`${at}.${key}`, 'expected text')
         continue
       }
-      if (key === 'license' && !COPYRIGHT_LICENSES.includes(entry)) report(`${at}.license`, `use one of ${COPYRIGHT_LICENSES.join(', ')}`)
+      if (key === 'license' && AS_PD.includes(entry) && (value.version === undefined || value.version === entry)) {
+        out.license = 'PD'
+        out.version = entry
+        continue
+      }
+      if (key === 'license' && !COPYRIGHT_LICENSES.includes(entry)) report(`${at}.license`, `use one of ${COPYRIGHT_LICENSES.join(', ')}${entry === 'ODC PDDL' ? '; for a file, ODC PDDL is "PD"' : ''}`)
       if (key === 'source' && !COPYRIGHT_SOURCE.test(entry)) report(`${at}.source`, 'expected an http(s) address')
       out[key] = key === 'license' || key === 'version' ? entry : escapeText(entry)
+    }
+    const takes = COPYRIGHT_VERSIONS[out.license]
+    if (out.version !== undefined && COPYRIGHT_LICENSES.includes(out.license) && !takes?.includes(out.version)) {
+      report(`${at}.version`, takes ? `${JSON.stringify(out.version)} is no version of ${out.license}: use one of ${takes.join(', ')}` : `${out.license} takes no version: leave it out`)
     }
     return out
   }
