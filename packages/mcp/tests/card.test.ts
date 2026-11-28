@@ -13,6 +13,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  */
 
 const SOURCE = { language: 'en', license: 'U', authors: [{ name: 'Unknown', role: 'Author' }], type: 'H5P.TrueFalse', title: 'Boiling point', params: { question: '<p>Water boils at 100 °C at sea level.</p>', correct: 'true' } }
+/** What a person attached, as the server hands it on: four files, of which the source names three by other names (#301). */
+const ATTACHED = [
+  { file_id: 'file_a', file_name: 'a.png', mime_type: 'image/png' },
+  { file_id: 'file_bb', file_name: 'b.png', mime_type: 'image/png' },
+  { file_id: 'file_photo', file_name: 'IMG_7.jpg', mime_type: 'image/jpeg' },
+  { file_id: 'file_clip', file_name: 'clip.mp4', mime_type: 'video/mp4' },
+  { file_id: 'file_spare', file_name: 'spare.pdf', mime_type: 'application/pdf' }
+]
 /** The chat's file store, as the server names it in the card's policy: no address of this test's. */
 const STORE = 'https://files.example.org'
 
@@ -28,6 +36,11 @@ let played = 0
 let lateBy = 0
 /** Links the stand-in play page asks the card to open, once it has said its height. */
 let links: string[] = []
+/** The files the stand-in play page asks the card for, and the chat's store that holds them, counted. */
+let needs: string[] = []
+let store: Server
+let STORE_AT: string
+const fetched: string[] = []
 /** The build page's origin the card is served with: another site's, as a host may give it. */
 const BUILD = 'https://build.example'
 
@@ -54,10 +67,21 @@ beforeAll(async () => {
     if (!request.url?.startsWith('/h5p/play/')) { response.statusCode = 404; return response.end() }
     played++
     response.setHeader('Content-Type', 'text/html; charset=utf-8')
-    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => { parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'); for (const href of ${inScript(links)}) parent.postMessage({ source: 'h5p-play', type: 'open', href }, '*') }, ${lateBy})</script>`)
+    response.end(lateBy < 0 ? '<!doctype html><p>The play page, which says nothing</p>' : `<!doctype html><p>The play page</p><script>setTimeout(() => { parent.postMessage({ source: 'h5p-play', type: 'height', height: 321 }, '*'); for (const href of ${inScript(links)}) parent.postMessage({ source: 'h5p-play', type: 'open', href }, '*'); if (${inScript(needs)}.length) parent.postMessage({ source: 'h5p-play', type: 'needs-files', names: ${inScript(needs)} }, '*') }, ${lateBy})
+window.got = []
+addEventListener('message', (event) => { const m = event.data; if (m?.source === 'h5p-play-host' && m.type !== 'theme') window.got.push({ type: m.type, files: (m.files ?? []).map((file) => file.name + ':' + file.size), links: Object.keys(m.links ?? {}), sizes: Object.keys(m.sizes ?? {}), name: m.name, index: m.index, count: m.count }) })</script>`)
   })
   await listening(site, '127.0.0.1')
   SITE = `http://127.0.0.1:${port(site)}`
+  // The chat's store: a file by its id, readable from any site, as ChatGPT's is (2026-11-28).
+  store = createServer((request, response) => {
+    const id = (request.url ?? '/').slice(1)
+    fetched.push(id)
+    response.setHeader('Access-Control-Allow-Origin', '*')
+    response.end(Buffer.alloc(id.length * 1000, 7))
+  })
+  await listening(store, '127.0.0.1')
+  STORE_AT = `http://127.0.0.1:${port(store)}`
   const served = card.replaceAll('__SITE__', SITE).replaceAll('__BUILD__', BUILD)
   chat = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://chat')
@@ -89,6 +113,7 @@ addEventListener('message', (event) => {
     else if (input === 'streamed') { part(); setTimeout(part, 400); setTimeout(whole, 1500) }
     else if (input === 'stopped') { part(); setTimeout(() => say('ui/notifications/tool-cancelled', { reason: 'The person stopped it' }), 400) }
     else if (input === 'result') say('ui/notifications/tool-result', { content: [{ type: 'text', text: 'The activity is checked' }], _meta: { 'h5p/source': ${inScript(SOURCE)} } })
+    else if (input === 'attached') { whole(); say('ui/notifications/tool-result', { content: [{ type: 'text', text: 'The activity is checked' }], _meta: { 'h5p/source': ${inScript(SOURCE)}, 'h5p/files': ${inScript(ATTACHED)} } }) }
   }
   else if (message.method === 'ui/open-link') { window.asked.push(message.params.url); answer(${url.searchParams.get('answer') === 'no' ? "{ error: { code: -32000, message: 'no' } }" : '{ result: {} }'}) }
   else if (message.method === 'ui/notifications/size-changed') { window.heights.push(message.params.height); card.style.height = message.params.height + 'px' }
@@ -106,6 +131,7 @@ ${sandboxed ? `card.srcdoc = ${inScript(srcdoc)}` : `card.src = ${inScript(`${CA
 afterAll(async () => {
   await browser?.close()
   site?.close()
+  store?.close()
   chat?.close()
 })
 
@@ -114,6 +140,8 @@ async function open(query: string, late = 0): Promise<{ page: Page, card: Frame 
   played = 0
   lateBy = late
   const page = await browser.newPage({ viewport: { width: 760, height: 700 } })
+  // The chat's way to a file's address by its id, which ChatGPT gives the card.
+  if (query.includes('attached')) await page.addInitScript(`if (location.pathname === '/card') window.openai = { getFileDownloadUrl: async ({ fileId }) => ({ downloadUrl: ${inScript(STORE_AT)} + '/' + fileId }) }`)
   await page.goto(`${CHAT}/?${query}`)
   const card = page.frames().find((frame) => frame.parentFrame() === page.mainFrame())!
   return { page, card }
@@ -148,8 +176,8 @@ describe('the card, where a chat cannot play the activity in its reply', () => {
     expect(played).toBe(0)
     // The chat's theme, the MCP Apps way.
     expect(await card.evaluate<string>(SCHEME)).toBe('dark')
-    // The card is as tall as what it says, and the chat was told.
-    expect(await card.evaluate<boolean>(FITS)).toBe(true)
+    // The card is as tall as what it says, and the chat was told, once the chat has resized its frame.
+    await expect.poll(() => card.evaluate<boolean>(FITS)).toBe(true)
     expect((await page.evaluate<number[]>(HEIGHTS)).at(-1)).toBeLessThan(300)
 
     await card.locator('#open').click()
@@ -162,7 +190,7 @@ describe('the card, where a chat cannot play the activity in its reply', () => {
     // Whether a tab opened is not the card's to see: the address is there to copy from then on.
     expect(await card.locator('#link-note').innerText()).toBe('A new tab should have opened. If none did, copy this link into your browser’s address bar.')
     expect(await card.locator('#link-address').inputValue()).toBe(asked[0])
-    expect(await card.evaluate<boolean>(FITS)).toBe(true)
+    await expect.poll(() => card.evaluate<boolean>(FITS)).toBe(true)
     await page.close()
   })
 
@@ -233,6 +261,35 @@ describe('the card, where a chat lets the play page be framed', () => {
     expect(await offered(card)).toMatchObject({ frame: true, button: false })
     expect(await card.locator('#wait').isVisible()).toBe(false)
     await page.close()
+  })
+})
+
+describe('the card, with the files a person attached', () => {
+  it('gives the page every file it asks for, together, matched by name and then by kind, and fetches no other', async () => {
+    needs = ['a.png', 'b.png', 'cover.jpg', 'clip.mp4']
+    fetched.length = 0
+    try {
+      const { page, card } = await open('kind=framed&input=attached')
+      await card.waitForSelector('#page.on')
+      const play = page.frames().find((frame) => frame.parentFrame() === card)!
+      const got = () => play.evaluate<{ type: string, files: string[], links: string[], sizes: string[], name?: string, index?: number, count?: number }[]>('window.got')
+      await expect.poll(async () => (await got()).filter((message) => message.type === 'files').length).toBe(1)
+      const messages = await got()
+      // The pictures come whole, counted one after another, and then in one message, after the video's address.
+      const counted = messages.filter((message) => message.type === 'progress')
+      expect(counted.map(({ name, index, count }) => [name, index, count])).toEqual(expect.arrayContaining([['a.png', 1, 3], ['b.png', 2, 3], ['cover.jpg', 3, 3]]))
+      const order = messages.filter((message) => message.type === 'links' || message.type === 'files').map((message) => message.type)
+      expect(order.slice(0, 2)).toEqual(['links', 'files'])
+      expect(messages.find((message) => message.type === 'links')!.links).toEqual(['clip.mp4'])
+      // Each under the name the page asked for: the JPEG the source calls cover.jpg is the person's IMG_7.jpg.
+      expect(messages.find((message) => message.type === 'files')!.files).toEqual(['a.png:6000', 'b.png:7000', 'cover.jpg:10000'])
+      // The video plays from its address; the file the source does not name is not fetched.
+      expect(fetched.filter((id) => id !== 'file_clip').sort()).toEqual(['file_a', 'file_bb', 'file_photo'])
+      expect(fetched).not.toContain('file_spare')
+      await page.close()
+    } finally {
+      needs = []
+    }
   })
 })
 

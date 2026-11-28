@@ -109,7 +109,7 @@ card in its reply, ChatGPT first: the person asks for an activity, the reply pla
 command is that handler on a port. Its endpoint is `/mcp`.
 
 - **No server of ours processes a person's file** (the owner's rule, 2026-11-24, and a goal of the
-  whole toolkit). The chat sends the tool a reference to an attached file, an address and an id,
+  whole toolkit). The chat sends the tool a reference to each attached file, an address and an id,
   never its bytes. The server never asks that address and never passes it on: it hands the id to
   the card, which asks the chat for the file's address (`getFileDownloadUrl`), and only the
   person's browser fetches from it. So an address that came in a call, which a model can be made
@@ -126,7 +126,7 @@ command is that handler on a port. Its endpoint is `/mcp`.
   checks it with the author package's check that reads no file (`check` with `unread`), since a
   source's files are in the chat's store: it answers with the problems by their paths, or with
   the type, the files not checked, the notes and the outline, as `h5p_build` does, so a chat that
-  changed an activity reads back what it holds (#268). The instructions say to pass an attachment
+  changed an activity reads back what it holds (#268). The instructions say to pass attachments
   as it is and not to open it: a reply that began with the chat's own analysis of the file drew
   no card, twice, and without it the card came (ChatGPT, 2026-11-23 and 11-24; one cause is not
   proven).
@@ -134,7 +134,7 @@ command is that handler on a port. Its endpoint is `/mcp`.
   attachment, carrying them too** (#276). A chat may give the model the structured part in place
   of the text: Claude Code 2.1.331 gave Haiku `{"files":0}` and no word of the check, its
   outline or what to hand over (2026-11-25). The structured part is there for a card that is
-  handed only it, with the attachment's id, which the card also gets in `_meta`.
+  handed only it, with the attachments' ids, which the card also gets in `_meta`.
 - **A chat that draws no card is told to hand the source to the build page, by what it says it
   draws** (#276). MCP Apps names a chat's cards in its capabilities (`io.modelcontextprotocol/ui`,
   with `text/html;profile=mcp-app`). Protocol 2026-07-28 carries them in each request, so there
@@ -147,19 +147,25 @@ command is that handler on a port. Its endpoint is `/mcp`.
   cards on the 2025 protocol, asked for a True/False question, a three-question quiz and flash
   cards: a JSON block that parses, of the right type, with the build page's plain address and
   "Paste your chat's JSON", in 3 of 3, and no link with the source (2026-11-25).
-- **The file input is ChatGPT's, to the letter, and not held to.** `file` is named in
-  `openai/fileParams` and its schema is the reference's: `download_url` and `file_id` required,
-  `mime_type` and `file_name`, nothing else. It is shown and not enforced, as `source` is: a
-  model that writes the file's name there is answered that no attachment came, where a schema
-  would refuse the call unread. One file is taken: a source that names several gets the
-  attachment under its own name, and the page asks the person for the rest.
+- **The files input is ChatGPT's, to the letter, a list, and not held to** (#301). `files` is named
+  in `openai/fileParams`, a list whose items have the reference's schema: `download_url` and
+  `file_id` required, `mime_type` and `file_name`, nothing else. One call carried three attachments,
+  and a later call with no new attachment passed the same three again (ChatGPT, 2026-11-28). It is
+  shown and not enforced, as `source` is: a model that writes a file's name there is answered that
+  no attachment came, where a schema would refuse the call unread, and one given alone is taken.
+  Each attachment goes to the card once, by its id. The card matches them to the names the page
+  asks for, as the page matches files: by name, then one of a kind to one of that kind, and one
+  name to the one attachment whatever each is called. One the source does not name is not fetched.
+  The card hands the files over together, the videos' addresses first: the page, given one, asked
+  the person for the rest while they were on their way. A file that does not come is said by its
+  name, and the page asks the person for it.
 - **The card is the play page's way to the chat, and holds nothing of the activity.**
   `lib/card.html` frames `/h5p/play/` of its site, the org site's by default, with the source in
   its fragment; the page
   builds and plays in the person's browser, and its rules are that site's. The card gives it
-  what only the chat has, by the page's messages: the attached file's address, asked of the chat
-  by the file's id, and what it weighs, its bytes where the page needs them or that they did not
-  come, the chat's theme, a save (`ui/download-file`), and an open tab for a link of the site's or
+  what only the chat has, by the page's messages: each attached file's address, asked of the chat
+  by the file's id, and what it weighs, its bytes where the page needs them, counted one file after
+  another, or that they did not come, the chat's theme, a save (`ui/download-file`), and an open tab for a link of the site's or
   of the build page's, and no other (`openExternal`). The answer carries the source for it in `_meta`, which a chat
   shows the card and not the model, so a card drawn from the result alone, with no input, plays
   all the same (#276). It sends nothing to the server it came from and calls no tool. Its policy
@@ -208,14 +214,15 @@ command is that handler on a port. Its endpoint is `/mcp`.
   card's script is one function: a chat puts names of its own on the card's window.
 - **Tested as a host runs it.** `tests/app.test.ts` starts the command on a free port and asks it
   over HTTP with the SDK's own client: the two tools and their words, the file input's schema,
-  the card and its policy, a source checked, one refused, an attachment handed to the card alone,
-  a call whose file is no reference, a body over 1 MB, and that nothing was written.
+  the card and its policy, a source checked, one refused, attachments handed to the card alone,
+  each once, a call whose files are no references, a body over 1 MB, and that nothing was written.
   `tests/card.test.ts` runs the card in a browser, the verifier's, in three chats that stand in
   for the ones it was written against: one that sandboxes it without an origin, under the policy
   Open WebUI writes from the card's domains; one that refuses the frame; one that lets the page
   be framed. Each speaks MCP Apps to it, and the play page there says its height and no more:
-  the source streamed, a stopped call, a result with no input, nothing for a while, and a page
-  that never speaks. `app.test.ts` asks as a chat on protocol 2026-07-28 too, with and without
+  the source streamed, a stopped call, a result with no input, nothing for a while, a page
+  that never speaks, and attached files the page asks for, matched and handed over together with
+  the one it does not name left unfetched. `app.test.ts` asks as a chat on protocol 2026-07-28 too, with and without
   cards.
   With the site's own play page the card is checked by hand in a page that stands in for a chat,
   its frame sandboxed as ChatGPT's was found to be; in ChatGPT itself ran the probe's card, which
