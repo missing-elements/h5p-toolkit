@@ -25,6 +25,19 @@ const fits = (/** @type {string} */ text) => new TextEncoder().encode(text).leng
 const oneLine = (/** @type {string} */ text) => !/[\r\n]/.test(text)
 const LINE = 'takes no line break'
 
+/** Text H5P's upload takes up to 5000 bytes of, line breaks and all: extra terms, comments, a change's log. */
+const LONG = 'takes at most 5000 bytes, as H5P counts them'
+const fitsLong = (/** @type {string} */ text) => new TextEncoder().encode(text).length <= 5000
+const longText = (/** @type {string} */ what) => z.string({ error: `expected ${what}` }).check(z.refine(written, { error: `expected ${what}` }), z.refine(fitsLong, { error: LONG }))
+
+/** A change in the content's log, as H5P's metadata form records one (`changes` in h5p.json). */
+const DATE = 'expected the date and time as H5P writes it, "dd-mm-yy hh:mm:ss", as "28-11-26 14:05:00"'
+const change = z.strictObject({
+  date: z.string({ error: DATE }).check(z.regex(/^\d{2}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}$/, { error: DATE })),
+  author: z.string({ error: 'expected who made the change' }).check(z.refine(written, { error: 'expected who made the change' }), z.refine(fits, { error: BYTES }), z.refine(oneLine, { error: LINE })),
+  log: longText('what changed')
+}, { error: (issue) => (issue.code === 'unrecognized_keys' ? 'is not part of a change; write date, author and log' : 'expected a change, { "date": "28-11-26 14:05:00", "author": "…", "log": "…" }') })
+
 /** A language H5P's upload takes: letters and hyphens, at most 10, so not a region by number. @param {string} tag */
 const h5pTag = (tag) => /^[-a-zA-Z]{1,10}$/.test(tag)
 
@@ -64,6 +77,9 @@ const fields = {
   source: z.optional(z.string({ error: ADDRESS }).check(z.regex(/^https?:\/\/\S+$/, { error: ADDRESS }), z.maxLength(255, { error: 'takes at most 255 characters, which H5P keeps of it' }))),
   yearFrom: z.optional(z.int({ error: YEAR }).check(z.gte(-9999, { error: YEAR_RANGE }), z.lte(9999, { error: YEAR_RANGE }))),
   yearTo: z.optional(z.int({ error: YEAR }).check(z.gte(-9999, { error: YEAR_RANGE }), z.lte(9999, { error: YEAR_RANGE }))),
+  licenseExtras: z.optional(longText('the licence\'s extra terms').check(z.describe('Terms beside the licence, as attribution asked for'))),
+  changes: z.optional(z.array(change, { error: 'expected a list of changes' }).check(z.describe('The content\'s change log, oldest first'))),
+  authorComments: z.optional(longText('the author\'s comments').check(z.describe('The author\'s notes on the content, which H5P shows its editors alone'))),
   params: z.optional(z.record(z.string(), z.unknown(), { error: 'expected an object of the content type\'s fields' })
     .check(z.describe('The content type\'s fields that differ from their defaults'))),
   builtWith: z.optional(z.string({ error: BUILT_WITH }).check(z.regex(/^\S+ \d+\.\d+$/, { error: BUILT_WITH }),

@@ -361,7 +361,7 @@ describe('any content type in the pack', () => {
       'params.questions: is required: write at least 1 item'
     ])
     expect(await problems({ ...META, license: 'MIT', authors: [{ name: 'A' }], extra: 1, type: 'H5P.Blanks', params: { questions: ['The *Danube* flows east.'] } })).toEqual([
-      'extra: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params',
+      'extra: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params',
       expect.stringMatching(/^license: use one of/),
       'authors[0].role: use one of Author, Editor, Licensee, Originator'
     ])
@@ -415,7 +415,7 @@ describe('any content type in the pack', () => {
     expect(shape).toMatchObject({ additionalProperties: false })
     expect(sourceSchema.safeParse({ ...META, ...blanks }).success).toBe(true)
     expect(sourceSchema.safeParse({ ...META, ...blanks, extra: 1 }).error?.issues.map(({ message }) => message)).toEqual([
-      'is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params'
+      'is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params'
     ])
   })
 
@@ -467,7 +467,7 @@ describe('any content type in the pack', () => {
     })).toEqual([
       'contentType: is not a field of a source: the content type is its type: write "type": "H5P.InteractiveBook"',
       'metadata: is not a field of a source: title, license, authors are written beside type, not in an object: write "title": …, "license": …, "authors": … at the top',
-      'metadata.defaultLanguage: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params',
+      'metadata.defaultLanguage: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params',
       'language: expected a BCP 47 language tag, such as "en" or "de-AT"',
       'params.chapters[0]: is the params of sub-content, without the sub-content around them: write params.chapters[0] as { "library": "H5P.Column", "metadata": { "title": … }, "params": { "content": … } }',
       'params.chapters[0].content[0]: is sub-content, but here it goes inside an object, in its field content: write params.chapters[0].content[0] as { "content": { "library": "H5P.AdvancedText", "params": { … } } }',
@@ -486,7 +486,7 @@ describe('any content type in the pack', () => {
     ])
     // With `params` written, what is beside `type` is no field of the content.
     expect(await problems({ ...META, type: 'H5P.InteractiveBook', chapters: [], params: { chapters: [chapter] } })).toEqual([
-      'chapters: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, params'
+      'chapters: is not a field of a source; the fields are type, title, language, license, licenseVersion, authors, source, yearFrom, yearTo, licenseExtras, changes, authorComments, params'
     ])
     // A source's own field that the top has too is said so, and a year in the object is taken.
     expect(await problems({ ...META, type: 'H5P.InteractiveBook', metadata: { title: 'Other', yearFrom: 2020 }, params: { chapters: [chapter] } })).toEqual([

@@ -187,7 +187,7 @@ export function sourceOf(input, names) {
   // An address written as a bare host, as the editor takes one: it puts http:// before it (#302).
   const bare = typeof given.source === 'string' && /^(?![a-z][a-z0-9+.-]*:)[\w-]+(?:\.[\w-]+)+(?:[/?#]\S*)?$/i.test(given.source.trim())
   const taken = bare ? { ...given, source: `http://${given.source.trim()}` } : given
-  for (const key of /** @type {const} */ (['source', 'yearFrom', 'yearTo', 'params', 'builtWith'])) {
+  for (const key of /** @type {const} */ (['source', 'yearFrom', 'yearTo', 'licenseExtras', 'changes', 'authorComments', 'params', 'builtWith'])) {
     if (taken[key] !== undefined && holds(field[key], taken[key], at[key], report)) source[key] = taken[key]
   }
   return { source: /** @type {Source} */ (source), problems, typed }
@@ -385,6 +385,9 @@ export async function composePackage(source, pack, media, said = []) {
     ...(source.source ? { source: source.source } : {}),
     ...(source.yearFrom !== undefined ? { yearFrom: source.yearFrom } : {}),
     ...(source.yearTo !== undefined ? { yearTo: source.yearTo } : {}),
+    ...(source.licenseExtras ? { licenseExtras: source.licenseExtras } : {}),
+    ...(source.changes?.length ? { changes: source.changes.map(({ date, author, log }) => ({ date, author, log })) } : {}),
+    ...(source.authorComments ? { authorComments: source.authorComments } : {}),
     mainLibrary: mainLibrary.library.machineName,
     embedTypes: ['div'],
     preloadedDependencies: [...selected.values()].map((part) => ({

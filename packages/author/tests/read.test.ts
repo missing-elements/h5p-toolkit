@@ -211,7 +211,9 @@ describe('a package read back', () => {
         { library: 'H5P.TrueFalse', params: { question: 'The Rhine flows into the North Sea.' } }
       ]
     })
-    expect(read.notes.map(({ path }) => path)).toEqual(['language', 'params.questions[0].params.oldField', 'authors', 'authorComments', 'changes', 'params.questions[0].metadata'])
+    expect(read.notes.map(({ path }) => path)).toEqual(['language', 'params.questions[0].params.oldField', 'authors', 'params.questions[0].metadata'])
+    // The author's comments and the change log are the source's now (#302).
+    expect(read.source).toMatchObject({ authorComments: 'Check the dates with Ann.', changes: [{ date: '01-11-26 10:00:00', author: 'Ann', log: 'First draft' }] })
     expect(read.notes.find(({ path }) => path === 'authors')?.message).toBe('are not in h5p.json: written as "Unknown", since a source names one')
     expect(read.notes.find(({ path }) => path === 'params.questions[0].metadata')?.message).toMatch(/licence, authors or more of their own.*a build gives a part the licence "U"/)
     expect(read.files).toEqual([image])
@@ -344,7 +346,7 @@ describe('a package read back', () => {
     const { stdout, stderr } = await exec(process.execPath, [bin, 'read', 'elsewhere.h5p', 'read'], { cwd: at })
     expect(stdout).toContain(`Read ${join(real, 'elsewhere.h5p')}: H5P.QuestionSet. Wrote its source to ${join(real, 'read', 'elsewhere.source.json')}, and 1 media file beside it.`)
     expect(stdout).toContain(`h5p-author build ${join('read', 'elsewhere.source.json')} <output.h5p>`)
-    expect(stderr).toContain('Note: authorComments is the author\'s comments, which a source has no field for: left out')
+    expect(stderr).not.toContain('authorComments')
     expect(await exists(join(at, 'read', image))).toBe(true)
   })
 })
@@ -366,5 +368,22 @@ describe('a picture\'s copyright, kept in its part as the editor keeps it (#302)
     const file = (read.source.params as any).content[0].content.params.file
     expect(file.copyright).toEqual({ license: 'CC BY-SA', version: '4.0', author: 'Jane Photographer' })
     expect(read.notes.filter(({ path, message }) => path.includes('metadata') || /reads back otherwise/.test(message))).toEqual([])
+  })
+})
+
+describe('the licence\'s extra terms, the change log and the author\'s comments (#302)', () => {
+  it('are written to h5p.json and read back, as H5P\'s upload takes them', async () => {
+    const at = await folder()
+    const built = join(at, 'built.h5p')
+    const extra = { licenseExtras: 'Credit the Danube Museum.', changes: [{ date: '28-11-26 14:05:00', author: 'Ann Author', log: 'First draft' }], authorComments: 'Check the dates with Bo.' }
+    await buildPackage({ ...META, ...extra, type: 'H5P.TrueFalse', params: { question: '<p>The Danube is in Europe.</p>', correct: 'true' } }, built)
+    const { manifest } = await opened(built)
+    expect(manifest).toMatchObject(extra)
+    const read = await readPackage(built, join(at, 'read'))
+    expect(read.source).toMatchObject(extra)
+    expect(read.notes.filter(({ path }) => path in extra)).toEqual([])
+    // A date not in H5P's form is refused, as H5P's upload refuses it.
+    const error = await buildPackage({ ...META, changes: [{ date: '2026-11-28', author: 'Ann', log: 'x' }], type: 'H5P.TrueFalse', params: { question: '<p>Q</p>', correct: 'true' } }, join(at, 'bad.h5p')).catch((caught: unknown) => caught)
+    expect(String((error as Error).message)).toContain('changes[0].date: expected the date and time as H5P writes it')
   })
 })

@@ -384,6 +384,7 @@ export class ContentGenerator {
   /**
    * A saved file as a source writes it: its path, and its copyright where it gives one
    * (`writtenCopyright`), less a part a build refuses, which is noted. Kept as saved in `stored`.
+   * @param {any} field the file's field, whose `extraAttributes` say what it keeps beside the file
    * @param {unknown} value
    * @param {string} path
    */

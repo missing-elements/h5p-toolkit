@@ -26,9 +26,6 @@ const isObject = (value) => value !== null && typeof value === 'object' && !Arra
 
 /** What `h5p.json` may hold that a source has no field for. */
 const UNWRITTEN = /** @type {const} */ ({
-  authorComments: 'the author\'s comments',
-  changes: 'the change log',
-  licenseExtras: 'the licence\'s extra terms',
   a11yTitle: 'the title for screen readers'
 })
 
@@ -208,6 +205,12 @@ function ownFields(manifest, language, note) {
     const year = typeof manifest[key] === 'string' && /^\s*\d+\s*$/.test(manifest[key]) ? Number(manifest[key]) : manifest[key]
     if (Number.isInteger(year)) own[key] = year
     else if (says(manifest[key])) note(key, `${JSON.stringify(manifest[key])} is no year: left out`)
+  }
+  // The licence's extra terms, the change log and the author's comments, as the source holds them (#302).
+  for (const key of /** @type {const} */ (['licenseExtras', 'changes', 'authorComments'])) {
+    if (!says(manifest[key])) continue
+    if (sourceSchema.shape[key].safeParse(manifest[key]).success) own[key] = manifest[key]
+    else note(key, `${JSON.stringify(manifest[key]).slice(0, 60)} is not as H5P's upload takes it: left out`)
   }
   for (const [key, what] of Object.entries(UNWRITTEN)) {
     if (says(manifest[key])) note(key, `is ${what}, which a source has no field for: left out`)
